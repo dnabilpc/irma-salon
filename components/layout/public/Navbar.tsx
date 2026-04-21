@@ -75,7 +75,7 @@ export default function Navbar() {
         ))}
 
         {/* CTA */}
-        <Link href="/bookings">
+        <Link href="/booking">
           <button
             className="btn-primary"
             style={{ padding: "10px 24px", fontSize: "0.8rem" }}>

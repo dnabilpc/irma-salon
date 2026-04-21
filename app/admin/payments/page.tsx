@@ -61,7 +61,7 @@ export default function PaymentsPage() {
             color: "rgba(201,146,42,0.4)",
           }}
         >
-          TODO: Integrasi Midtrans + riwayat transaksi + refund
+          :(
         </p>
       </div>
 

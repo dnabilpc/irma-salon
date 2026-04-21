@@ -61,7 +61,7 @@ export default function CustomersPage() {
             color: "rgba(201,146,42,0.4)",
           }}
         >
-          TODO: List pelanggan + riwayat booking + detail akun
+          :(
         </p>
       </div>
 

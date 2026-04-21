@@ -61,7 +61,7 @@ export default function RentalsPage() {
             color: "rgba(201,146,42,0.4)",
           }}
         >
-          TODO: Katalog baju + status sewa + notif terlambat
+          :(
         </p>
       </div>
 

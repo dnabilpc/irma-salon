@@ -27,7 +27,7 @@ export default async function AdminLayout({
 
   // Sudah login tapi bukan admin
   const user = session.user as unknown as AppUser;
-  if (user.role !== "admin") {
+  if (user.role !== "ADMIN") {
     redirect("/");
   }
 

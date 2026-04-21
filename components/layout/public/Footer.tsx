@@ -34,7 +34,7 @@ export default function Footer() {
               marginBottom: "4px",
             }}
           >
-            Rumah Cantik Irma
+            Irma Wedding Salon
           </div>
           <div
             style={{
