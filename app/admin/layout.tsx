@@ -44,7 +44,7 @@ export default async function AdminLayout({
       <style>{ADMIN_STYLES}</style>
 
       {/* Sidebar kiri — fixed, collapsible state dikelola di dalam komponen */}
-      <AdminSidebar />
+      <AdminSidebar userName={user.name} userRole={user.role} />
 
       {/* Area konten kanan */}
       <div
@@ -57,7 +57,7 @@ export default async function AdminLayout({
           transition: "margin-left 0.3s ease",
         }}
       >
-        <AdminTopbar userName={user.name} />
+        {<AdminTopbar userName={user.name} />}
 
         <main style={{ flex: 1, overflowY: "auto" }}>
           {children}

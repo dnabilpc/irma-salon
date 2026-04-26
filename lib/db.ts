@@ -1,8 +1,3 @@
-// lib/db.ts
-// Singleton PostgreSQL connection pool
-// Import ini HANYA di Server Components / Server Actions / API Routes
-// JANGAN import di client components atau middleware (Edge Runtime)
-
 import { Pool } from "pg";
 
 const globalForPg = globalThis as unknown as { _pgPool?: Pool };

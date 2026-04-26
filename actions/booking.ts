@@ -7,7 +7,7 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { db } from "@lib/db";
+import { db } from "@/lib/db";
 import type { AppUser } from "@/types";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ export async function updateBookingStatus(
 ): Promise<ActionResult> {
   try {
     const user = await getAuthUser();
-    if (!user || user.role !== "admin") {
+    if (!user || user.role !== "ADMIN") {
       return { success: false, error: "Akses ditolak." };
     }
 
@@ -211,7 +211,7 @@ export async function getBookingsForAdmin(filters?: {
 }): Promise<ActionResult<{ rows: BookingRow[]; total: number }>> {
   try {
     const user = await getAuthUser();
-    if (!user || user.role !== "admin") {
+    if (!user || user.role !== "ADMIN") {
       return { success: false, error: "Akses ditolak." };
     }
 

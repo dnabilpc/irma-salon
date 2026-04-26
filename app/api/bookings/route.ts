@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const params: (string | number)[] = [];
 
     // Admin bisa lihat semua; customer hanya punyanya sendiri
-    if (user.role !== "admin") {
+    if (user.role !== "ADMIN") {
       params.push(user.id);
       conditions.push(`b.user_id = $${params.length}`);
     }

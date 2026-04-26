@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const booking = result.rows[0];
 
     // Customer hanya boleh akses booking milik sendiri
-    if (user.role !== "admin" && booking.user_id !== user.id) {
+    if (user.role !== "ADMIN" && booking.user_id !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const user = session.user as unknown as AppUser;
-    if (user.role !== "admin") {
+    if (user.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -134,7 +134,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const booking = check.rows[0];
 
     // Customer hanya boleh cancel booking milik sendiri
-    if (user.role !== "admin" && booking.user_id !== user.id) {
+    if (user.role !== "ADMIN" && booking.user_id !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

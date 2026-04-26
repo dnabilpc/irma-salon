@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { updateBookingStatus } from "@actions/booking"; // server action untuk update status booking
+import { updateBookingStatus } from "@/actions/booking"; // server action untuk update status booking
 import type { BookingStatusDB, BookingRow } from "@/actions/booking";
 
 // ── Mock data (diganti API real saat DB tersambung) ─────────────────────────

@@ -8,6 +8,10 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { NavItemConfig } from "@/types";
 
+interface AdminSideBarProps {
+  userName: string;
+  userRole?: string;
+}
 const NAV_ITEMS: NavItemConfig[] = [
   { icon: "▦",  label: "Dashboard",     id: "dashboard"            },
   { icon: "📅", label: "Booking Salon", id: "bookings",  badge: 2  },
@@ -17,7 +21,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { icon: "⚙️", label: "Pengaturan",    id: "settings"             },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({userName, userRole}: AdminSideBarProps) {
   const [expanded, setExpanded] = useState<boolean>(true);
   const pathname = usePathname();
 
@@ -233,10 +237,10 @@ export default function AdminSidebar() {
                 textOverflow: "ellipsis",
               }}
             >
-              Irma W.
+              {userName}
             </div>
             <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.3)" }}>
-              Administrator
+              {userRole}
             </div>
           </div>
         )}
