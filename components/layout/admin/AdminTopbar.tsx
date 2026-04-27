@@ -1,6 +1,3 @@
-// components/layout/admin/AdminTopbar.tsx
-// Topbar admin — judul halaman, jam real-time, notifikasi, logout
-// Client Component karena ada useEffect (jam) dan useState (notif panel)
 "use client";
 
 import { useState, useEffect } from "react";
@@ -12,16 +9,15 @@ interface AdminTopbarProps {
   userName: string;
 }
 
-const PAGE_TITLES: Record<string, string> = {
-  "/admin/dashboard": "Dashboard Overview",
-  "/admin/bookings":  "Booking Salon",
-  "/admin/rentals":   "Sewa Baju",
-  "/admin/customers": "Pelanggan",
-  "/admin/payments":  "Pembayaran",
-  "/admin/settings":  "Pengaturan",
+const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
+  "/admin/dashboard": { title: "Dashboard",         sub: "Selamat datang kembali 👋" },
+  "/admin/bookings":  { title: "Booking Salon",      sub: "Kelola reservasi layanan" },
+  "/admin/rentals":   { title: "Sewa Baju",          sub: "Kelola transaksi sewa" },
+  "/admin/customers": { title: "Data Pelanggan",     sub: "Kelola akun pelanggan" },
+  "/admin/payments":  { title: "Pembayaran",         sub: "Pantau transaksi keuangan" },
+  "/admin/settings":  { title: "Pengaturan",         sub: "Konfigurasi sistem" },
 };
 
-// Format tanggal Indonesia: "Senin, 9 Maret 2026"
 function formatTanggal(date: Date): string {
   return date.toLocaleDateString("id-ID", {
     weekday: "long",
@@ -40,9 +36,8 @@ export default function AdminTopbar({ userName }: AdminTopbarProps) {
   const [showNotif, setShowNotif]     = useState<boolean>(false);
   const [loggingOut, setLoggingOut]   = useState<boolean>(false);
 
-  const pageTitle = PAGE_TITLES[pathname] ?? "Admin";
+  const pageInfo = PAGE_TITLES[pathname] ?? { title: "Admin", sub: "" };
 
-  // Update jam setiap menit
   useEffect(() => {
     const update = () => {
       const now = new Date();
@@ -56,12 +51,9 @@ export default function AdminTopbar({ userName }: AdminTopbarProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Tutup notif panel saat klik di luar
   useEffect(() => {
     const handleClickOutside = () => setShowNotif(false);
-    if (showNotif) {
-      document.addEventListener("click", handleClickOutside);
-    }
+    if (showNotif) document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showNotif]);
 
@@ -78,56 +70,73 @@ export default function AdminTopbar({ userName }: AdminTopbarProps) {
   return (
     <header
       style={{
-        height: "56px",
-        background: "rgba(15,10,5,0.97)",
-        backdropFilter: "blur(12px)",
-        borderBottom: "1px solid #2A1A0A",
+        height: "64px",
+        background: "white",
+        borderBottom: "1px solid #F0E0E6",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 24px",
+        padding: "0 28px",
         position: "sticky",
         top: 0,
         zIndex: 40,
         flexShrink: 0,
+        boxShadow: "0 1px 8px rgba(196,120,138,0.06)",
       }}
     >
-      {/* ── Kiri: judul halaman + tanggal ── */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
-        <span
-          style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: "1.1rem",
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.8)",
-          }}
-        >
-          {pageTitle}
-        </span>
-        <span
-          style={{
-            fontFamily: "'DM Mono', monospace",
-            fontSize: "0.68rem",
-            color: "rgba(255,255,255,0.2)",
-          }}
-        >
+      {/* ── Kiri: judul + sub ── */}
+      <div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
+          <h1
+            style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: "1.15rem",
+              fontWeight: 700,
+              color: "#2C1A0E",
+              lineHeight: 1,
+            }}
+          >
+            {pageInfo.title}
+          </h1>
+          {pageInfo.sub && (
+            <span style={{
+              fontSize: "0.72rem",
+              color: "#B09080",
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              — {pageInfo.sub}
+            </span>
+          )}
+        </div>
+        <div style={{
+          fontSize: "0.65rem",
+          color: "#C4788A",
+          fontFamily: "'DM Sans', sans-serif",
+          marginTop: "2px",
+          fontWeight: 500,
+        }}>
           {currentDate}
-        </span>
+        </div>
       </div>
 
-      {/* ── Kanan: jam + notifikasi + user ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
+      {/* ── Kanan: jam + notif + user ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
 
         {/* Jam */}
-        <span
+        <div
           style={{
+            background: "rgba(196,120,138,0.07)",
+            border: "1px solid #F0E0E6",
+            borderRadius: "8px",
+            padding: "5px 12px",
             fontFamily: "'DM Mono', monospace",
-            fontSize: "0.82rem",
-            color: "rgba(255,255,255,0.25)",
+            fontSize: "0.8rem",
+            color: "#C4788A",
+            fontWeight: 500,
           }}
         >
           {currentTime}
-        </span>
+        </div>
 
         {/* Tombol notifikasi */}
         <div style={{ position: "relative" }}>
@@ -138,38 +147,46 @@ export default function AdminTopbar({ userName }: AdminTopbarProps) {
             }}
             title="Notifikasi"
             style={{
-              background: showNotif
-                ? "rgba(201,146,42,0.1)"
-                : "rgba(255,255,255,0.05)",
-              border: showNotif
-                ? "1px solid rgba(201,146,42,0.3)"
-                : "1px solid #2A1A0A",
-              color: showNotif ? "#C9922A" : "rgba(255,255,255,0.55)",
+              background: showNotif ? "rgba(196,120,138,0.1)" : "transparent",
+              border: "1px solid",
+              borderColor: showNotif ? "#C4788A" : "#F0E0E6",
+              color: showNotif ? "#C4788A" : "#7A5C50",
               cursor: "pointer",
-              width: "34px",
-              height: "34px",
-              borderRadius: "4px",
-              fontSize: "0.95rem",
+              width: "38px",
+              height: "38px",
+              borderRadius: "10px",
+              fontSize: "1rem",
               position: "relative",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               transition: "all 0.2s",
             }}
+            onMouseEnter={(e) => {
+              if (!showNotif) {
+                e.currentTarget.style.borderColor = "#C4788A";
+                e.currentTarget.style.background = "rgba(196,120,138,0.06)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!showNotif) {
+                e.currentTarget.style.borderColor = "#F0E0E6";
+                e.currentTarget.style.background = "transparent";
+              }
+            }}
           >
             🔔
-            {/* Badge unread */}
             <span
               style={{
                 position: "absolute",
-                top: "-5px",
-                right: "-5px",
-                background: "#DC5050",
+                top: "-4px",
+                right: "-4px",
+                background: "#C4788A",
                 color: "white",
-                fontSize: "0.58rem",
+                fontSize: "0.55rem",
                 fontWeight: 700,
-                width: "16px",
-                height: "16px",
+                width: "15px",
+                height: "15px",
                 borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
@@ -179,50 +196,71 @@ export default function AdminTopbar({ userName }: AdminTopbarProps) {
               3
             </span>
           </button>
-
-          {/* Panel notifikasi */}
           {showNotif && <NotifPanel />}
         </div>
 
-        {/* Nama user + tombol logout */}
+        {/* Divider */}
+        <div style={{ width: "1px", height: "28px", background: "#F0E0E6" }} />
+
+        {/* User info + logout */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* Avatar */}
           <div
             style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.78rem",
-              color: "rgba(255,255,255,0.5)",
-              maxWidth: "120px",
+              width: "34px",
+              height: "34px",
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #C4788A, #C9922A)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontSize: "0.72rem",
+              fontWeight: 700,
+              boxShadow: "0 2px 8px rgba(196,120,138,0.25)",
+            }}
+          >
+            {userName.slice(0, 2).toUpperCase()}
+          </div>
+
+          <div>
+            <div style={{
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "#2C1A0E",
+              maxWidth: "110px",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-            }}
-          >
-            {userName}
+            }}>
+              {userName}
+            </div>
+            <div style={{ fontSize: "0.6rem", color: "#C4788A", fontWeight: 500 }}>
+              Administrator
+            </div>
           </div>
+
           <button
             onClick={handleSignOut}
             disabled={loggingOut}
             style={{
-              background: "rgba(220,80,80,0.1)",
-              border: "1px solid rgba(220,80,80,0.2)",
-              color: "#DC5050",
+              background: "rgba(192,80,96,0.07)",
+              border: "1px solid rgba(192,80,96,0.2)",
+              color: "#C05060",
               cursor: loggingOut ? "not-allowed" : "pointer",
-              padding: "5px 12px",
-              borderRadius: "2px",
+              padding: "6px 14px",
+              borderRadius: "8px",
               fontFamily: "'DM Sans', sans-serif",
               fontSize: "0.72rem",
-              fontWeight: 500,
+              fontWeight: 600,
               transition: "all 0.2s",
               opacity: loggingOut ? 0.6 : 1,
-              letterSpacing: "0.04em",
             }}
             onMouseEnter={(e) => {
-              if (!loggingOut) {
-                e.currentTarget.style.background = "rgba(220,80,80,0.2)";
-              }
+              if (!loggingOut) e.currentTarget.style.background = "rgba(192,80,96,0.14)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(220,80,80,0.1)";
+              e.currentTarget.style.background = "rgba(192,80,96,0.07)";
             }}
           >
             {loggingOut ? "Keluar..." : "Keluar"}

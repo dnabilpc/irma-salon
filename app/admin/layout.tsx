@@ -1,7 +1,4 @@
 // app/admin/layout.tsx
-// Layout untuk semua halaman admin
-// Server Component — cek session di server sebelum render apapun
-
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -15,80 +12,60 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Ambil session dari server menggunakan request headers
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
-  // Belum login sama sekali
-  if (!session) {
-    redirect("/login");
-  }
+  if (!session) redirect("/login");
 
-  // Sudah login tapi bukan admin
   const user = session.user as unknown as AppUser;
-  if (user.role !== "ADMIN") {
-    redirect("/");
-  }
+  if (user.role !== "ADMIN") redirect("/");
 
   return (
     <div
       style={{
         display: "flex",
         minHeight: "100vh",
-        background: "#0F0A05",
-        color: "white",
+        background: "#FDF8F3",
+        color: "#2C1A0E",
         fontFamily: "'DM Sans', sans-serif",
       }}
     >
       <style>{ADMIN_STYLES}</style>
 
-      {/* Sidebar kiri — fixed, collapsible state dikelola di dalam komponen */}
       <AdminSidebar userName={user.name} userRole={user.role} />
 
-      {/* Area konten kanan */}
       <div
         style={{
           flex: 1,
-          marginLeft: "220px",
+          marginLeft: "230px",
           display: "flex",
           flexDirection: "column",
           minHeight: "100vh",
           transition: "margin-left 0.3s ease",
         }}
       >
-        {<AdminTopbar userName={user.name} />}
+        <AdminTopbar userName={user.name} />
 
-        <main style={{ flex: 1, overflowY: "auto" }}>
+        <main style={{ flex: 1, overflowY: "auto", padding: "0" }}>
           {children}
         </main>
 
-        {/* Footer admin */}
+        {/* Footer */}
         <footer
           style={{
-            borderTop: "1px solid #2A1A0A",
-            padding: "10px 24px",
+            borderTop: "1px solid #F0E0E6",
+            padding: "12px 28px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            background: "white",
           }}
         >
-          <span
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: "0.6rem",
-              color: "rgba(255,255,255,0.18)",
-            }}
-          >
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.6rem", color: "#B09080" }}>
             Salon Rumah Cantik Irma — Admin v1.0
           </span>
-          <span
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: "0.6rem",
-              color: "rgba(255,255,255,0.18)",
-            }}
-          >
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.6rem", color: "#C4788A" }}>
             Tugas Akhir · Telkom University Surabaya · 2026
           </span>
         </footer>

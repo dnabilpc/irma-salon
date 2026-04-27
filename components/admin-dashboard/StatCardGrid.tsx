@@ -1,11 +1,10 @@
-
 import { STAT_CARDS } from "@/constants/data";
 
 export default function StatCardGrid() {
   return (
     <div
       className="admin-stats-grid"
-      style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px" }}
+      style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}
     >
       {STAT_CARDS.map((card, i) => (
         <div
@@ -13,65 +12,74 @@ export default function StatCardGrid() {
           className="admin-stat-card card-anim"
           style={{ animationDelay: `${i * 0.08}s` }}
         >
-          {/* Accent bar di atas */}
+          {/* Accent bar atas */}
           <div
             style={{
               position: "absolute",
               top: 0, left: 0, right: 0,
-              height: "2px",
+              height: "3px",
+              borderRadius: "12px 12px 0 0",
               background: card.accent,
             }}
           />
 
-          {/* Icon + badge perubahan */}
+          {/* Icon + badge */}
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
-              marginBottom: "14px",
+              marginBottom: "16px",
+              marginTop: "4px",
             }}
           >
-            <span style={{ fontSize: "1.4rem" }}>{card.icon}</span>
+            <div
+              style={{
+                width: "42px",
+                height: "42px",
+                borderRadius: "10px",
+                background: `${card.accent}18`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.3rem",
+              }}
+            >
+              {card.icon}
+            </div>
             <span
               style={{
                 fontFamily: "'DM Mono', monospace",
                 fontSize: "0.68rem",
-                fontWeight: 600,
-                color: card.positive ? "#4CAF82" : "#DC5050",
+                fontWeight: 700,
+                color: card.positive ? "#5A9E7A" : "#C05060",
                 background: card.positive
-                  ? "rgba(76,175,130,0.1)"
-                  : "rgba(220,80,80,0.1)",
-                padding: "2px 7px",
-                borderRadius: "2px",
+                  ? "rgba(90,158,122,0.1)"
+                  : "rgba(192,80,96,0.1)",
+                padding: "3px 8px",
+                borderRadius: "6px",
               }}
             >
               {card.positive ? "▲" : "▼"} {card.change}
             </span>
           </div>
 
-          {/* Nilai utama */}
+          {/* Nilai */}
           <div
             style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: "1.9rem",
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: "1.8rem",
               fontWeight: 700,
-              color: card.accent,
+              color: "#2C1A0E",
               lineHeight: 1,
-              marginBottom: "5px",
+              marginBottom: "6px",
             }}
           >
             {card.value}
           </div>
 
           {/* Label */}
-          <div
-            style={{
-              fontSize: "0.75rem",
-              color: "rgba(255,255,255,0.35)",
-              lineHeight: 1.4,
-            }}
-          >
+          <div style={{ fontSize: "0.75rem", color: "#7A5C50", lineHeight: 1.4 }}>
             {card.label}
           </div>
         </div>

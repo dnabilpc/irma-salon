@@ -1,4 +1,3 @@
-
 import { WEEKLY_CHART } from "@/constants/data";
 import { formatRupiah } from "@/lib/utils";
 
@@ -13,29 +12,28 @@ export default function WeeklyChart() {
   const maxBookings = Math.max(...WEEKLY_CHART.map((d) => d.bookings));
 
   return (
-    <div style={{ background: "#1A0F05", border: "1px solid #2A1A0A", padding: "22px" }}>
-
+    <div className="admin-card" style={{ padding: "24px" }}>
       {/* Header */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          marginBottom: "22px",
+          marginBottom: "24px",
         }}
       >
         <div>
           <h3
             style={{
-              fontFamily: "'Cormorant Garamond', serif",
+              fontFamily: "'Playfair Display', serif",
               fontSize: "1.05rem",
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.75)",
+              fontWeight: 700,
+              color: "#2C1A0E",
             }}
           >
             Aktivitas Minggu Ini
           </h3>
-          <p style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.25)", marginTop: "2px" }}>
+          <p style={{ fontSize: "0.72rem", color: "#B09080", marginTop: "2px" }}>
             3 – 9 Maret 2026
           </p>
         </div>
@@ -43,20 +41,12 @@ export default function WeeklyChart() {
         {/* Legend */}
         <div style={{ display: "flex", gap: "14px" }}>
           {[
-            { color: "#C9922A", label: "Revenue" },
-            { color: "#7B9FD4", label: "Booking" },
+            { color: "#C4788A", label: "Revenue" },
+            { color: "#C9922A", label: "Booking" },
           ].map((l) => (
-            <div key={l.label} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <div
-                style={{
-                  width: "7px", height: "7px",
-                  background: l.color,
-                  borderRadius: "1px",
-                }}
-              />
-              <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.3)" }}>
-                {l.label}
-              </span>
+            <div key={l.label} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ width: "8px", height: "8px", background: l.color, borderRadius: "2px" }} />
+              <span style={{ fontSize: "0.7rem", color: "#7A5C50" }}>{l.label}</span>
             </div>
           ))}
         </div>
@@ -67,9 +57,10 @@ export default function WeeklyChart() {
         style={{
           display: "flex",
           alignItems: "flex-end",
-          gap: "12px",
-          height: "120px",
+          gap: "10px",
+          height: "130px",
           padding: "0 4px",
+          marginBottom: "20px",
         }}
       >
         {WEEKLY_CHART.map((bar) => (
@@ -84,24 +75,16 @@ export default function WeeklyChart() {
               height: "100%",
             }}
           >
-            <div
-              style={{
-                flex: 1,
-                width: "100%",
-                display: "flex",
-                alignItems: "flex-end",
-                gap: "3px",
-              }}
-            >
+            <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end", gap: "3px" }}>
               {/* Revenue bar */}
               <div
                 title={`Revenue: ${formatRupiah(bar.revenue)}`}
                 style={{
                   flex: 1,
-                  borderRadius: "2px 2px 0 0",
+                  borderRadius: "4px 4px 0 0",
                   minHeight: "4px",
                   height: `${(bar.revenue / maxRevenue) * 100}%`,
-                  background: "linear-gradient(to top, #C9922A, rgba(201,146,42,0.4))",
+                  background: "linear-gradient(to top, #C4788A, rgba(196,120,138,0.35))",
                   transition: "height 0.6s ease",
                   cursor: "pointer",
                 }}
@@ -111,22 +94,16 @@ export default function WeeklyChart() {
                 title={`Booking: ${bar.bookings}`}
                 style={{
                   flex: 1,
-                  borderRadius: "2px 2px 0 0",
+                  borderRadius: "4px 4px 0 0",
                   minHeight: "4px",
                   height: `${(bar.bookings / maxBookings) * 100}%`,
-                  background: "linear-gradient(to top, #7B9FD4, rgba(123,159,212,0.4))",
+                  background: "linear-gradient(to top, #C9922A, rgba(201,146,42,0.35))",
                   transition: "height 0.6s ease",
                   cursor: "pointer",
                 }}
               />
             </div>
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "0.65rem",
-                color: "rgba(255,255,255,0.3)",
-              }}
-            >
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.65rem", color: "#B09080" }}>
               {bar.day}
             </span>
           </div>
@@ -139,9 +116,8 @@ export default function WeeklyChart() {
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
           gap: "14px",
-          marginTop: "18px",
           paddingTop: "18px",
-          borderTop: "1px solid #2A1A0A",
+          borderTop: "1px solid #F0E0E6",
         }}
       >
         {SUMMARY.map((s) => (
@@ -151,18 +127,12 @@ export default function WeeklyChart() {
                 fontFamily: "'DM Mono', monospace",
                 fontSize: "0.95rem",
                 fontWeight: 500,
-                color: "#C9922A",
+                color: "#C4788A",
               }}
             >
               {s.value}
             </div>
-            <div
-              style={{
-                fontSize: "0.68rem",
-                color: "rgba(255,255,255,0.3)",
-                marginTop: "2px",
-              }}
-            >
+            <div style={{ fontSize: "0.68rem", color: "#B09080", marginTop: "2px" }}>
               {s.label}
             </div>
           </div>

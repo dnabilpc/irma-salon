@@ -1,23 +1,21 @@
+// components/admin-dashboard/TodaySchedule.tsx
 import { TODAY_SCHEDULE } from "@/constants/data";
 
 export default function TodaySchedule() {
   return (
-    <div style={{ background: "#1A0F05", border: "1px solid #2A1A0A", padding: "18px" }}>
-
-      {/* Header */}
+    <div className="admin-card" style={{ padding: "18px" }}>
       <h3
         style={{
-          fontFamily: "'Cormorant Garamond', serif",
+          fontFamily: "'Playfair Display', serif",
           fontSize: "0.95rem",
-          fontWeight: 600,
-          color: "rgba(255,255,255,0.7)",
+          fontWeight: 700,
+          color: "#2C1A0E",
           marginBottom: "14px",
         }}
       >
         Jadwal Hari Ini
       </h3>
 
-      {/* Schedule items */}
       {TODAY_SCHEDULE.map((s, i) => (
         <div
           key={i}
@@ -26,14 +24,14 @@ export default function TodaySchedule() {
             gap: "10px",
             alignItems: "center",
             marginBottom: "8px",
-            padding: "7px 8px",
+            padding: "8px 10px",
             background: s.status === "ongoing"
-              ? "rgba(76,175,130,0.06)"
+              ? "rgba(90,158,122,0.07)"
               : "transparent",
             border: s.status === "ongoing"
-              ? "1px solid rgba(76,175,130,0.12)"
+              ? "1px solid rgba(90,158,122,0.2)"
               : "1px solid transparent",
-            borderRadius: "2px",
+            borderRadius: "8px",
           }}
         >
           {/* Jam */}
@@ -41,27 +39,29 @@ export default function TodaySchedule() {
             style={{
               fontFamily: "'DM Mono', monospace",
               fontSize: "0.67rem",
-              color: s.status === "ongoing" ? "#4CAF82" : "rgba(255,255,255,0.25)",
+              color: s.status === "ongoing" ? "#5A9E7A" : "#B09080",
               minWidth: "38px",
+              fontWeight: 500,
             }}
           >
             {s.time}
           </div>
 
+          {/* Dot */}
+          <div style={{
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            background: s.status === "ongoing" ? "#5A9E7A" : "#F0E0E6",
+            flexShrink: 0,
+          }} />
+
           {/* Nama & layanan */}
           <div style={{ flex: 1 }}>
-            <div
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 500,
-                color: "rgba(255,255,255,0.65)",
-              }}
-            >
+            <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "#2C1A0E" }}>
               {s.name}
             </div>
-            <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.25)" }}>
-              {s.service}
-            </div>
+            <div style={{ fontSize: "0.65rem", color: "#B09080" }}>{s.service}</div>
           </div>
 
           {/* Badge LIVE */}
@@ -69,11 +69,11 @@ export default function TodaySchedule() {
             <span
               style={{
                 fontSize: "0.58rem",
-                background: "rgba(76,175,130,0.15)",
-                color: "#4CAF82",
-                padding: "1px 5px",
-                borderRadius: "2px",
-                fontWeight: 600,
+                background: "rgba(90,158,122,0.12)",
+                color: "#5A9E7A",
+                padding: "2px 7px",
+                borderRadius: "6px",
+                fontWeight: 700,
                 letterSpacing: "0.05em",
               }}
             >

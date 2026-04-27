@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { updateBookingStatus } from "@/actions/booking"; // server action untuk update status booking
+// import { updateBookingStatus } from "@/actions/booking"; // uncomment saat DB tersambung
 import type { BookingStatusDB, BookingRow } from "@/actions/booking";
 
 // ── Mock data (diganti API real saat DB tersambung) ─────────────────────────
@@ -109,52 +109,28 @@ function formatRupiah(n: number) {
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
-  return (
-    d.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }) +
-    " " +
-    d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
-  );
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }) + " " + d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 }
 
 type StatusConfig = { label: string; bg: string; color: string; dot: string };
 
 const STATUS_CONFIG: Record<BookingStatusDB | "cancelled", StatusConfig> = {
-  pending: {
-    label: "Pending",
-    bg: "rgba(201,146,42,0.15)",
-    color: "#C9922A",
-    dot: "#C9922A",
-  },
-  diterima: {
-    label: "Diterima",
-    bg: "rgba(76,175,130,0.15)",
-    color: "#4CAF82",
-    dot: "#4CAF82",
-  },
-  ditolak: {
-    label: "Ditolak",
-    bg: "rgba(220,80,80,0.15)",
-    color: "#DC5050",
-    dot: "#DC5050",
-  },
-  cancelled: {
-    label: "Cancelled",
-    bg: "rgba(100,100,120,0.15)",
-    color: "#9090A0",
-    dot: "#9090A0",
-  },
+  pending:   { label: "Pending",   bg: "rgba(201,146,42,0.15)",  color: "#C9922A", dot: "#C9922A" },
+  diterima:  { label: "Diterima",  bg: "rgba(76,175,130,0.15)",  color: "#4CAF82", dot: "#4CAF82" },
+  ditolak:   { label: "Ditolak",   bg: "rgba(220,80,80,0.15)",   color: "#DC5050", dot: "#DC5050" },
+  cancelled: { label: "Cancelled", bg: "rgba(100,100,120,0.15)", color: "#9090A0", dot: "#9090A0" },
 };
 
 const FILTER_TABS: { key: BookingStatusDB | "all"; label: string }[] = [
-  { key: "all", label: "Semua" },
-  { key: "pending", label: "Pending" },
+  { key: "all",      label: "Semua" },
+  { key: "pending",  label: "Pending" },
   { key: "diterima", label: "Diterima" },
-  { key: "ditolak", label: "Ditolak" },
-  { key: "cancelled", label: "Cancelled" },
+  { key: "ditolak",  label: "Ditolak" },
+  { key: "cancelled",label: "Cancelled" },
 ];
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -176,7 +152,8 @@ function StatusBadge({ status }: { status: BookingStatusDB | "cancelled" }) {
         letterSpacing: "0.06em",
         fontFamily: "'DM Mono', monospace",
         whiteSpace: "nowrap",
-      }}>
+      }}
+    >
       <span
         style={{
           width: "5px",
@@ -200,12 +177,7 @@ interface DetailModalProps {
   loading: boolean;
 }
 
-function DetailModal({
-  booking,
-  onClose,
-  onStatusChange,
-  loading,
-}: DetailModalProps) {
+function DetailModal({ booking, onClose, onStatusChange, loading }: DetailModalProps) {
   return (
     <div
       style={{
@@ -219,7 +191,8 @@ function DetailModal({
         justifyContent: "center",
         padding: "24px",
       }}
-      onClick={onClose}>
+      onClick={onClose}
+    >
       <div
         style={{
           background: "#130900",
@@ -230,7 +203,8 @@ function DetailModal({
           overflow: "hidden",
           boxShadow: "0 40px 80px rgba(0,0,0,0.8)",
         }}
-        onClick={(e) => e.stopPropagation()}>
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header modal */}
         <div
           style={{
@@ -239,7 +213,8 @@ function DetailModal({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
-          }}>
+          }}
+        >
           <div>
             <div
               style={{
@@ -248,7 +223,8 @@ function DetailModal({
                 fontWeight: 600,
                 color: "rgba(255,255,255,0.85)",
                 marginBottom: "4px",
-              }}>
+              }}
+            >
               Detail Booking #{booking.id}
             </div>
             <StatusBadge status={booking.status} />
@@ -265,12 +241,9 @@ function DetailModal({
               padding: "4px",
               transition: "color 0.2s",
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = "rgba(255,255,255,0.7)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "rgba(255,255,255,0.3)")
-            }>
+            onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+          >
             ✕
           </button>
         </div>
@@ -285,7 +258,8 @@ function DetailModal({
               borderRadius: "3px",
               padding: "16px",
               marginBottom: "16px",
-            }}>
+            }}
+          >
             <div
               style={{
                 fontSize: "0.62rem",
@@ -294,7 +268,8 @@ function DetailModal({
                 textTransform: "uppercase",
                 fontFamily: "'DM Mono', monospace",
                 marginBottom: "12px",
-              }}>
+              }}
+            >
               Info Pelanggan
             </div>
             <InfoRow label="Nama" value={booking.customer_name} />
@@ -314,7 +289,8 @@ function DetailModal({
               borderRadius: "3px",
               padding: "16px",
               marginBottom: "16px",
-            }}>
+            }}
+          >
             <div
               style={{
                 fontSize: "0.62rem",
@@ -323,7 +299,8 @@ function DetailModal({
                 textTransform: "uppercase",
                 fontFamily: "'DM Mono', monospace",
                 marginBottom: "12px",
-              }}>
+              }}
+            >
               Layanan & Pembayaran
             </div>
             <InfoRow label="Layanan" value={booking.services} />
@@ -334,15 +311,10 @@ function DetailModal({
             />
             <InfoRow
               label="Metode"
-              value={
-                booking.payment_method === "cash" ? "Cash" : "Payment Gateway"
-              }
+              value={booking.payment_method === "cash" ? "Cash" : "Payment Gateway"}
             />
             {booking.transaction_id && (
-              <InfoRow
-                label="ID Transaksi"
-                value={`#${booking.transaction_id}`}
-              />
+              <InfoRow label="ID Transaksi" value={`#${booking.transaction_id}`} />
             )}
           </div>
 
@@ -354,9 +326,7 @@ function DetailModal({
                 onClick={() => onStatusChange(booking.id, "diterima")}
                 style={{
                   flex: 1,
-                  background: loading
-                    ? "rgba(76,175,130,0.3)"
-                    : "rgba(76,175,130,0.15)",
+                  background: loading ? "rgba(76,175,130,0.3)" : "rgba(76,175,130,0.15)",
                   border: "1px solid rgba(76,175,130,0.4)",
                   color: "#4CAF82",
                   padding: "12px",
@@ -369,13 +339,12 @@ function DetailModal({
                   letterSpacing: "0.04em",
                 }}
                 onMouseEnter={(e) => {
-                  if (!loading)
-                    e.currentTarget.style.background = "rgba(76,175,130,0.25)";
+                  if (!loading) e.currentTarget.style.background = "rgba(76,175,130,0.25)";
                 }}
                 onMouseLeave={(e) => {
-                  if (!loading)
-                    e.currentTarget.style.background = "rgba(76,175,130,0.15)";
-                }}>
+                  if (!loading) e.currentTarget.style.background = "rgba(76,175,130,0.15)";
+                }}
+              >
                 ✓ Terima Booking
               </button>
               <button
@@ -383,9 +352,7 @@ function DetailModal({
                 onClick={() => onStatusChange(booking.id, "ditolak")}
                 style={{
                   flex: 1,
-                  background: loading
-                    ? "rgba(220,80,80,0.3)"
-                    : "rgba(220,80,80,0.12)",
+                  background: loading ? "rgba(220,80,80,0.3)" : "rgba(220,80,80,0.12)",
                   border: "1px solid rgba(220,80,80,0.3)",
                   color: "#DC5050",
                   padding: "12px",
@@ -398,13 +365,12 @@ function DetailModal({
                   letterSpacing: "0.04em",
                 }}
                 onMouseEnter={(e) => {
-                  if (!loading)
-                    e.currentTarget.style.background = "rgba(220,80,80,0.2)";
+                  if (!loading) e.currentTarget.style.background = "rgba(220,80,80,0.2)";
                 }}
                 onMouseLeave={(e) => {
-                  if (!loading)
-                    e.currentTarget.style.background = "rgba(220,80,80,0.12)";
-                }}>
+                  if (!loading) e.currentTarget.style.background = "rgba(220,80,80,0.12)";
+                }}
+              >
                 ✕ Tolak Booking
               </button>
             </div>
@@ -426,7 +392,8 @@ function DetailModal({
                   cursor: loading ? "not-allowed" : "pointer",
                   borderRadius: "2px",
                   letterSpacing: "0.04em",
-                }}>
+                }}
+              >
                 Batalkan
               </button>
             </div>
@@ -455,17 +422,17 @@ function InfoRow({
         gap: "16px",
         marginBottom: "8px",
         fontSize: "0.8rem",
-      }}>
-      <span style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }}>
-        {label}
-      </span>
+      }}
+    >
+      <span style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }}>{label}</span>
       <span
         style={{
           color: accent ? "#C9922A" : "rgba(255,255,255,0.72)",
           fontWeight: accent ? 600 : 400,
           fontFamily: accent ? "'DM Mono', monospace" : "inherit",
           textAlign: "right",
-        }}>
+        }}
+      >
         {value}
       </span>
     </div>
@@ -491,7 +458,8 @@ function MiniStat({
         padding: "14px 20px",
         flex: 1,
         minWidth: "120px",
-      }}>
+      }}
+    >
       <div
         style={{
           fontFamily: "'Cormorant Garamond', serif",
@@ -500,12 +468,11 @@ function MiniStat({
           color,
           lineHeight: 1,
           marginBottom: "4px",
-        }}>
+        }}
+      >
         {value}
       </div>
-      <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }}>
-        {label}
-      </div>
+      <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }}>{label}</div>
     </div>
   );
 }
@@ -518,9 +485,7 @@ export default function AdminBookingsClient() {
   const [bookings, setBookings] = useState<BookingRow[]>(MOCK_BOOKINGS);
   const [filter, setFilter] = useState<BookingStatusDB | "all">("all");
   const [search, setSearch] = useState("");
-  const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(
-    null,
-  );
+  const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [page, setPage] = useState(1);
@@ -560,14 +525,14 @@ export default function AdminBookingsClient() {
       // Panggil server action (mock update lokal juga agar UI responsif)
       // await updateBookingStatus(id, status); // uncomment saat DB tersambung
       setBookings((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, status } : b)),
+        prev.map((b) => (b.id === id ? { ...b, status } : b))
       );
       setSelectedBooking(null);
       showToast(
         status === "diterima"
           ? "Booking berhasil diterima!"
           : "Booking telah ditolak.",
-        status === "diterima",
+        status === "diterima"
       );
     } catch {
       showToast("Gagal mengubah status.", false);
@@ -580,13 +545,8 @@ export default function AdminBookingsClient() {
   useEffect(() => setPage(1), [filter, search]);
 
   return (
-    <div
-      style={{
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "20px",
-      }}>
+    <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+
       {/* Toast notification */}
       {toast && (
         <div
@@ -595,9 +555,7 @@ export default function AdminBookingsClient() {
             top: "72px",
             right: "24px",
             zIndex: 2000,
-            background: toast.ok
-              ? "rgba(76,175,130,0.15)"
-              : "rgba(220,80,80,0.15)",
+            background: toast.ok ? "rgba(76,175,130,0.15)" : "rgba(220,80,80,0.15)",
             border: `1px solid ${toast.ok ? "rgba(76,175,130,0.4)" : "rgba(220,80,80,0.4)"}`,
             color: toast.ok ? "#4CAF82" : "#DC5050",
             padding: "12px 20px",
@@ -608,19 +566,15 @@ export default function AdminBookingsClient() {
             backdropFilter: "blur(8px)",
             boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
             animation: "slideDown 0.2s ease",
-          }}>
+          }}
+        >
           {toast.ok ? "✓ " : "✕ "}
           {toast.msg}
         </div>
       )}
 
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1
             style={{
@@ -629,15 +583,11 @@ export default function AdminBookingsClient() {
               fontWeight: 600,
               color: "rgba(255,255,255,0.85)",
               marginBottom: "4px",
-            }}>
+            }}
+          >
             Manajemen Booking
           </h1>
-          <p
-            style={{
-              fontSize: "0.78rem",
-              color: "rgba(255,255,255,0.3)",
-              fontFamily: "'DM Sans', sans-serif",
-            }}>
+          <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.3)", fontFamily: "'DM Sans', sans-serif" }}>
             Kelola semua reservasi layanan salon
           </p>
         </div>
@@ -662,33 +612,18 @@ export default function AdminBookingsClient() {
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = "rgba(201,146,42,0.1)";
-          }}>
+          }}
+        >
           ↓ Export CSV
         </button>
       </div>
 
       {/* Mini stats */}
       <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-        <MiniStat
-          label="Total Booking"
-          value={stats.total}
-          color="rgba(255,255,255,0.7)"
-        />
-        <MiniStat
-          label="Menunggu Konfirmasi"
-          value={stats.pending}
-          color="#C9922A"
-        />
-        <MiniStat
-          label="Booking Diterima"
-          value={stats.diterima}
-          color="#4CAF82"
-        />
-        <MiniStat
-          label="Total Pendapatan"
-          value={formatRupiah(stats.revenue)}
-          color="#C9922A"
-        />
+        <MiniStat label="Total Booking" value={stats.total} color="rgba(255,255,255,0.7)" />
+        <MiniStat label="Menunggu Konfirmasi" value={stats.pending} color="#C9922A" />
+        <MiniStat label="Booking Diterima" value={stats.diterima} color="#4CAF82" />
+        <MiniStat label="Total Pendapatan" value={formatRupiah(stats.revenue)} color="#C9922A" />
       </div>
 
       {/* Filter + Search bar */}
@@ -700,7 +635,8 @@ export default function AdminBookingsClient() {
           display: "flex",
           flexDirection: "column",
           gap: "12px",
-        }}>
+        }}
+      >
         {/* Search */}
         <div style={{ position: "relative" }}>
           <span
@@ -712,7 +648,8 @@ export default function AdminBookingsClient() {
               color: "rgba(255,255,255,0.2)",
               fontSize: "0.9rem",
               pointerEvents: "none",
-            }}>
+            }}
+          >
             🔍
           </span>
           <input
@@ -732,9 +669,7 @@ export default function AdminBookingsClient() {
               outline: "none",
               transition: "border-color 0.2s",
             }}
-            onFocus={(e) =>
-              (e.currentTarget.style.borderColor = "rgba(201,146,42,0.4)")
-            }
+            onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(201,146,42,0.4)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "#2A1A0A")}
           />
         </div>
@@ -751,21 +686,20 @@ export default function AdminBookingsClient() {
                 key={key}
                 className={`filter-btn${filter === key ? " active" : ""}`}
                 onClick={() => setFilter(key as BookingStatusDB | "all")}
-                style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                style={{ display: "flex", alignItems: "center", gap: "6px" }}
+              >
                 {label}
                 <span
                   style={{
-                    background:
-                      filter === key
-                        ? "rgba(201,146,42,0.25)"
-                        : "rgba(255,255,255,0.06)",
+                    background: filter === key ? "rgba(201,146,42,0.25)" : "rgba(255,255,255,0.06)",
                     color: filter === key ? "#C9922A" : "rgba(255,255,255,0.3)",
                     fontSize: "0.6rem",
                     fontWeight: 700,
                     padding: "1px 5px",
                     borderRadius: "10px",
                     fontFamily: "'DM Mono', monospace",
-                  }}>
+                  }}
+                >
                   {count}
                 </span>
               </button>
@@ -776,6 +710,7 @@ export default function AdminBookingsClient() {
 
       {/* Table */}
       <div style={{ background: "#1A0F05", border: "1px solid #2A1A0A" }}>
+
         {/* Keterangan hasil */}
         <div
           style={{
@@ -784,13 +719,9 @@ export default function AdminBookingsClient() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-          }}>
-          <span
-            style={{
-              fontSize: "0.72rem",
-              color: "rgba(255,255,255,0.3)",
-              fontFamily: "'DM Mono', monospace",
-            }}>
+          }}
+        >
+          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", fontFamily: "'DM Mono', monospace" }}>
             Menampilkan {paginated.length} dari {filtered.length} booking
           </span>
           {filter === "pending" && stats.pending > 0 && (
@@ -800,7 +731,8 @@ export default function AdminBookingsClient() {
                 color: "#C9922A",
                 fontFamily: "'DM Sans', sans-serif",
                 fontWeight: 500,
-              }}>
+              }}
+            >
               ⚡ {stats.pending} booking menunggu konfirmasimu
             </span>
           )}
@@ -816,7 +748,8 @@ export default function AdminBookingsClient() {
             letterSpacing: "0.1em",
             textTransform: "uppercase",
             fontFamily: "'DM Mono', monospace",
-          }}>
+          }}
+        >
           <span>#</span>
           <span>Pelanggan</span>
           <span>Jadwal</span>
@@ -836,7 +769,8 @@ export default function AdminBookingsClient() {
               color: "rgba(255,255,255,0.2)",
               fontFamily: "'DM Sans', sans-serif",
               fontSize: "0.82rem",
-            }}>
+            }}
+          >
             Tidak ada data untuk filter ini
           </div>
         ) : (
@@ -848,13 +782,15 @@ export default function AdminBookingsClient() {
                 gridTemplateColumns: COL,
                 cursor: "pointer",
               }}
-              onClick={() => setSelectedBooking(b)}>
+              onClick={() => setSelectedBooking(b)}
+            >
               <span
                 style={{
                   fontFamily: "'DM Mono', monospace",
                   fontSize: "0.65rem",
                   color: "rgba(255,255,255,0.22)",
-                }}>
+                }}
+              >
                 {b.id}
               </span>
 
@@ -867,7 +803,8 @@ export default function AdminBookingsClient() {
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                  }}>
+                  }}
+                >
                   {b.customer_name}
                 </div>
                 <div
@@ -875,7 +812,8 @@ export default function AdminBookingsClient() {
                     fontFamily: "'DM Mono', monospace",
                     fontSize: "0.62rem",
                     color: "rgba(255,255,255,0.25)",
-                  }}>
+                  }}
+                >
                   {b.phone_number}
                 </div>
               </div>
@@ -886,7 +824,8 @@ export default function AdminBookingsClient() {
                     fontFamily: "'DM Mono', monospace",
                     fontSize: "0.65rem",
                     color: "rgba(255,255,255,0.5)",
-                  }}>
+                  }}
+                >
                   {new Date(b.booking_datetime).toLocaleDateString("id-ID", {
                     day: "2-digit",
                     month: "short",
@@ -898,7 +837,8 @@ export default function AdminBookingsClient() {
                     fontSize: "0.68rem",
                     color: "#C9922A",
                     fontWeight: 500,
-                  }}>
+                  }}
+                >
                   {new Date(b.booking_datetime).toLocaleTimeString("id-ID", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -913,7 +853,8 @@ export default function AdminBookingsClient() {
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
-                }}>
+                }}
+              >
                 {b.services}
               </span>
 
@@ -925,7 +866,8 @@ export default function AdminBookingsClient() {
                   fontSize: "0.72rem",
                   color: "#C9922A",
                   fontWeight: 500,
-                }}>
+                }}
+              >
                 {formatRupiah(b.total_amount)}
               </span>
 
@@ -934,14 +876,16 @@ export default function AdminBookingsClient() {
                   fontSize: "0.68rem",
                   color: "rgba(255,255,255,0.25)",
                   fontFamily: "'DM Mono', monospace",
-                }}>
+                }}
+              >
                 {b.payment_method === "cash" ? "Cash" : "GW"}
               </span>
 
               {/* Quick action — konfirmasi pending langsung dari baris */}
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{ display: "flex", justifyContent: "center" }}>
+                style={{ display: "flex", justifyContent: "center" }}
+              >
                 {b.status === "pending" ? (
                   <button
                     title="Terima booking"
@@ -961,13 +905,12 @@ export default function AdminBookingsClient() {
                       transition: "all 0.15s",
                     }}
                     onMouseEnter={(e) =>
-                      (e.currentTarget.style.background =
-                        "rgba(76,175,130,0.22)")
+                      (e.currentTarget.style.background = "rgba(76,175,130,0.22)")
                     }
                     onMouseLeave={(e) =>
-                      (e.currentTarget.style.background =
-                        "rgba(76,175,130,0.12)")
-                    }>
+                      (e.currentTarget.style.background = "rgba(76,175,130,0.12)")
+                    }
+                  >
                     ✓
                   </button>
                 ) : (
@@ -976,7 +919,8 @@ export default function AdminBookingsClient() {
                       fontSize: "0.75rem",
                       color: "rgba(255,255,255,0.15)",
                       cursor: "default",
-                    }}>
+                    }}
+                  >
                     —
                   </span>
                 )}
@@ -988,28 +932,22 @@ export default function AdminBookingsClient() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "8px",
-          }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
           <button
             disabled={page === 1}
             onClick={() => setPage((p) => p - 1)}
             style={{
               background: "transparent",
               border: "1px solid #2A1A0A",
-              color:
-                page === 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)",
+              color: page === 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)",
               padding: "6px 14px",
               fontFamily: "'DM Sans', sans-serif",
               fontSize: "0.78rem",
               cursor: page === 1 ? "not-allowed" : "pointer",
               borderRadius: "2px",
               transition: "all 0.2s",
-            }}>
+            }}
+          >
             ← Prev
           </button>
 
@@ -1018,8 +956,7 @@ export default function AdminBookingsClient() {
               key={p}
               onClick={() => setPage(p)}
               style={{
-                background:
-                  p === page ? "rgba(201,146,42,0.15)" : "transparent",
+                background: p === page ? "rgba(201,146,42,0.15)" : "transparent",
                 border: `1px solid ${p === page ? "#C9922A" : "#2A1A0A"}`,
                 color: p === page ? "#C9922A" : "rgba(255,255,255,0.4)",
                 width: "34px",
@@ -1030,7 +967,8 @@ export default function AdminBookingsClient() {
                 cursor: "pointer",
                 borderRadius: "2px",
                 transition: "all 0.2s",
-              }}>
+              }}
+            >
               {p}
             </button>
           ))}
@@ -1051,7 +989,8 @@ export default function AdminBookingsClient() {
               cursor: page === totalPages ? "not-allowed" : "pointer",
               borderRadius: "2px",
               transition: "all 0.2s",
-            }}>
+            }}
+          >
             Next →
           </button>
         </div>

@@ -27,32 +27,35 @@ export default function BookingTable() {
       : RECENT_BOOKINGS.filter((b) => b.status === filter);
 
   return (
-    <div style={{ background: "#1A0F05", border: "1px solid #2A1A0A" }}>
-
+    <div
+      className="admin-card"
+      style={{ overflow: "hidden" }}
+    >
       {/* Header */}
       <div
         style={{
-          padding: "18px 18px 14px",
-          borderBottom: "1px solid #2A1A0A",
+          padding: "18px 20px 14px",
+          borderBottom: "1px solid #F0E0E6",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap" as const,
           gap: "10px",
+          background: "white",
         }}
       >
         <div>
           <h3
             style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: "1.05rem",
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.75)",
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1rem",
+              fontWeight: 700,
+              color: "#2C1A0E",
             }}
           >
             Booking Terbaru
           </h3>
-          <p style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.25)", marginTop: "2px" }}>
+          <p style={{ fontSize: "0.68rem", color: "#B09080", marginTop: "2px" }}>
             {rows.length} dari {RECENT_BOOKINGS.length} data
           </p>
         </div>
@@ -76,11 +79,13 @@ export default function BookingTable() {
         className="table-row"
         style={{
           gridTemplateColumns: COL,
-          color: "rgba(255,255,255,0.22)",
+          color: "#B09080",
           fontSize: "0.65rem",
           letterSpacing: "0.1em",
           textTransform: "uppercase" as const,
           fontFamily: "'DM Mono', monospace",
+          background: "#FDFAF7",
+          fontWeight: 600,
         }}
       >
         <span>ID</span>
@@ -107,7 +112,7 @@ export default function BookingTable() {
               style={{
                 fontFamily: "'DM Mono', monospace",
                 fontSize: "0.68rem",
-                color: "rgba(255,255,255,0.25)",
+                color: "#B09080",
               }}
             >
               {booking.id}
@@ -116,19 +121,19 @@ export default function BookingTable() {
               style={{
                 fontSize: "0.82rem",
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.72)",
+                color: "#2C1A0E",
               }}
             >
               {booking.customer}
             </span>
-            <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
+            <span style={{ fontSize: "0.75rem", color: "#7A5C50" }}>
               {booking.service}
             </span>
             <span
               style={{
                 fontFamily: "'DM Mono', monospace",
                 fontSize: "0.68rem",
-                color: "rgba(255,255,255,0.3)",
+                color: "#7A5C50",
               }}
             >
               {booking.date}
@@ -137,7 +142,7 @@ export default function BookingTable() {
               style={{
                 fontFamily: "'DM Mono', monospace",
                 fontSize: "0.68rem",
-                color: "rgba(255,255,255,0.3)",
+                color: "#7A5C50",
               }}
             >
               {booking.time}
@@ -148,8 +153,8 @@ export default function BookingTable() {
               style={{
                 fontFamily: "'DM Mono', monospace",
                 fontSize: "0.72rem",
-                color: "#C9922A",
-                fontWeight: 500,
+                color: "#C4788A",
+                fontWeight: 600,
               }}
             >
               {formatRupiah(booking.amount)}
@@ -162,11 +167,11 @@ export default function BookingTable() {
       {rows.length === 0 && (
         <div
           style={{
-            padding: "32px",
+            padding: "40px",
             textAlign: "center" as const,
-            color: "rgba(255,255,255,0.2)",
+            color: "#B09080",
             fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.82rem",
+            fontSize: "0.85rem",
           }}
         >
           Tidak ada data untuk filter ini
