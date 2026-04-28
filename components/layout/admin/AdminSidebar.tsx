@@ -66,7 +66,7 @@ export default function AdminSidebar({ userName, userRole }: AdminSidebarProps) 
                   letterSpacing: "0.02em",
                 }}
               >
-                Salon Cantik Irma
+                Irma Wedding Salon
               </div>
               <div
                 style={{
@@ -112,7 +112,7 @@ export default function AdminSidebar({ userName, userRole }: AdminSidebarProps) 
               cursor: "pointer",
             }}
           >
-            RC
+            IWS
           </button>
         )}
       </div>

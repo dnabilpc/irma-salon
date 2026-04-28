@@ -1,7 +1,3 @@
-// actions/booking.ts
-// Server Actions untuk semua operasi booking
-// Dipanggil dari komponen client — tidak perlu API route manual
-
 "use server";
 
 import { headers } from "next/headers";
@@ -12,9 +8,23 @@ import type { AppUser } from "@/types";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export type BookingStatusDB = "PENDING" | "DITERIMA" | "DITOLAK" | "CANCELLED";
+
+export interface BookingRow {
+  id: number;
+  customer_name: string;
+  phone_number: string;
+  booking_datetime: string;
+  status: BookingStatusDB;
+  services: string;
+  total_amount: number;
+  payment_method: string;
+  transaction_id: number | null;
+}
+
 export interface CreateBookingInput {
-  booking_datetime: string; // ISO string
-  service_ids: number[];    // bisa multi-service
+  booking_datetime: string;
+  service_ids: number[];
 }
 
 export interface ActionResult<T = void> {
@@ -23,7 +33,15 @@ export interface ActionResult<T = void> {
   error?: string;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+export interface SalonService {
+  id: number;
+  service_name: string;
+  price: number;
+  hour_duration: number;
+  image_url: string | null;
+}
+
+// ── Helper ─────────────────────────────────────────────────────────────────
 
 async function getAuthUser(): Promise<AppUser | null> {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -31,7 +49,78 @@ async function getAuthUser(): Promise<AppUser | null> {
   return session.user as unknown as AppUser;
 }
 
-// ── CREATE BOOKING ─────────────────────────────────────────────────────────
+// ── GET SERVICES ───────────────────────────────────────────────────────────
+
+export async function getSalonServices(): Promise<ActionResult<SalonService[]>> {
+  try {
+    const result = await db.query(
+      `SELECT id, service_name, price, hour_duration, image_url
+       FROM salon_services
+       ORDER BY service_name`
+    );
+    return { success: true, data: result.rows };
+  } catch (err) {
+    console.error("[getSalonServices]", err);
+    return { success: false, error: "Gagal memuat layanan." };
+  }
+}
+
+// ── GET AVAILABLE SLOTS ────────────────────────────────────────────────────
+
+export async function getAvailableSlots(
+  date: string
+): Promise<ActionResult<{ available: string[]; booked: string[] }>> {
+  try {
+    // Semua slot 08:00–16:30, tiap 30 menit
+    const ALL_SLOTS: string[] = [];
+    for (let h = 8; h <= 16; h++) {
+      ALL_SLOTS.push(`${String(h).padStart(2, "0")}:00`);
+      if (h < 16) ALL_SLOTS.push(`${String(h).padStart(2, "0")}:30`);
+    }
+
+    // Cek apakah salon buka pada hari tersebut
+    const dayNames = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+    const dayOfWeek = dayNames[new Date(date).getDay()];
+
+    const openCheck = await db.query(
+      `SELECT open_time, close_time FROM opening_time WHERE day_of_week = $1`,
+      [dayOfWeek]
+    );
+
+    // Cek apakah ada closing_time (hari libur) yang mencakup tanggal ini
+    const closingCheck = await db.query(
+      `SELECT id FROM closing_time
+       WHERE start_date <= $1 AND end_date >= $1`,
+      [date]
+    );
+
+    if (!openCheck.rows.length || closingCheck.rows.length > 0) {
+      return { success: true, data: { available: [], booked: [] } };
+    }
+
+    // Slot yang sudah terpakai
+    const booked = await db.query(
+      `SELECT TO_CHAR(booking_datetime AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS slot
+       FROM bookings
+       WHERE DATE(booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
+         AND status NOT IN ('DITOLAK', 'CANCELLED')`,
+      [date]
+    );
+
+    const bookedSet = new Set(booked.rows.map((r: { slot: string }) => r.slot));
+    const available = ALL_SLOTS.filter((s) => !bookedSet.has(s));
+
+    return {
+      success: true,
+      data: { available, booked: Array.from(bookedSet) },
+    };
+  } catch (err) {
+    console.error("[getAvailableSlots]", err);
+    return { success: false, error: "Gagal memuat slot." };
+  }
+}
+
+// ── CREATE BOOKING (Customer) ──────────────────────────────────────────────
 
 export async function createBooking(
   input: CreateBookingInput
@@ -46,68 +135,63 @@ export async function createBooking(
       return { success: false, error: "Data booking tidak lengkap." };
     }
 
-    // Validasi tanggal — tidak boleh di masa lalu
-    const bookingDate = new Date(booking_datetime);
-    if (bookingDate < new Date()) {
+    // Tidak boleh booking di masa lalu
+    if (new Date(booking_datetime) < new Date()) {
       return { success: false, error: "Tanggal booking tidak boleh di masa lalu." };
     }
 
-    // Cek apakah slot masih tersedia (tidak ada booking lain pada waktu ±30mnt)
-    const conflictCheck = await db.query(
+    // Cek konflik slot (±30 menit)
+    const conflict = await db.query(
       `SELECT id FROM bookings
-       WHERE status NOT IN ('ditolak','cancelled')
+       WHERE status NOT IN ('DITOLAK', 'CANCELLED')
          AND booking_datetime BETWEEN $1::timestamptz - INTERVAL '30 minutes'
                                   AND $1::timestamptz + INTERVAL '30 minutes'`,
       [booking_datetime]
     );
-    if (conflictCheck.rows.length > 0) {
+    if (conflict.rows.length > 0) {
       return { success: false, error: "Slot waktu ini sudah terisi. Silakan pilih waktu lain." };
     }
 
-    // Ambil harga layanan yang dipilih
+    // Ambil data layanan
     const serviceRows = await db.query(
       `SELECT id, service_name, price, hour_duration
-       FROM salon_services
-       WHERE id = ANY($1)`,
+       FROM salon_services WHERE id = ANY($1)`,
       [service_ids]
     );
-
     if (serviceRows.rows.length !== service_ids.length) {
       return { success: false, error: "Salah satu layanan tidak ditemukan." };
     }
 
-    // Hitung subtotal
     const subtotal = serviceRows.rows.reduce(
       (sum: number, s: { price: string }) => sum + parseFloat(s.price),
       0
     );
 
-    // Mulai transaksi DB
+    // Transaksi DB
     const client = await db.connect();
     try {
       await client.query("BEGIN");
 
-      // Insert booking
       const bookingResult = await client.query(
         `INSERT INTO bookings (user_id, booking_datetime, status)
-         VALUES ($1, $2, 'pending')
+         VALUES ($1, $2, 'PENDING')
          RETURNING id`,
         [user.id, booking_datetime]
       );
       const bookingId: number = bookingResult.rows[0].id;
 
-      // Insert booking_details (satu baris per service)
       for (const svc of serviceRows.rows) {
         await client.query(
-          `INSERT INTO booking_details (booking_id, salon_service_id, price_at_booking, duration_at_booking)
+          `INSERT INTO booking_details
+             (booking_id, salon_service_id, price_at_booking, duration_at_booking)
            VALUES ($1, $2, $3, $4)`,
           [bookingId, svc.id, svc.price, svc.hour_duration]
         );
       }
 
-      // Insert transaksi awal (payment_method & midtrans di-set nanti)
       await client.query(
-        `INSERT INTO transactions (user_id, booking_id, subtotal, total_amount, payment_method)
+        `INSERT INTO transactions
+           (user_id, booking_id, subtotal, total_amount, payment_method)
          VALUES ($1, $2, $3, $3, 'cash')`,
         [user.id, bookingId, subtotal]
       );
@@ -130,9 +214,7 @@ export async function createBooking(
   }
 }
 
-// ── UPDATE STATUS BOOKING (Admin only) ────────────────────────────────────
-
-export type BookingStatusDB = "pending" | "diterima" | "ditolak" | "cancelled";
+// ── UPDATE STATUS (Admin) ──────────────────────────────────────────────────
 
 export async function updateBookingStatus(
   bookingId: number,
@@ -144,10 +226,18 @@ export async function updateBookingStatus(
       return { success: false, error: "Akses ditolak." };
     }
 
-    await db.query(
-      `UPDATE bookings SET status = $1 WHERE id = $2`,
+    const valid: BookingStatusDB[] = ["PENDING", "DITERIMA", "DITOLAK", "CANCELLED"];
+    if (!valid.includes(status)) {
+      return { success: false, error: "Status tidak valid." };
+    }
+
+    const result = await db.query(
+      `UPDATE bookings SET status = $1 WHERE id = $2 RETURNING id`,
       [status, bookingId]
     );
+    if (!result.rows.length) {
+      return { success: false, error: "Booking tidak ditemukan." };
+    }
 
     revalidatePath("/admin/bookings");
     return { success: true };
@@ -157,14 +247,13 @@ export async function updateBookingStatus(
   }
 }
 
-// ── CANCEL BOOKING (Customer sendiri) ─────────────────────────────────────
+// ── CANCEL BOOKING (Customer) ──────────────────────────────────────────────
 
 export async function cancelBooking(bookingId: number): Promise<ActionResult> {
   try {
     const user = await getAuthUser();
     if (!user) return { success: false, error: "Silakan login." };
 
-    // Pastikan booking milik user ini
     const check = await db.query(
       `SELECT id, status FROM bookings WHERE id = $1 AND user_id = $2`,
       [bookingId, user.id]
@@ -172,12 +261,12 @@ export async function cancelBooking(bookingId: number): Promise<ActionResult> {
     if (!check.rows.length) {
       return { success: false, error: "Booking tidak ditemukan." };
     }
-    if (check.rows[0].status !== "pending") {
-      return { success: false, error: "Hanya booking berstatus pending yang dapat dibatalkan." };
+    if (check.rows[0].status !== "PENDING") {
+      return { success: false, error: "Hanya booking berstatus PENDING yang dapat dibatalkan." };
     }
 
     await db.query(
-      `UPDATE bookings SET status = 'cancelled' WHERE id = $1`,
+      `UPDATE bookings SET status = 'CANCELLED' WHERE id = $1`,
       [bookingId]
     );
 
@@ -189,22 +278,10 @@ export async function cancelBooking(bookingId: number): Promise<ActionResult> {
   }
 }
 
-// ── GET BOOKING LIST (Admin) ───────────────────────────────────────────────
-
-export interface BookingRow {
-  id: number;
-  customer_name: string;
-  phone_number: string;
-  booking_datetime: string;
-  status: BookingStatusDB;
-  services: string;          // coma-joined
-  total_amount: number;
-  payment_method: string;
-  transaction_id: number | null;
-}
+// ── GET BOOKINGS FOR ADMIN ─────────────────────────────────────────────────
 
 export async function getBookingsForAdmin(filters?: {
-  status?: BookingStatusDB | "all";
+  status?: BookingStatusDB | "ALL";
   search?: string;
   page?: number;
   limit?: number;
@@ -215,27 +292,27 @@ export async function getBookingsForAdmin(filters?: {
       return { success: false, error: "Akses ditolak." };
     }
 
-    const page  = filters?.page  ?? 1;
-    const limit = filters?.limit ?? 20;
+    const page   = filters?.page  ?? 1;
+    const limit  = filters?.limit ?? 20;
     const offset = (page - 1) * limit;
 
     const conditions: string[] = [];
     const params: (string | number)[] = [];
 
-    if (filters?.status && filters.status !== "all") {
+    if (filters?.status && filters.status !== "ALL") {
       params.push(filters.status);
       conditions.push(`b.status = $${params.length}`);
     }
     if (filters?.search) {
       params.push(`%${filters.search}%`);
-      conditions.push(`u.full_name ILIKE $${params.length}`);
+      conditions.push(`u.name ILIKE $${params.length}`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const countResult = await db.query(
       `SELECT COUNT(*) FROM bookings b
-       JOIN users u ON b.user_id = u.id
+       JOIN "user" u ON b.user_id = u.id
        ${where}`,
       params
     );
@@ -244,21 +321,21 @@ export async function getBookingsForAdmin(filters?: {
     const result = await db.query(
       `SELECT
          b.id,
-         u.full_name        AS customer_name,
-         u.phone_number,
+         u.name              AS customer_name,
+         u.email             AS phone_number,
          b.booking_datetime,
          b.status,
-         STRING_AGG(ss.service_name, ', ') AS services,
-         t.total_amount,
-         t.payment_method,
-         t.id               AS transaction_id
+         COALESCE(STRING_AGG(ss.service_name, ', '), '-') AS services,
+         COALESCE(t.total_amount, 0)     AS total_amount,
+         COALESCE(t.payment_method, 'cash') AS payment_method,
+         t.id                AS transaction_id
        FROM bookings b
-       JOIN users u ON b.user_id = u.id
+       JOIN "user" u ON b.user_id = u.id
        LEFT JOIN booking_details bd ON bd.booking_id = b.id
        LEFT JOIN salon_services ss  ON ss.id = bd.salon_service_id
        LEFT JOIN transactions t     ON t.booking_id = b.id
        ${where}
-       GROUP BY b.id, u.full_name, u.phone_number, b.booking_datetime, b.status,
+       GROUP BY b.id, u.name, u.email, b.booking_datetime, b.status,
                 t.total_amount, t.payment_method, t.id
        ORDER BY b.booking_datetime DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -272,58 +349,36 @@ export async function getBookingsForAdmin(filters?: {
   }
 }
 
-// ── GET AVAILABLE SLOTS ────────────────────────────────────────────────────
+// ── GET BOOKINGS FOR CUSTOMER ──────────────────────────────────────────────
 
-export async function getAvailableSlots(
-  date: string // YYYY-MM-DD
-): Promise<ActionResult<string[]>> {
+export async function getBookingsForCustomer(): Promise<ActionResult<BookingRow[]>> {
   try {
-    // Jam operasional 08:00–17:00, slot tiap 30 menit
-    const slots: string[] = [];
-    for (let h = 8; h < 17; h++) {
-      slots.push(`${String(h).padStart(2, "0")}:00`);
-      slots.push(`${String(h).padStart(2, "0")}:30`);
-    }
+    const user = await getAuthUser();
+    if (!user) return { success: false, error: "Silakan login." };
 
-    // Ambil slot yang sudah terpakai
-    const booked = await db.query(
-      `SELECT TO_CHAR(booking_datetime AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS time_slot
-       FROM bookings
-       WHERE DATE(booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
-         AND status NOT IN ('ditolak','cancelled')`,
-      [date]
-    );
-
-    const bookedSet = new Set(booked.rows.map((r: { time_slot: string }) => r.time_slot));
-
-    const available = slots.filter((s) => !bookedSet.has(s));
-    return { success: true, data: available };
-  } catch (err) {
-    console.error("[getAvailableSlots]", err);
-    return { success: false, error: "Gagal memuat slot." };
-  }
-}
-
-// ── GET SERVICES LIST ──────────────────────────────────────────────────────
-
-export interface SalonService {
-  id: number;
-  service_name: string;
-  price: number;
-  hour_duration: number;
-  image_url: string | null;
-}
-
-export async function getSalonServices(): Promise<ActionResult<SalonService[]>> {
-  try {
     const result = await db.query(
-      `SELECT id, service_name, price, hour_duration, image_url
-       FROM salon_services
-       ORDER BY service_name`
+      `SELECT
+         b.id,
+         b.booking_datetime,
+         b.status,
+         COALESCE(STRING_AGG(ss.service_name, ', '), '-') AS services,
+         COALESCE(t.total_amount, 0)        AS total_amount,
+         COALESCE(t.payment_method, 'cash') AS payment_method,
+         t.id AS transaction_id
+       FROM bookings b
+       LEFT JOIN booking_details bd ON bd.booking_id = b.id
+       LEFT JOIN salon_services ss  ON ss.id = bd.salon_service_id
+       LEFT JOIN transactions t     ON t.booking_id = b.id
+       WHERE b.user_id = $1
+       GROUP BY b.id, b.booking_datetime, b.status,
+                t.total_amount, t.payment_method, t.id
+       ORDER BY b.booking_datetime DESC`,
+      [user.id]
     );
+
     return { success: true, data: result.rows };
   } catch (err) {
-    console.error("[getSalonServices]", err);
-    return { success: false, error: "Gagal memuat layanan." };
+    console.error("[getBookingsForCustomer]", err);
+    return { success: false, error: "Gagal memuat riwayat booking." };
   }
 }
