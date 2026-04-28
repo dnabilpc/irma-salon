@@ -45,7 +45,7 @@ export default async function AdminLayout({
           transition: "margin-left 0.3s ease",
         }}
       >
-        <AdminTopbar userName={user.name} />
+        <AdminTopbar userName={user.name} userRole={user.role} />
 
         <main style={{ flex: 1, overflowY: "auto", padding: "0" }}>
           {children}

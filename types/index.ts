@@ -49,7 +49,7 @@ export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
 export type PaymentStatus = "paid" | "pending" | "refunded";
 export type RentalStatus  = "dipinjam" | "dikembalikan" | "terlambat";
 export type NotifType     = "booking" | "payment" | "review" | "return";
-export type NavItem       = "dashboard" | "bookings" | "rentals" | "customers" | "payments" | "settings";
+export type NavItem       = "dashboard" | "bookings" | "rentals" | "customers" | "payments" | "settings" | "services-catalogue" | "clothes-catalogue";
 
 export interface StatCard {
   label: string;

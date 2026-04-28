@@ -1,3 +1,4 @@
+// components/admin-dashboard/BookingTable.tsx
 "use client";
 
 import { useState } from "react";
@@ -27,21 +28,19 @@ export default function BookingTable() {
       : RECENT_BOOKINGS.filter((b) => b.status === filter);
 
   return (
-    <div
-      className="admin-card"
-      style={{ overflow: "hidden" }}
-    >
+    <div className="admin-card" style={{ overflow: "hidden" }}>
+
       {/* Header */}
       <div
         style={{
           padding: "18px 20px 14px",
-          borderBottom: "1px solid #F0E0E6",
+          borderBottom: "1px solid #F0D9E0",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap" as const,
           gap: "10px",
-          background: "white",
+          background: "#FDF8F5",
         }}
       >
         <div>
@@ -50,12 +49,12 @@ export default function BookingTable() {
               fontFamily: "'Playfair Display', serif",
               fontSize: "1rem",
               fontWeight: 700,
-              color: "#2C1A0E",
+              color: "#3A1A28",
             }}
           >
             Booking Terbaru
           </h3>
-          <p style={{ fontSize: "0.68rem", color: "#B09080", marginTop: "2px" }}>
+          <p style={{ fontSize: "12px", color: "#B08090", marginTop: "2px" }}>
             {rows.length} dari {RECENT_BOOKINGS.length} data
           </p>
         </div>
@@ -74,17 +73,16 @@ export default function BookingTable() {
         </div>
       </div>
 
-      {/* Column headers */}
+      {/* Header kolom */}
       <div
         className="table-row"
         style={{
           gridTemplateColumns: COL,
-          color: "#B09080",
-          fontSize: "0.65rem",
-          letterSpacing: "0.1em",
+          background: "#FDF8F5",
+          fontSize: "12px",
+          color: "#B08090",
+          letterSpacing: "0.06em",
           textTransform: "uppercase" as const,
-          fontFamily: "'DM Mono', monospace",
-          background: "#FDFAF7",
           fontWeight: 600,
         }}
       >
@@ -111,40 +109,22 @@ export default function BookingTable() {
             <span
               style={{
                 fontFamily: "'DM Mono', monospace",
-                fontSize: "0.68rem",
-                color: "#B09080",
+                fontSize: "12px",
+                color: "#B08090",
               }}
             >
               {booking.id}
             </span>
-            <span
-              style={{
-                fontSize: "0.82rem",
-                fontWeight: 500,
-                color: "#2C1A0E",
-              }}
-            >
+            <span style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28" }}>
               {booking.customer}
             </span>
-            <span style={{ fontSize: "0.75rem", color: "#7A5C50" }}>
+            <span style={{ fontSize: "13px", color: "#8A4060" }}>
               {booking.service}
             </span>
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "0.68rem",
-                color: "#7A5C50",
-              }}
-            >
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>
               {booking.date}
             </span>
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "0.68rem",
-                color: "#7A5C50",
-              }}
-            >
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#C4728E", fontWeight: 600 }}>
               {booking.time}
             </span>
             <Badge label={bs.label} bg={bs.bg} color={bs.color} />
@@ -152,8 +132,8 @@ export default function BookingTable() {
             <span
               style={{
                 fontFamily: "'DM Mono', monospace",
-                fontSize: "0.72rem",
-                color: "#C4788A",
+                fontSize: "13px",
+                color: "#C9922A",
                 fontWeight: 600,
               }}
             >
@@ -169,9 +149,9 @@ export default function BookingTable() {
           style={{
             padding: "40px",
             textAlign: "center" as const,
-            color: "#B09080",
+            color: "#B08090",
             fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.85rem",
+            fontSize: "14px",
           }}
         >
           Tidak ada data untuk filter ini

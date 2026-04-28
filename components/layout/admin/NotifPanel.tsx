@@ -18,34 +18,37 @@ export default function NotifPanel() {
       <div
         style={{
           padding: "14px 16px",
-          borderBottom: "1px solid #F0E0E6",
+          borderBottom: "1px solid #F0D9E0",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          position: "sticky",
+          position: "sticky" as const,
           top: 0,
-          background: "white",
+          background: "#FAEAF0",
           zIndex: 1,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{
-            fontFamily: "'Playfair Display', serif",
-            fontWeight: 600,
-            fontSize: "0.9rem",
-            color: "#2C1A0E",
-          }}>
+          <span
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontWeight: 700,
+              fontSize: "0.9rem",
+              color: "#7A2848",
+            }}
+          >
             Notifikasi
           </span>
           {unreadCount > 0 && (
             <span
               style={{
-                background: "rgba(196,120,138,0.12)",
-                color: "#C4788A",
-                fontSize: "0.62rem",
+                background: "#F9EAF0",
+                color: "#C4728E",
+                fontSize: "11px",
                 fontWeight: 700,
-                padding: "2px 8px",
+                padding: "1px 8px",
                 borderRadius: "10px",
+                border: "1px solid #E8C0D0",
               }}
             >
               {unreadCount} baru
@@ -56,8 +59,8 @@ export default function NotifPanel() {
           style={{
             background: "none",
             border: "none",
-            fontSize: "0.72rem",
-            color: "#C4788A",
+            fontSize: "12px",
+            color: "#C4728E",
             cursor: "pointer",
             fontFamily: "'DM Sans', sans-serif",
             fontWeight: 500,
@@ -67,14 +70,14 @@ export default function NotifPanel() {
         </button>
       </div>
 
-      {/* List */}
+      {/* List notifikasi */}
       {NOTIFICATIONS.map((n) => (
         <div
           key={n.id}
           style={{
             padding: "12px 16px",
-            borderBottom: "1px solid #F5EBF0",
-            background: n.unread ? "rgba(196,120,138,0.04)" : "white",
+            borderBottom: "1px solid #F0D9E0",
+            background: n.unread ? "#FDF5F8" : "white",
             display: "flex",
             gap: "10px",
             alignItems: "flex-start",
@@ -82,47 +85,45 @@ export default function NotifPanel() {
             transition: "background 0.15s",
           }}
           onMouseEnter={(e) =>
-            (e.currentTarget.style.background = n.unread
-              ? "rgba(196,120,138,0.08)"
-              : "#FDFAF7")
+            (e.currentTarget.style.background = "#F9EAF0")
           }
           onMouseLeave={(e) =>
-            (e.currentTarget.style.background = n.unread
-              ? "rgba(196,120,138,0.04)"
-              : "white")
+            (e.currentTarget.style.background = n.unread ? "#FDF5F8" : "white")
           }
         >
-          <span style={{ fontSize: "0.9rem", marginTop: "2px", flexShrink: 0 }}>
+          <span style={{ fontSize: "1rem", marginTop: "2px", flexShrink: 0 }}>
             {NOTIF_ICON[n.type]}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p
               style={{
-                fontSize: "0.78rem",
-                color: n.unread ? "#2C1A0E" : "#7A5C50",
+                fontSize: "13px",
+                color: n.unread ? "#3A1A28" : "#8A4060",
                 lineHeight: 1.5,
                 margin: 0,
               }}
             >
               {n.message}
             </p>
-            <p style={{
-              fontSize: "0.62rem",
-              color: "#B09080",
-              marginTop: "3px",
-              fontFamily: "'DM Mono', monospace",
-            }}>
+            <p
+              style={{
+                fontSize: "11px",
+                color: "#B08090",
+                marginTop: "3px",
+                fontFamily: "'DM Mono', monospace",
+              }}
+            >
               {n.time}
             </p>
           </div>
           {n.unread && (
             <div
               style={{
-                width: "6px",
-                height: "6px",
+                width: "7px",
+                height: "7px",
                 borderRadius: "50%",
-                background: "#C4788A",
-                marginTop: "6px",
+                background: "#C4728E",
+                marginTop: "5px",
                 flexShrink: 0,
               }}
             />
@@ -131,19 +132,26 @@ export default function NotifPanel() {
       ))}
 
       {/* Footer */}
-      <div style={{ padding: "10px 16px", textAlign: "center", borderTop: "1px solid #F0E0E6" }}>
+      <div
+        style={{
+          padding: "10px 16px",
+          textAlign: "center" as const,
+          borderTop: "1px solid #F0D9E0",
+          background: "#FDF8F5",
+        }}
+      >
         <button
           style={{
             background: "none",
             border: "none",
-            fontSize: "0.72rem",
-            color: "#B09080",
+            fontSize: "12px",
+            color: "#B08090",
             cursor: "pointer",
             fontFamily: "'DM Sans', sans-serif",
             transition: "color 0.2s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#C4788A")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#B09080")}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#C4728E")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#B08090")}
         >
           Lihat semua notifikasi →
         </button>

@@ -1,3 +1,4 @@
+// components/admin-dashboard/StatCardGrid.tsx
 import { STAT_CARDS } from "@/constants/data";
 
 export default function StatCardGrid() {
@@ -18,19 +19,19 @@ export default function StatCardGrid() {
               position: "absolute",
               top: 0, left: 0, right: 0,
               height: "3px",
-              borderRadius: "12px 12px 0 0",
+              borderRadius: "10px 10px 0 0",
               background: card.accent,
             }}
           />
 
-          {/* Icon + badge */}
+          {/* Icon + badge perubahan */}
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
-              marginBottom: "16px",
-              marginTop: "4px",
+              marginBottom: "14px",
+              marginTop: "6px",
             }}
           >
             <div
@@ -42,22 +43,22 @@ export default function StatCardGrid() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "1.3rem",
+                fontSize: "1.2rem",
               }}
             >
               {card.icon}
             </div>
             <span
               style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "0.68rem",
-                fontWeight: 700,
-                color: card.positive ? "#5A9E7A" : "#C05060",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "12px",
+                fontWeight: 600,
+                color: card.positive ? "#1A7A4A" : "#D94060",
                 background: card.positive
-                  ? "rgba(90,158,122,0.1)"
-                  : "rgba(192,80,96,0.1)",
+                  ? "rgba(42,140,90,0.1)"
+                  : "rgba(217,64,96,0.1)",
                 padding: "3px 8px",
-                borderRadius: "6px",
+                borderRadius: "20px",
               }}
             >
               {card.positive ? "▲" : "▼"} {card.change}
@@ -70,7 +71,7 @@ export default function StatCardGrid() {
               fontFamily: "'Playfair Display', Georgia, serif",
               fontSize: "1.8rem",
               fontWeight: 700,
-              color: "#2C1A0E",
+              color: "#3A1A28",
               lineHeight: 1,
               marginBottom: "6px",
             }}
@@ -79,7 +80,7 @@ export default function StatCardGrid() {
           </div>
 
           {/* Label */}
-          <div style={{ fontSize: "0.75rem", color: "#7A5C50", lineHeight: 1.4 }}>
+          <div style={{ fontSize: "13px", color: "#B08090", lineHeight: 1.4, fontFamily: "'DM Sans', sans-serif" }}>
             {card.label}
           </div>
         </div>

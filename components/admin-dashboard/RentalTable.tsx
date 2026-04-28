@@ -1,3 +1,4 @@
+// components/admin-dashboard/RentalTable.tsx
 import Badge from "@/components/ui/Badge";
 import { RECENT_RENTALS } from "@/constants/data";
 import { formatRupiah, getRentalStyle } from "@/lib/utils";
@@ -12,8 +13,8 @@ export default function RentalTable() {
       <div
         style={{
           padding: "18px 20px 14px",
-          borderBottom: "1px solid #F0E0E6",
-          background: "white",
+          borderBottom: "1px solid #F0D9E0",
+          background: "#FDF8F5",
         }}
       >
         <h3
@@ -21,27 +22,26 @@ export default function RentalTable() {
             fontFamily: "'Playfair Display', serif",
             fontSize: "1rem",
             fontWeight: 700,
-            color: "#2C1A0E",
+            color: "#3A1A28",
           }}
         >
           Sewa Baju Aktif
         </h3>
-        <p style={{ fontSize: "0.68rem", color: "#B09080", marginTop: "2px" }}>
+        <p style={{ fontSize: "12px", color: "#B08090", marginTop: "2px" }}>
           Transaksi persewaan terkini
         </p>
       </div>
 
-      {/* Column headers */}
+      {/* Header kolom */}
       <div
         className="table-row"
         style={{
           gridTemplateColumns: COL,
-          color: "#B09080",
-          fontSize: "0.65rem",
-          letterSpacing: "0.1em",
+          background: "#FDF8F5",
+          fontSize: "12px",
+          color: "#B08090",
+          letterSpacing: "0.06em",
           textTransform: "uppercase" as const,
-          fontFamily: "'DM Mono', monospace",
-          background: "#FDFAF7",
           fontWeight: 600,
         }}
       >
@@ -66,39 +66,26 @@ export default function RentalTable() {
             <span
               style={{
                 fontFamily: "'DM Mono', monospace",
-                fontSize: "0.68rem",
-                color: "#B09080",
+                fontSize: "12px",
+                color: "#B08090",
               }}
             >
               {r.id}
             </span>
-            <span
-              style={{
-                fontSize: "0.82rem",
-                fontWeight: 500,
-                color: "#2C1A0E",
-              }}
-            >
+            <span style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28" }}>
               {r.customer}
             </span>
-            <span style={{ fontSize: "0.75rem", color: "#7A5C50" }}>
+            <span style={{ fontSize: "13px", color: "#8A4060" }}>
               {r.item}
             </span>
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "0.68rem",
-                color: "#7A5C50",
-              }}
-            >
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>
               {r.rentDate}
             </span>
-            {/* Tanggal kembali merah jika terlambat */}
             <span
               style={{
                 fontFamily: "'DM Mono', monospace",
-                fontSize: "0.68rem",
-                color: r.status === "terlambat" ? "#C05060" : "#7A5C50",
+                fontSize: "12px",
+                color: r.status === "terlambat" ? "#D94060" : "#8A4060",
                 fontWeight: r.status === "terlambat" ? 700 : 400,
               }}
             >
@@ -108,8 +95,8 @@ export default function RentalTable() {
             <span
               style={{
                 fontFamily: "'DM Mono', monospace",
-                fontSize: "0.72rem",
-                color: "#C4788A",
+                fontSize: "13px",
+                color: "#C9922A",
                 fontWeight: 600,
               }}
             >
