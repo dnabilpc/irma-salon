@@ -2,81 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
+import { createBooking, getSalonServices } from "@/actions/booking";
+import type { SalonService } from "@/actions/booking";
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface BookingService {
-  id: number;
-  name: string;
-  price: number;
-  priceLabel: string;
-  duration: string;
-  icon: string;
-  desc: string;
-}
 
 interface BookingForm {
   serviceId: number | null;
   date: string;
   time: string;
-  name: string;
-  phone: string;
   notes: string;
 }
 
-// ── Data ───────────────────────────────────────────────────────────────────
+interface SlotData {
+  available: string[];
+  booked: string[];
+  closed: boolean;
+  message?: string;
+}
 
-const BOOKABLE_SERVICES: BookingService[] = [
-  {
-    id: 1,
-    name: "Hair Treatment",
-    price: 85000,
-    priceLabel: "Mulai Rp 85.000",
-    duration: "60 menit",
-    icon: "✂️",
-    desc: "Perawatan rambut profesional dengan produk premium",
-  },
-  {
-    id: 2,
-    name: "Makeup & Rias",
-    price: 150000,
-    priceLabel: "Mulai Rp 150.000",
-    duration: "90 menit",
-    icon: "💄",
-    desc: "Rias wajah untuk berbagai acara spesial kamu",
-  },
-  {
-    id: 3,
-    name: "Nail Care",
-    price: 60000,
-    priceLabel: "Mulai Rp 60.000",
-    duration: "45 menit",
-    icon: "💅",
-    desc: "Perawatan kuku manicure & pedicure terlengkap",
-  },
-  {
-    id: 4,
-    name: "Facial & Skincare",
-    price: 120000,
-    priceLabel: "Mulai Rp 120.000",
-    duration: "75 menit",
-    icon: "🌸",
-    desc: "Perawatan kulit wajah dengan teknologi terkini",
-  },
-];
-
-const TIME_SLOTS = [
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-];
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 function formatRupiah(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -90,85 +37,41 @@ function getTodayString() {
   return new Date().toISOString().split("T")[0];
 }
 
-// ── Step indicator ─────────────────────────────────────────────────────────
+// ── Step Indicator ─────────────────────────────────────────────────────────
 
-const STEPS = ["Layanan", "Jadwal", "Data Diri", "Konfirmasi"];
+const STEPS = ["Layanan", "Jadwal", "Catatan", "Konfirmasi"];
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: "40px",
-        gap: 0,
-      }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "40px" }}>
       {STEPS.map((label, i) => {
-        const done = i < current;
+        const done   = i < current;
         const active = i === current;
         const isLast = i === STEPS.length - 1;
-
         return (
           <div key={i} style={{ display: "flex", alignItems: "center" }}>
-            {/* Circle */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "6px",
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+              <div style={{
+                width: "36px", height: "36px", borderRadius: "50%",
+                background: done ? "#6B3A2A" : active ? "#C9922A" : "transparent",
+                border: `2px solid ${done ? "#6B3A2A" : active ? "#C9922A" : "#EDD8CC"}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: done || active ? "white" : "#C4A882",
+                fontSize: done ? "0.75rem" : "0.8rem", fontWeight: 600,
+                transition: "all 0.3s", fontFamily: "'DM Sans', sans-serif",
               }}>
-              <div
-                style={{
-                  width: "36px",
-                  height: "36px",
-                  borderRadius: "50%",
-                  background: done
-                    ? "#6B3A2A"
-                    : active
-                      ? "#C9922A"
-                      : "transparent",
-                  border: done
-                    ? "2px solid #6B3A2A"
-                    : active
-                      ? "2px solid #C9922A"
-                      : "2px solid #EDD8CC",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: done || active ? "white" : "#C4A882",
-                  fontSize: done ? "0.75rem" : "0.8rem",
-                  fontWeight: 600,
-                  transition: "all 0.3s",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}>
                 {done ? "✓" : i + 1}
               </div>
-              <span
-                style={{
-                  fontSize: "0.68rem",
-                  fontFamily: "'DM Sans', sans-serif",
-                  color: active ? "#6B3A2A" : done ? "#C9922A" : "#C4A882",
-                  fontWeight: active ? 600 : 400,
-                  letterSpacing: "0.05em",
-                  whiteSpace: "nowrap",
-                }}>
+              <span style={{
+                fontSize: "0.68rem", fontFamily: "'DM Sans', sans-serif",
+                color: active ? "#6B3A2A" : done ? "#C9922A" : "#C4A882",
+                fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
+              }}>
                 {label}
               </span>
             </div>
-
-            {/* Connector line */}
             {!isLast && (
-              <div
-                style={{
-                  width: "60px",
-                  height: "2px",
-                  background: done ? "#6B3A2A" : "#EDD8CC",
-                  marginBottom: "22px",
-                  transition: "background 0.3s",
-                }}
-              />
+              <div style={{ width: "60px", height: "2px", background: done ? "#6B3A2A" : "#EDD8CC", marginBottom: "22px", transition: "background 0.3s" }} />
             )}
           </div>
         );
@@ -180,41 +83,40 @@ function StepIndicator({ current }: { current: number }) {
 // ── Step 1: Pilih Layanan ──────────────────────────────────────────────────
 
 function Step1({
-  selectedId,
-  onSelect,
+  selectedId, onSelect, services, loading,
 }: {
   selectedId: number | null;
   onSelect: (id: number) => void;
+  services: SalonService[];
+  loading: boolean;
 }) {
+  const ICONS: Record<string, string> = {
+    "Hair Treatment": "✂️",
+    "Makeup & Rias":  "💄",
+    "Nail Care":      "💅",
+    "Facial & Skincare": "🌸",
+    "Rebonding":      "💫",
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: "40px", textAlign: "center", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>
+        Memuat layanan...
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h2
-        style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: "1.4rem",
-          fontWeight: 700,
-          color: "#2C1A0E",
-          marginBottom: "6px",
-        }}>
+      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>
         Pilih Layanan
       </h2>
-      <p
-        style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: "0.85rem",
-          color: "#8B6A5A",
-          marginBottom: "24px",
-        }}>
+      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "24px" }}>
         Pilih layanan yang ingin kamu booking
       </p>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "12px",
-        }}>
-        {BOOKABLE_SERVICES.map((svc) => {
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+        {services.map((svc) => {
           const selected = selectedId === svc.id;
           return (
             <button
@@ -223,80 +125,29 @@ function Step1({
               style={{
                 background: selected ? "#FDF0E6" : "white",
                 border: `2px solid ${selected ? "#C9922A" : "#EDD8CC"}`,
-                padding: "20px",
-                textAlign: "left" as const,
-                cursor: "pointer",
-                borderRadius: "4px",
-                transition: "all 0.2s",
-                position: "relative",
-              }}>
-              {/* Selected checkmark */}
+                padding: "18px", textAlign: "left", cursor: "pointer",
+                borderRadius: "8px", transition: "all 0.2s", position: "relative",
+              }}
+              onMouseEnter={(e) => { if (!selected) e.currentTarget.style.borderColor = "#C9922A"; }}
+              onMouseLeave={(e) => { if (!selected) e.currentTarget.style.borderColor = "#EDD8CC"; }}
+            >
               {selected && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "12px",
-                    right: "12px",
-                    width: "20px",
-                    height: "20px",
-                    borderRadius: "50%",
-                    background: "#C9922A",
-                    color: "white",
-                    fontSize: "0.65rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 700,
-                  }}>
+                <div style={{ position: "absolute", top: "10px", right: "10px", width: "20px", height: "20px", borderRadius: "50%", background: "#C9922A", color: "white", fontSize: "0.65rem", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                   ✓
                 </div>
               )}
-
-              <div style={{ fontSize: "1.8rem", marginBottom: "10px" }}>
-                {svc.icon}
+              <div style={{ fontSize: "1.6rem", marginBottom: "8px" }}>
+                {ICONS[svc.service_name] ?? "✨"}
               </div>
-              <div
-                style={{
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: "0.95rem",
-                  fontWeight: 700,
-                  color: "#2C1A0E",
-                  marginBottom: "4px",
-                }}>
-                {svc.name}
+              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "0.9rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "10px" }}>
+                {svc.service_name}
               </div>
-              <div
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: "0.75rem",
-                  color: "#8B6A5A",
-                  lineHeight: 1.5,
-                  marginBottom: "12px",
-                }}>
-                {svc.desc}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}>
-                <span
-                  style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                    color: "#6B3A2A",
-                  }}>
-                  {svc.priceLabel}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "10px", borderTop: "1px solid #EDD8CC" }}>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "#6B3A2A" }}>
+                  {formatRupiah(svc.price)}
                 </span>
-                <span
-                  style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: "0.7rem",
-                    color: "#8B6A5A",
-                  }}>
-                  ⏱ {svc.duration}
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#8B6A5A" }}>
+                  ⏱ {svc.hour_duration} jam
                 </span>
               </div>
             </button>
@@ -307,242 +158,183 @@ function Step1({
   );
 }
 
-// ── Step 2: Pilih Tanggal & Waktu ─────────────────────────────────────────
+// ── Step 2: Pilih Jadwal ───────────────────────────────────────────────────
 
 function Step2({
-  date,
-  time,
-  onDateChange,
-  onTimeChange,
+  date, time, onDateChange, onTimeChange, slotData, slotLoading,
 }: {
   date: string;
   time: string;
   onDateChange: (d: string) => void;
   onTimeChange: (t: string) => void;
+  slotData: SlotData | null;
+  slotLoading: boolean;
 }) {
   return (
     <div>
-      <h2
-        style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: "1.4rem",
-          fontWeight: 700,
-          color: "#2C1A0E",
-          marginBottom: "6px",
-        }}>
+      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>
         Pilih Jadwal
       </h2>
-      <p
-        style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: "0.85rem",
-          color: "#8B6A5A",
-          marginBottom: "24px",
-        }}>
+      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "24px" }}>
         Pilih tanggal dan jam kunjungan kamu
       </p>
 
-      {/* Pilih tanggal */}
-      <div style={{ marginBottom: "28px" }}>
-        <label
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.75rem",
-            fontWeight: 600,
-            color: "#6B3A2A",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase" as const,
-            display: "block",
-            marginBottom: "8px",
-          }}>
+      {/* Tanggal */}
+      <div style={{ marginBottom: "24px" }}>
+        <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
           Tanggal
         </label>
         <input
           type="date"
           value={date}
           min={getTodayString()}
-          onChange={(e) => onDateChange(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "12px 16px",
-            border: "1px solid #EDD8CC",
-            borderRadius: "4px",
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.9rem",
-            color: "#2C1A0E",
-            background: "#FDFAF7",
-            outline: "none",
-            cursor: "pointer",
-          }}
+          onChange={(e) => { onDateChange(e.target.value); onTimeChange(""); }}
+          style={{ width: "100%", padding: "11px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#2C1A0E", background: "#FDFAF7", outline: "none" }}
           onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
           onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
         />
       </div>
 
-      {/* Pilih jam */}
+      {/* Slot jam */}
       <div>
-        <label
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.75rem",
-            fontWeight: 600,
-            color: "#6B3A2A",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase" as const,
-            display: "block",
-            marginBottom: "8px",
-          }}>
-          Jam (09.00 – 18.00)
+        <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
+          Jam Tersedia
         </label>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "8px",
-          }}>
-          {TIME_SLOTS.map((slot) => {
-            const selected = time === slot;
-            return (
-              <button
-                key={slot}
-                onClick={() => onTimeChange(slot)}
-                style={{
-                  padding: "12px",
-                  border: `2px solid ${selected ? "#C9922A" : "#EDD8CC"}`,
-                  background: selected ? "#FDF0E6" : "white",
-                  borderRadius: "4px",
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: "0.85rem",
-                  fontWeight: selected ? 600 : 400,
-                  color: selected ? "#6B3A2A" : "#8B6A5A",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}>
-                {slot}
-              </button>
-            );
-          })}
-        </div>
+
+        {slotLoading && (
+          <div style={{ padding: "20px", textAlign: "center", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
+            Memuat slot waktu...
+          </div>
+        )}
+
+        {!slotLoading && !date && (
+          <div style={{ padding: "20px", background: "#FDFAF7", border: "1px dashed #EDD8CC", borderRadius: "8px", textAlign: "center", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
+            Pilih tanggal terlebih dahulu
+          </div>
+        )}
+
+        {!slotLoading && slotData?.closed && (
+          <div style={{ padding: "16px", background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", textAlign: "center", color: "#C05060", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
+            🚫 {slotData.message ?? "Salon tidak beroperasi pada tanggal ini"}
+          </div>
+        )}
+
+        {!slotLoading && date && slotData && !slotData.closed && (
+          <>
+            {slotData.available.length === 0 ? (
+              <div style={{ padding: "16px", background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", textAlign: "center", color: "#C05060", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
+                Semua slot sudah penuh untuk tanggal ini
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                {slotData.available.map((slot) => (
+                  <button
+                    key={slot}
+                    onClick={() => onTimeChange(slot)}
+                    style={{
+                      padding: "10px 6px",
+                      border: `2px solid ${time === slot ? "#C9922A" : "#EDD8CC"}`,
+                      background: time === slot ? "#FDF0E6" : "white",
+                      borderRadius: "8px",
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: "0.8rem",
+                      fontWeight: time === slot ? 600 : 400,
+                      color: time === slot ? "#6B3A2A" : "#2C1A0E",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {slot}
+                  </button>
+                ))}
+                {slotData.booked.map((slot) => (
+                  <button
+                    key={`booked-${slot}`}
+                    disabled
+                    style={{ padding: "10px 6px", border: "1px solid #EDD8CC", background: "#F5F0EB", borderRadius: "8px", fontFamily: "'DM Mono', monospace", fontSize: "0.8rem", color: "#C4A882", cursor: "not-allowed", textDecoration: "line-through" }}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#B09080", marginTop: "8px" }}>
+              ✦ Slot yang dicoret sudah dipesan
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-// ── Step 3: Data Diri ──────────────────────────────────────────────────────
+// ── Step 3: Catatan Tambahan ───────────────────────────────────────────────
 
 function Step3({
-  name,
-  phone,
-  notes,
-  onChange,
+  notes, onChange, userName, userEmail,
 }: {
-  name: string;
-  phone: string;
   notes: string;
-  onChange: (field: "name" | "phone" | "notes", value: string) => void;
+  onChange: (notes: string) => void;
+  userName: string;
+  userEmail: string;
 }) {
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 16px",
-    border: "1px solid #EDD8CC",
-    borderRadius: "4px",
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: "0.9rem",
-    color: "#2C1A0E",
-    background: "#FDFAF7",
-    outline: "none",
-    transition: "border-color 0.2s",
-  };
-
-  const labelStyle = {
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    color: "#6B3A2A",
-    letterSpacing: "0.08em",
-    textTransform: "uppercase" as const,
-    display: "block",
-    marginBottom: "8px",
-  };
-
   return (
     <div>
-      <h2
-        style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: "1.4rem",
-          fontWeight: 700,
-          color: "#2C1A0E",
-          marginBottom: "6px",
-        }}>
-        Data Diri
+      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>
+        Catatan Tambahan
       </h2>
-      <p
-        style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: "0.85rem",
-          color: "#8B6A5A",
-          marginBottom: "24px",
-        }}>
-        Isi data diri kamu untuk konfirmasi booking
+      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "24px" }}>
+        Booking akan tercatat atas nama akunmu
       </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-        {/* Nama */}
-        <div>
-          <label style={labelStyle}>Nama Lengkap</label>
-          <input
-            type="text"
-            value={name}
-            placeholder="Nama lengkap kamu"
-            onChange={(e) => onChange("name", e.target.value)}
-            style={inputStyle}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
-          />
+      {/* Info akun */}
+      <div style={{ background: "rgba(201,146,42,0.06)", border: "1px solid rgba(201,146,42,0.2)", borderRadius: "8px", padding: "14px 16px", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ width: "38px", height: "38px", borderRadius: "50%", background: "linear-gradient(135deg, #6B3A2A, #C9922A)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "0.85rem", fontWeight: 700, flexShrink: 0 }}>
+          {userName.slice(0, 1).toUpperCase()}
         </div>
-
-        {/* No. WhatsApp */}
         <div>
-          <label style={labelStyle}>Nomor WhatsApp</label>
-          <input
-            type="tel"
-            value={phone}
-            placeholder="08xxxxxxxxxx"
-            onChange={(e) => onChange("phone", e.target.value)}
-            style={inputStyle}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
-          />
-          <p
-            style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.72rem",
-              color: "#8B6A5A",
-              marginTop: "4px",
-            }}>
-            Konfirmasi booking akan dikirim via WhatsApp
-          </p>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#2C1A0E" }}>
+            {userName}
+          </div>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#8B6A5A" }}>
+            {userEmail}
+          </div>
         </div>
-
-        {/* Catatan */}
-        <div>
-          <label style={labelStyle}>Catatan (opsional)</label>
-          <textarea
-            value={notes}
-            placeholder="Ada permintaan khusus? Tulis di sini..."
-            rows={3}
-            onChange={(e) => onChange("notes", e.target.value)}
-            style={{
-              ...inputStyle,
-              resize: "vertical" as const,
-              lineHeight: 1.6,
-            }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
-          />
+        <div style={{ marginLeft: "auto", fontSize: "0.68rem", color: "#C9922A", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+          ✓ Terverifikasi
         </div>
       </div>
+
+      {/* Catatan */}
+      <div>
+        <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
+          Catatan untuk Salon <span style={{ color: "#8B6A5A", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(opsional)</span>
+        </label>
+        <textarea
+          value={notes}
+          placeholder="Contoh: ada alergi tertentu, request khusus, dll..."
+          rows={4}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ width: "100%", padding: "11px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", background: "#FDFAF7", outline: "none", resize: "vertical", lineHeight: 1.6, transition: "border-color 0.2s" }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
+          onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── ConfirmRow (di luar Step4) ─────────────────────────────────────────────
+
+function ConfirmRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid #EDD8CC" }}>
+      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: accent ? "#6B3A2A" : "#2C1A0E", fontWeight: accent ? 700 : 500, textAlign: "right", maxWidth: "65%" }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -550,193 +342,78 @@ function Step3({
 // ── Step 4: Konfirmasi ─────────────────────────────────────────────────────
 
 function Step4({
-  form,
-  submitting,
-  onSubmit,
+  form, submitting, onSubmit, services, error, userName, userPhone,
 }: {
   form: BookingForm;
   submitting: boolean;
   onSubmit: () => void;
+  services: SalonService[];
+  error: string;
+  userName: string;
+  userPhone: string;
 }) {
-  const service = BOOKABLE_SERVICES.find((s) => s.id === form.serviceId);
-
-  const rowStyle = {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    padding: "14px 0",
-    borderBottom: "1px solid #EDD8CC",
-  };
-
-  const labelStyle = {
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    color: "#8B6A5A",
-    letterSpacing: "0.06em",
-    textTransform: "uppercase" as const,
-  };
-
-  const valueStyle = {
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: "0.9rem",
-    color: "#2C1A0E",
-    fontWeight: 500,
-    textAlign: "right" as const,
-  };
+  const service = services.find((s) => s.id === form.serviceId);
 
   return (
     <div>
-      <h2
-        style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: "1.4rem",
-          fontWeight: 700,
-          color: "#2C1A0E",
-          marginBottom: "6px",
-        }}>
+      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>
         Konfirmasi Booking
       </h2>
-      <p
-        style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: "0.85rem",
-          color: "#8B6A5A",
-          marginBottom: "24px",
-        }}>
+      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "24px" }}>
         Periksa kembali detail booking kamu
       </p>
 
-      {/* Detail booking */}
-      <div
-        style={{
-          background: "#FDFAF7",
-          border: "1px solid #EDD8CC",
-          borderRadius: "4px",
-          padding: "0 20px",
-          marginBottom: "24px",
-        }}>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Layanan</span>
-          <span style={valueStyle}>
-            {service?.icon} {service?.name}
+      {/* Detail */}
+      <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "0 18px", marginBottom: "18px" }}>
+        <ConfirmRow label="Layanan" value={service?.service_name ?? "-"} />
+        <ConfirmRow label="Durasi"  value={`${service?.hour_duration ?? "-"} jam`} />
+        <ConfirmRow
+          label="Tanggal"
+          value={new Date(form.date + "T00:00:00").toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+        />
+        <ConfirmRow label="Jam"   value={`${form.time} WIB`} />
+        <ConfirmRow label="Nama"  value={userName} />
+        {userPhone && <ConfirmRow label="WhatsApp" value={userPhone} />}
+        {form.notes && <ConfirmRow label="Catatan" value={form.notes} />}
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0" }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Pembayaran
+          </span>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#5A9E7A", fontWeight: 600 }}>
+            Bayar di Tempat
           </span>
         </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Durasi</span>
-          <span style={valueStyle}>{service?.duration}</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Tanggal</span>
-          <span style={valueStyle}>
-            {new Date(form.date).toLocaleDateString("id-ID", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Jam</span>
-          <span style={valueStyle}>{form.time} WIB</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Nama</span>
-          <span style={valueStyle}>{form.name}</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>WhatsApp</span>
-          <span style={valueStyle}>{form.phone}</span>
-        </div>
-        {form.notes && (
-          <div style={{ ...rowStyle, borderBottom: "none" }}>
-            <span style={labelStyle}>Catatan</span>
-            <span style={{ ...valueStyle, maxWidth: "60%" }}>{form.notes}</span>
-          </div>
-        )}
-        {!form.notes && (
-          <div style={{ ...rowStyle, borderBottom: "none" }}>
-            <span style={labelStyle}>Pembayaran</span>
-            <span style={{ ...valueStyle, color: "#4CAF82" }}>
-              Bayar di Tempat
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* Total harga */}
-      <div
-        style={{
-          background: "#6B3A2A",
-          padding: "16px 20px",
-          borderRadius: "4px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "24px",
-        }}>
-        <span
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.85rem",
-            color: "rgba(255,255,255,0.7)",
-          }}>
+      {/* Total */}
+      <div style={{ background: "#6B3A2A", padding: "14px 18px", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "rgba(255,255,255,0.7)" }}>
           Estimasi Total
         </span>
-        <span
-          style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: "1.2rem",
-            fontWeight: 700,
-            color: "#F5D49A",
-          }}>
+        <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.2rem", fontWeight: 700, color: "#F5D49A" }}>
           {service ? formatRupiah(service.price) : "-"}
         </span>
       </div>
 
-      {/* Info bayar di tempat */}
-      <div
-        style={{
-          background: "rgba(76,175,130,0.08)",
-          border: "1px solid rgba(76,175,130,0.2)",
-          borderRadius: "4px",
-          padding: "12px 16px",
-          marginBottom: "24px",
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: "0.8rem",
-          color: "#3A9B6A",
-          lineHeight: 1.6,
-        }}>
-        ✓ Pembayaran dilakukan di tempat saat kedatangan. Konfirmasi booking
-        akan dikirim ke WhatsApp kamu.
+      {/* Error */}
+      {error && (
+        <div style={{ background: "rgba(192,80,96,0.07)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", padding: "11px 14px", marginBottom: "14px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#C05060" }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Info */}
+      <div style={{ background: "rgba(90,158,122,0.07)", border: "1px solid rgba(90,158,122,0.2)", borderRadius: "8px", padding: "11px 14px", marginBottom: "18px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "#3A9B6A", lineHeight: 1.6 }}>
+        ✓ Booking akan dikonfirmasi oleh admin. Pembayaran dilakukan di tempat saat kedatangan.
       </div>
 
-      {/* Tombol konfirmasi */}
       <button
         onClick={onSubmit}
         disabled={submitting}
-        style={{
-          width: "100%",
-          background: submitting ? "#B8896A" : "#6B3A2A",
-          color: "white",
-          border: "none",
-          padding: "16px",
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: "0.9rem",
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase" as const,
-          cursor: submitting ? "not-allowed" : "pointer",
-          borderRadius: "4px",
-          transition: "all 0.2s",
-        }}
-        onMouseEnter={(e) => {
-          if (!submitting) e.currentTarget.style.background = "#C9922A";
-        }}
-        onMouseLeave={(e) => {
-          if (!submitting) e.currentTarget.style.background = "#6B3A2A";
-        }}>
+        style={{ width: "100%", background: submitting ? "#B8896A" : "#6B3A2A", color: "white", border: "none", padding: "14px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", cursor: submitting ? "not-allowed" : "pointer", borderRadius: "8px", transition: "background 0.2s" }}
+        onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.background = "#C9922A"; }}
+        onMouseLeave={(e) => { if (!submitting) e.currentTarget.style.background = "#6B3A2A"; }}
+      >
         {submitting ? "Memproses..." : "Konfirmasi Booking"}
       </button>
     </div>
@@ -749,187 +426,204 @@ export default function BookingPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
 
-  const [step, setStep] = useState<number>(0);
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [success, setSuccess] = useState<boolean>(false);
+  const [step, setStep]           = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess]     = useState(false);
+  const [bookingId, setBookingId] = useState<number | null>(null);
+  const [error, setError]         = useState("");
+
+  const [services, setServices]           = useState<SalonService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [slotData, setSlotData]           = useState<SlotData | null>(null);
+  const [slotLoading, setSlotLoading]     = useState(false);
 
   const [form, setForm] = useState<BookingForm>({
     serviceId: null,
     date: "",
     time: "",
-    name: session?.user?.name ?? "",
-    phone: "",
     notes: "",
   });
 
-  function updateForm<K extends keyof BookingForm>(
-    key: K,
-    value: BookingForm[K],
-  ) {
+  // Fetch layanan dari DB
+  useEffect(() => {
+    getSalonServices().then((res) => {
+      if (res.success && res.data) setServices(res.data);
+      setServicesLoading(false);
+    });
+  }, []);
+
+  // Fetch slot saat tanggal berubah
+  useEffect(() => {
+    if (!form.date) { setSlotData(null); return; }
+    setSlotLoading(true);
+    fetch(`/api/bookings/slots?date=${form.date}`)
+      .then((r) => r.json())
+      .then((data) => setSlotData({
+        available: data.available ?? [],
+        booked:    data.booked ?? [],
+        closed:    data.closed ?? false,
+        message:   data.message,
+      }))
+      .catch(() => setSlotData(null))
+      .finally(() => setSlotLoading(false));
+  }, [form.date]);
+
+  function updateForm<K extends keyof BookingForm>(key: K, value: BookingForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // Validasi per step
   function canProceed(): boolean {
     if (step === 0) return form.serviceId !== null;
     if (step === 1) return form.date !== "" && form.time !== "";
-    if (step === 2) return form.name.trim() !== "" && form.phone.trim() !== "";
+    if (step === 2) return true; // catatan opsional, selalu bisa lanjut
     return true;
   }
 
   async function handleSubmit() {
+    if (!form.serviceId || !form.date || !form.time) return;
     setSubmitting(true);
-    // TODO: Kirim ke API route POST /api/bookings
-    // Simulasi delay network
-    await new Promise((res) => setTimeout(res, 1500));
-    setSubmitting(false);
-    setSuccess(true);
+    setError("");
+
+    const booking_datetime = `${form.date}T${form.time}:00+07:00`;
+
+    try {
+      const result = await createBooking({
+        booking_datetime,
+        service_ids: [form.serviceId],
+      });
+
+      if (result.success && result.data) {
+        setBookingId(result.data.bookingId);
+        setSuccess(true);
+      } else {
+        setError(result.error ?? "Gagal membuat booking. Silakan coba lagi.");
+      }
+    } catch {
+      setError("Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  // Loading state
+  // ── Loading ──
+
   if (isPending) {
     return (
-      <div
-        style={{
-          minHeight: "60vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "'DM Sans', sans-serif",
-          color: "#8B6A5A",
-        }}>
+      <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif", color: "#8B6A5A" }}>
         Memuat...
       </div>
     );
   }
 
-  // Halaman sukses
-  if (success) {
+  // ── Belum login ──
+
+  if (!session) {
     return (
-      <div
-        style={{
-          minHeight: "70vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "48px 24px",
-          textAlign: "center" as const,
-        }}>
-        <div style={{ fontSize: "3.5rem", marginBottom: "16px" }}>🎉</div>
-        <h1
-          style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: "1.8rem",
-            fontWeight: 700,
-            color: "#2C1A0E",
-            marginBottom: "12px",
-          }}>
-          Booking Berhasil!
+      <div style={{ minHeight: "70vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: "3rem", marginBottom: "16px" }}>🔒</div>
+        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.6rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "12px" }}>
+          Login Diperlukan
         </h1>
-        <p
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.9rem",
-            color: "#8B6A5A",
-            maxWidth: "380px",
-            lineHeight: 1.7,
-            marginBottom: "32px",
-          }}>
-          Booking kamu sudah tercatat. Konfirmasi akan dikirim ke WhatsApp{" "}
-          <strong>{form.phone}</strong> dalam beberapa menit.
+        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", marginBottom: "28px", maxWidth: "360px", lineHeight: 1.7 }}>
+          Kamu perlu memiliki akun untuk melakukan booking layanan salon.
         </p>
-        <button
-          onClick={() => router.push("/")}
-          style={{
-            background: "#6B3A2A",
-            color: "white",
-            border: "none",
-            padding: "13px 32px",
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.875rem",
-            fontWeight: 500,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase" as const,
-            cursor: "pointer",
-            borderRadius: "4px",
-          }}>
-          Kembali ke Beranda
-        </button>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
+          <button
+            onClick={() => router.push("/login?callbackUrl=/booking")}
+            style={{ background: "#6B3A2A", color: "white", border: "none", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
+          >
+            Login
+          </button>
+          <Link href="/register">
+            <button
+              style={{ background: "transparent", color: "#6B3A2A", border: "1.5px solid #6B3A2A", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
+            >
+              Daftar Akun
+            </button>
+          </Link>
+        </div>
       </div>
     );
   }
 
+  // ── Sukses ──
+
+  if (success) {
+    return (
+      <div style={{ minHeight: "70vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: "3.5rem", marginBottom: "16px" }}>🎉</div>
+        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.8rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "12px" }}>
+          Booking Berhasil!
+        </h1>
+        {bookingId && (
+          <div style={{ background: "rgba(201,146,42,0.1)", border: "1px solid rgba(201,146,42,0.3)", borderRadius: "8px", padding: "8px 20px", marginBottom: "14px", fontFamily: "'DM Mono', monospace", fontSize: "0.82rem", color: "#C9922A" }}>
+            ID Booking: #{bookingId}
+          </div>
+        )}
+        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "6px" }}>
+          Booking kamu sudah diterima dan sedang menunggu konfirmasi admin.
+        </p>
+        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "32px" }}>
+          Pembayaran dilakukan di tempat saat kamu datang.
+        </p>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
+          <button
+            onClick={() => router.push("/")}
+            style={{ background: "#6B3A2A", color: "white", border: "none", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
+          >
+            Kembali ke Beranda
+          </button>
+          <button
+            onClick={() => {
+              setSuccess(false);
+              setStep(0);
+              setForm({ serviceId: null, date: "", time: "", notes: "" });
+              setError("");
+            }}
+            style={{ background: "transparent", color: "#6B3A2A", border: "1.5px solid #6B3A2A", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
+          >
+            Booking Lagi
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const userName  = session.user.name ?? "";
+  const userEmail = session.user.email ?? "";
+  const userPhone = (session.user as { phone_number?: string }).phone_number ?? "";
+
+  // ── Form ──
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        paddingTop: "100px",
-        paddingBottom: "80px",
-        background: "#FDF8F3",
-      }}>
-      <div
-        style={{
-          maxWidth: "600px",
-          margin: "0 auto",
-          padding: "0 24px",
-        }}>
+    <div style={{ minHeight: "100vh", paddingTop: "100px", paddingBottom: "80px", background: "#FDF8F3" }}>
+      <div style={{ maxWidth: "600px", margin: "0 auto", padding: "0 24px" }}>
+
         {/* Header */}
-        <div style={{ textAlign: "center" as const, marginBottom: "40px" }}>
-          <div
-            style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.72rem",
-              letterSpacing: "0.22em",
-              color: "#C9922A",
-              textTransform: "uppercase" as const,
-              marginBottom: "8px",
-            }}>
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.22em", color: "#C9922A", textTransform: "uppercase", marginBottom: "8px" }}>
             Booking Online
           </div>
-          <h1
-            style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: "2rem",
-              fontWeight: 700,
-              color: "#2C1A0E",
-              marginBottom: "8px",
-            }}>
+          <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "2rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
             Reservasi Layanan
           </h1>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              justifyContent: "center",
-            }}>
-            <div
-              style={{ width: "40px", height: "1px", background: "#EDD8CC" }}
-            />
-            <span style={{ color: "#C9922A" }}>+</span>
-            <div
-              style={{ width: "40px", height: "1px", background: "#EDD8CC" }}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", justifyContent: "center" }}>
+            <div style={{ width: "40px", height: "1px", background: "#EDD8CC" }} />
+            <span style={{ color: "#C9922A" }}>✦</span>
+            <div style={{ width: "40px", height: "1px", background: "#EDD8CC" }} />
           </div>
         </div>
 
-        {/* Step indicator */}
         <StepIndicator current={step} />
 
         {/* Card */}
-        <div
-          style={{
-            background: "white",
-            border: "1px solid #EDD8CC",
-            borderRadius: "8px",
-            padding: "32px",
-            boxShadow: "0 4px 24px rgba(107,58,42,0.06)",
-          }}>
+        <div style={{ background: "white", border: "1px solid #EDD8CC", borderRadius: "12px", padding: "32px", boxShadow: "0 4px 24px rgba(107,58,42,0.06)" }}>
           {step === 0 && (
             <Step1
               selectedId={form.serviceId}
               onSelect={(id) => updateForm("serviceId", id)}
+              services={services}
+              loading={servicesLoading}
             />
           )}
           {step === 1 && (
@@ -938,14 +632,16 @@ export default function BookingPage() {
               time={form.time}
               onDateChange={(d) => updateForm("date", d)}
               onTimeChange={(t) => updateForm("time", t)}
+              slotData={slotData}
+              slotLoading={slotLoading}
             />
           )}
           {step === 2 && (
             <Step3
-              name={form.name}
-              phone={form.phone}
               notes={form.notes}
-              onChange={(field, value) => updateForm(field, value)}
+              onChange={(notes) => updateForm("notes", notes)}
+              userName={userName}
+              userEmail={userEmail}
             />
           )}
           {step === 3 && (
@@ -953,66 +649,33 @@ export default function BookingPage() {
               form={form}
               submitting={submitting}
               onSubmit={handleSubmit}
+              services={services}
+              error={error}
+              userName={userName}
+              userPhone={userPhone}
             />
           )}
 
-          {/* Navigasi antar step */}
+          {/* Navigasi */}
           {step < 3 && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: step === 0 ? "flex-end" : "space-between",
-                marginTop: "28px",
-                paddingTop: "20px",
-                borderTop: "1px solid #EDD8CC",
-              }}>
+            <div style={{ display: "flex", justifyContent: step === 0 ? "flex-end" : "space-between", marginTop: "28px", paddingTop: "20px", borderTop: "1px solid #EDD8CC" }}>
               {step > 0 && (
                 <button
                   onClick={() => setStep((s) => s - 1)}
-                  style={{
-                    background: "transparent",
-                    border: "1px solid #EDD8CC",
-                    color: "#8B6A5A",
-                    padding: "11px 24px",
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: "0.85rem",
-                    cursor: "pointer",
-                    borderRadius: "4px",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.borderColor = "#C9922A")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.borderColor = "#EDD8CC")
-                  }>
+                  style={{ background: "transparent", border: "1px solid #EDD8CC", color: "#8B6A5A", padding: "10px 22px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", cursor: "pointer", borderRadius: "8px", transition: "border-color 0.2s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
+                >
                   ← Kembali
                 </button>
               )}
               <button
                 onClick={() => setStep((s) => s + 1)}
                 disabled={!canProceed()}
-                style={{
-                  background: canProceed() ? "#6B3A2A" : "#D4C4B8",
-                  color: "white",
-                  border: "none",
-                  padding: "11px 28px",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: "0.85rem",
-                  fontWeight: 500,
-                  letterSpacing: "0.06em",
-                  cursor: canProceed() ? "pointer" : "not-allowed",
-                  borderRadius: "4px",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  if (canProceed())
-                    e.currentTarget.style.background = "#C9922A";
-                }}
-                onMouseLeave={(e) => {
-                  if (canProceed())
-                    e.currentTarget.style.background = "#6B3A2A";
-                }}>
+                style={{ background: canProceed() ? "#6B3A2A" : "#D4C4B8", color: "white", border: "none", padding: "10px 26px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 500, letterSpacing: "0.06em", cursor: canProceed() ? "pointer" : "not-allowed", borderRadius: "8px", transition: "background 0.2s" }}
+                onMouseEnter={(e) => { if (canProceed()) e.currentTarget.style.background = "#C9922A"; }}
+                onMouseLeave={(e) => { if (canProceed()) e.currentTarget.style.background = "#6B3A2A"; }}
+              >
                 Lanjut →
               </button>
             </div>

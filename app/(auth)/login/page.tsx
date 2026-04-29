@@ -3,7 +3,8 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "@/lib/auth-client";
+import { authClient, signIn } from "@/lib/auth-client";
+import { AppUser } from "@/types";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,7 +22,6 @@ export default function LoginPage() {
     const { error: authError } = await signIn.email({
       email,
       password,
-      callbackURL: "/admin/dashboard",
     });
 
     if (authError) {
@@ -30,7 +30,22 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/admin/dashboard");
+    // ambil session
+    const result = await authClient.getSession();
+
+    if (!result.data) {
+      setError("Gagal mengambil session.");
+      setLoading(false);
+      return;
+    }
+
+    const user = result.data.user as unknown as AppUser;
+
+    if (user.role === "ADMIN") {
+      router.push("/admin/dashboard");
+    } else {
+      router.push("/dashboard");
+    }
   }
 
   return (

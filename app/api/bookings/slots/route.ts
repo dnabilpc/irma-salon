@@ -14,28 +14,35 @@ export async function GET(req: NextRequest) {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json(
         { error: "Format tanggal tidak valid (YYYY-MM-DD)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Nama hari sesuai enum day_of_week di DB
     const DAY_NAMES = [
-      "SUNDAY","MONDAY","TUESDAY","WEDNESDAY",
-      "THURSDAY","FRIDAY","SATURDAY",
+      "SUNDAY",
+      "MONDAY",
+      "TUESDAY",
+      "WEDNESDAY",
+      "THURSDAY",
+      "FRIDAY",
+      "SATURDAY",
     ];
     const dayOfWeek = DAY_NAMES[new Date(date).getDay()];
 
     // Cek jam buka salon untuk hari ini
     const openCheck = await db.query(
-      `SELECT open_time, close_time FROM opening_time WHERE day_of_week = $1`,
-      [dayOfWeek]
+      `SELECT ot.open_time AS open_time, ot.close_time AS close_time
+      FROM opening_time ot
+      WHERE ot.day_of_week = $1`,
+      [dayOfWeek],
     );
 
     // Cek apakah ada hari tutup (closing_time) yang mencakup tanggal ini
     const closingCheck = await db.query(
       `SELECT id FROM closing_time
-       WHERE start_date <= $1::date AND end_date >= $1::date`,
-      [date]
+       WHERE start_datetime <= $1::date AND end_datetime >= $1::date`,
+      [date],
     );
 
     // Salon tutup → kembalikan array kosong
@@ -45,26 +52,33 @@ export async function GET(req: NextRequest) {
         available: [],
         booked: [],
         closed: true,
-        message: closingCheck.rows.length > 0
-          ? "Salon tutup pada tanggal ini"
-          : "Salon tidak beroperasi pada hari ini",
+        message:
+          closingCheck.rows.length > 0
+            ? "Salon tutup pada tanggal ini"
+            : "Salon tidak beroperasi pada hari ini",
       });
     }
 
     // Generate semua slot dari jam buka sampai tutup, interval 30 menit
-    const openTime: string  = openCheck.rows[0].open_time;   // e.g. "08:00:00"
-    const closeTime: string = openCheck.rows[0].close_time;  // e.g. "16:00:00"
+    const openTime: string = openCheck.rows[0].open_time; // e.g. "08:00:00"
+    const closeTime: string = openCheck.rows[0].close_time; // e.g. "16:00:00"
 
-    const [openH, openM]   = openTime.split(":").map(Number);
+    const [openH, openM] = openTime.split(":").map(Number);
     const [closeH, closeM] = closeTime.split(":").map(Number);
 
     const ALL_SLOTS: string[] = [];
-    let h = openH, m = openM;
+    let h = openH,
+      m = openM;
 
     while (h < closeH || (h === closeH && m < closeM)) {
-      ALL_SLOTS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+      ALL_SLOTS.push(
+        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+      );
       m += 30;
-      if (m >= 60) { m -= 60; h++; }
+      if (m >= 60) {
+        m -= 60;
+        h++;
+      }
     }
 
     // Ambil slot yang sudah terpakai
@@ -73,7 +87,7 @@ export async function GET(req: NextRequest) {
        FROM bookings
        WHERE DATE(booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
          AND status NOT IN ('DITOLAK', 'CANCELLED')`,
-      [date]
+      [date],
     );
 
     const bookedSet = new Set(booked.rows.map((r: { slot: string }) => r.slot));
@@ -89,6 +103,9 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[GET /api/bookings/slots]", err);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

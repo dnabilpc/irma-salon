@@ -51,12 +51,14 @@ async function getAuthUser(): Promise<AppUser | null> {
 
 // ── GET SERVICES ───────────────────────────────────────────────────────────
 
-export async function getSalonServices(): Promise<ActionResult<SalonService[]>> {
+export async function getSalonServices(): Promise<
+  ActionResult<SalonService[]>
+> {
   try {
     const result = await db.query(
       `SELECT id, service_name, price, hour_duration, image_url
        FROM salon_services
-       ORDER BY service_name`
+       ORDER BY service_name`,
     );
     return { success: true, data: result.rows };
   } catch (err) {
@@ -68,7 +70,7 @@ export async function getSalonServices(): Promise<ActionResult<SalonService[]>> 
 // ── GET AVAILABLE SLOTS ────────────────────────────────────────────────────
 
 export async function getAvailableSlots(
-  date: string
+  date: string,
 ): Promise<ActionResult<{ available: string[]; booked: string[] }>> {
   try {
     // Semua slot 08:00–16:30, tiap 30 menit
@@ -79,19 +81,27 @@ export async function getAvailableSlots(
     }
 
     // Cek apakah salon buka pada hari tersebut
-    const dayNames = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+    const dayNames = [
+      "SUNDAY",
+      "MONDAY",
+      "TUESDAY",
+      "WEDNESDAY",
+      "THURSDAY",
+      "FRIDAY",
+      "SATURDAY",
+    ];
     const dayOfWeek = dayNames[new Date(date).getDay()];
 
     const openCheck = await db.query(
       `SELECT open_time, close_time FROM opening_time WHERE day_of_week = $1`,
-      [dayOfWeek]
+      [dayOfWeek],
     );
 
     // Cek apakah ada closing_time (hari libur) yang mencakup tanggal ini
     const closingCheck = await db.query(
       `SELECT id FROM closing_time
        WHERE start_date <= $1 AND end_date >= $1`,
-      [date]
+      [date],
     );
 
     if (!openCheck.rows.length || closingCheck.rows.length > 0) {
@@ -104,7 +114,7 @@ export async function getAvailableSlots(
        FROM bookings
        WHERE DATE(booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
          AND status NOT IN ('DITOLAK', 'CANCELLED')`,
-      [date]
+      [date],
     );
 
     const bookedSet = new Set(booked.rows.map((r: { slot: string }) => r.slot));
@@ -123,11 +133,12 @@ export async function getAvailableSlots(
 // ── CREATE BOOKING (Customer) ──────────────────────────────────────────────
 
 export async function createBooking(
-  input: CreateBookingInput
+  input: CreateBookingInput,
 ): Promise<ActionResult<{ bookingId: number }>> {
   try {
     const user = await getAuthUser();
-    if (!user) return { success: false, error: "Silakan login terlebih dahulu." };
+    if (!user)
+      return { success: false, error: "Silakan login terlebih dahulu." };
 
     const { booking_datetime, service_ids } = input;
 
@@ -137,7 +148,10 @@ export async function createBooking(
 
     // Tidak boleh booking di masa lalu
     if (new Date(booking_datetime) < new Date()) {
-      return { success: false, error: "Tanggal booking tidak boleh di masa lalu." };
+      return {
+        success: false,
+        error: "Tanggal booking tidak boleh di masa lalu.",
+      };
     }
 
     // Cek konflik slot (±30 menit)
@@ -146,17 +160,20 @@ export async function createBooking(
        WHERE status NOT IN ('DITOLAK', 'CANCELLED')
          AND booking_datetime BETWEEN $1::timestamptz - INTERVAL '30 minutes'
                                   AND $1::timestamptz + INTERVAL '30 minutes'`,
-      [booking_datetime]
+      [booking_datetime],
     );
     if (conflict.rows.length > 0) {
-      return { success: false, error: "Slot waktu ini sudah terisi. Silakan pilih waktu lain." };
+      return {
+        success: false,
+        error: "Slot waktu ini sudah terisi. Silakan pilih waktu lain.",
+      };
     }
 
     // Ambil data layanan
     const serviceRows = await db.query(
       `SELECT id, service_name, price, hour_duration
        FROM salon_services WHERE id = ANY($1)`,
-      [service_ids]
+      [service_ids],
     );
     if (serviceRows.rows.length !== service_ids.length) {
       return { success: false, error: "Salah satu layanan tidak ditemukan." };
@@ -164,7 +181,7 @@ export async function createBooking(
 
     const subtotal = serviceRows.rows.reduce(
       (sum: number, s: { price: string }) => sum + parseFloat(s.price),
-      0
+      0,
     );
 
     // Transaksi DB
@@ -176,7 +193,7 @@ export async function createBooking(
         `INSERT INTO bookings (user_id, booking_datetime, status)
          VALUES ($1, $2, 'PENDING')
          RETURNING id`,
-        [user.id, booking_datetime]
+        [user.id, booking_datetime],
       );
       const bookingId: number = bookingResult.rows[0].id;
 
@@ -185,7 +202,7 @@ export async function createBooking(
           `INSERT INTO booking_details
              (booking_id, salon_service_id, price_at_booking, duration_at_booking)
            VALUES ($1, $2, $3, $4)`,
-          [bookingId, svc.id, svc.price, svc.hour_duration]
+          [bookingId, svc.id, svc.price, svc.hour_duration],
         );
       }
 
@@ -193,7 +210,7 @@ export async function createBooking(
         `INSERT INTO transactions
            (user_id, booking_id, subtotal, total_amount, payment_method)
          VALUES ($1, $2, $3, $3, 'cash')`,
-        [user.id, bookingId, subtotal]
+        [user.id, bookingId, subtotal],
       );
 
       await client.query("COMMIT");
@@ -218,7 +235,8 @@ export async function createBooking(
 
 export async function updateBookingStatus(
   bookingId: number,
-  status: BookingStatusDB
+  status: BookingStatusDB,
+  reason?: string,
 ): Promise<ActionResult> {
   try {
     const user = await getAuthUser();
@@ -226,15 +244,33 @@ export async function updateBookingStatus(
       return { success: false, error: "Akses ditolak." };
     }
 
-    const valid: BookingStatusDB[] = ["PENDING", "DITERIMA", "DITOLAK", "CANCELLED"];
+    const valid: BookingStatusDB[] = [
+      "PENDING",
+      "DITERIMA",
+      "DITOLAK",
+      "CANCELLED",
+    ];
     if (!valid.includes(status)) {
       return { success: false, error: "Status tidak valid." };
     }
 
-    const result = await db.query(
-      `UPDATE bookings SET status = $1 WHERE id = $2 RETURNING id`,
-      [status, bookingId]
-    );
+    let query: string;
+    let params: (string | number)[];
+
+    if (status === "DITOLAK") {
+      if (!reason)
+        return {
+          success: false,
+          error: "Alasan penolakan tidak boleh kosong.",
+        };
+      query = `UPDATE bookings SET status = $1, rejection_reason = $2 WHERE id = $3 RETURNING id`;
+      params = [status, reason, bookingId];
+    } else {
+      query = `UPDATE bookings SET status = $1, rejection_reason = NULL WHERE id = $2 RETURNING id`;
+      params = [status, bookingId];
+    }
+
+    const result = await db.query(query, params);
     if (!result.rows.length) {
       return { success: false, error: "Booking tidak ditemukan." };
     }
@@ -256,19 +292,21 @@ export async function cancelBooking(bookingId: number): Promise<ActionResult> {
 
     const check = await db.query(
       `SELECT id, status FROM bookings WHERE id = $1 AND user_id = $2`,
-      [bookingId, user.id]
+      [bookingId, user.id],
     );
     if (!check.rows.length) {
       return { success: false, error: "Booking tidak ditemukan." };
     }
     if (check.rows[0].status !== "PENDING") {
-      return { success: false, error: "Hanya booking berstatus PENDING yang dapat dibatalkan." };
+      return {
+        success: false,
+        error: "Hanya booking berstatus PENDING yang dapat dibatalkan.",
+      };
     }
 
-    await db.query(
-      `UPDATE bookings SET status = 'CANCELLED' WHERE id = $1`,
-      [bookingId]
-    );
+    await db.query(`UPDATE bookings SET status = 'CANCELLED' WHERE id = $1`, [
+      bookingId,
+    ]);
 
     revalidatePath("/bookings");
     return { success: true };
@@ -292,8 +330,8 @@ export async function getBookingsForAdmin(filters?: {
       return { success: false, error: "Akses ditolak." };
     }
 
-    const page   = filters?.page  ?? 1;
-    const limit  = filters?.limit ?? 20;
+    const page = filters?.page ?? 1;
+    const limit = filters?.limit ?? 20;
     const offset = (page - 1) * limit;
 
     const conditions: string[] = [];
@@ -314,7 +352,7 @@ export async function getBookingsForAdmin(filters?: {
       `SELECT COUNT(*) FROM bookings b
        JOIN "user" u ON b.user_id = u.id
        ${where}`,
-      params
+      params,
     );
     const total = parseInt(countResult.rows[0].count, 10);
 
@@ -339,7 +377,7 @@ export async function getBookingsForAdmin(filters?: {
                 t.total_amount, t.payment_method, t.id
        ORDER BY b.booking_datetime DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-      [...params, limit, offset]
+      [...params, limit, offset],
     );
 
     return { success: true, data: { rows: result.rows, total } };
@@ -351,7 +389,9 @@ export async function getBookingsForAdmin(filters?: {
 
 // ── GET BOOKINGS FOR CUSTOMER ──────────────────────────────────────────────
 
-export async function getBookingsForCustomer(): Promise<ActionResult<BookingRow[]>> {
+export async function getBookingsForCustomer(): Promise<
+  ActionResult<BookingRow[]>
+> {
   try {
     const user = await getAuthUser();
     if (!user) return { success: false, error: "Silakan login." };
@@ -373,7 +413,7 @@ export async function getBookingsForCustomer(): Promise<ActionResult<BookingRow[
        GROUP BY b.id, b.booking_datetime, b.status,
                 t.total_amount, t.payment_method, t.id
        ORDER BY b.booking_datetime DESC`,
-      [user.id]
+      [user.id],
     );
 
     return { success: true, data: result.rows };

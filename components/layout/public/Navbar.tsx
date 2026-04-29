@@ -1,14 +1,22 @@
 // components/layout/public/Navbar.tsx
 // Navbar halaman publik — transparan saat di atas, solid saat di-scroll
-// Client Component karena ada scroll effect dengan useEffect
+// Auth-aware: tampilan berbeda saat sudah login / belum login
 "use client";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession, signOut } from "@/lib/auth-client";
 import { NAV_ITEMS } from "@/constants/data";
+import type { NavLink } from "@/types";
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState<boolean>(false);
+  const router   = useRouter();
+  const { data: session, isPending } = useSession();
+
+  const [scrolled,    setScrolled]    = useState<boolean>(false);
+  const [loggingOut,  setLoggingOut]  = useState<boolean>(false);
+  const [showDropdown, setShowDropdown] = useState<boolean>(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -16,13 +24,34 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Tutup dropdown saat klik di luar
+  useEffect(() => {
+    const handleClickOutside = () => setShowDropdown(false);
+    if (showDropdown) document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [showDropdown]);
+
+  async function handleSignOut() {
+    setLoggingOut(true);
+    await signOut({
+      fetchOptions: {
+        onSuccess: () => router.push("/"),
+        onError:   () => setLoggingOut(false),
+      },
+    });
+  }
+
+  const user      = session?.user;
+  const initials  = user?.name
+    ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "??";
+  const isAdmin   = (user as { role?: string } | undefined)?.role === "ADMIN";
+
   return (
     <nav
       style={{
         position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
+        top: 0, left: 0, right: 0,
         zIndex: 100,
         background: scrolled ? "rgba(253,248,243,0.96)" : "transparent",
         backdropFilter: scrolled ? "blur(12px)" : "none",
@@ -33,8 +62,9 @@ export default function Navbar() {
         alignItems: "center",
         justifyContent: "space-between",
         height: "72px",
-      }}>
-      {/* Logo */}
+      }}
+    >
+      {/* ── Logo ── */}
       <Link href="/" style={{ textDecoration: "none" }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span
@@ -44,8 +74,9 @@ export default function Navbar() {
               letterSpacing: "0.05em",
               color: "#6B3A2A",
               fontFamily: "'Playfair Display', Georgia, serif",
-            }}>
-            Irma Wedding Salon
+            }}
+          >
+            Rumah Cantik
           </span>
           <span
             style={{
@@ -54,37 +85,223 @@ export default function Navbar() {
               letterSpacing: "0.2em",
               color: "#C9922A",
               textTransform: "uppercase" as const,
-            }}>
-            Salon & Sewa Baju
+            }}
+          >
+            Irma Salon & Sewa Baju
           </span>
         </div>
       </Link>
 
-      {/* Desktop links */}
+      {/* ── Desktop links ── */}
       <div
         className="nav-desktop"
-        style={{ display: "flex", gap: "36px", alignItems: "center" }}>
-        {NAV_ITEMS.map((item) => (
+        style={{ display: "flex", gap: "36px", alignItems: "center" }}
+      >
+        {/* Nav links */}
+        {NAV_ITEMS.map((item: NavLink) => (
           <Link
             key={item.label}
             href={item.href}
             className="nav-link"
-            style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+          >
             {item.label}
           </Link>
         ))}
 
-        {/* CTA */}
-        <Link href="/booking">
-          <button
-            className="btn-primary"
-            style={{ padding: "10px 24px", fontSize: "0.8rem" }}>
-            Booking Sekarang
-          </button>
-        </Link>
+        {/* ── Auth area ── */}
+        {isPending ? (
+          // Loading state — placeholder agar layout tidak loncat
+          <div style={{ width: "80px" }} />
+        ) : user ? (
+          // ── Sudah login ──
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+
+            {/* Tombol booking */}
+            <Link href="/booking">
+              <button
+                className="btn-primary"
+                style={{ padding: "9px 20px", fontSize: "0.78rem" }}
+              >
+                Booking
+              </button>
+            </Link>
+
+            {/* Avatar + dropdown */}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDropdown((prev) => !prev);
+                }}
+                style={{
+                  width: "38px",
+                  height: "38px",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #6B3A2A, #C9922A)",
+                  border: showDropdown ? "2px solid #C9922A" : "2px solid transparent",
+                  color: "white",
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "border-color 0.2s",
+                  flexShrink: 0,
+                }}
+              >
+                {initials}
+              </button>
+
+              {/* Dropdown menu */}
+              {showDropdown && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: "absolute",
+                    top: "48px",
+                    right: 0,
+                    background: "white",
+                    border: "1px solid #EDD8CC",
+                    borderRadius: "8px",
+                    boxShadow: "0 8px 32px rgba(107,58,42,0.12)",
+                    minWidth: "200px",
+                    overflow: "hidden",
+                    zIndex: 200,
+                  }}
+                >
+                  {/* Info user */}
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      borderBottom: "1px solid #EDD8CC",
+                      background: "#FDFAF7",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontFamily: "'Playfair Display', Georgia, serif",
+                        fontSize: "0.9rem",
+                        fontWeight: 700,
+                        color: "#2C1A0E",
+                        marginBottom: "2px",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {user.name}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: "0.72rem",
+                        color: "#8B6A5A",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {user.email}
+                    </div>
+                  </div>
+
+                  {/* Menu items */}
+                  {[
+                    isAdmin
+                      ? { label: "Admin Dashboard", href: "/admin/dashboard", icon: "▦" }
+                      : { label: "Dashboard Saya",   href: "/dashboard",       icon: "🏠" },
+                    { label: "Booking Layanan",       href: "/booking",         icon: "📅" },
+                    { label: "Sewa Baju",             href: "/sewa",            icon: "👗" },
+                  ].map((item) => (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      style={{ textDecoration: "none" }}
+                      onClick={() => setShowDropdown(false)}
+                    >
+                      <div
+                        style={{
+                          padding: "11px 16px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: "0.82rem",
+                          color: "#2C1A0E",
+                          cursor: "pointer",
+                          transition: "background 0.15s",
+                          borderBottom: "1px solid #F5EDE5",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#FDF8F3")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <span style={{ fontSize: "0.9rem", width: "18px", textAlign: "center" as const }}>
+                          {item.icon}
+                        </span>
+                        {item.label}
+                      </div>
+                    </Link>
+                  ))}
+
+                  {/* Keluar */}
+                  <button
+                    onClick={handleSignOut}
+                    disabled={loggingOut}
+                    style={{
+                      width: "100%",
+                      padding: "11px 16px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: "0.82rem",
+                      color: "#DC5050",
+                      background: "none",
+                      border: "none",
+                      cursor: loggingOut ? "not-allowed" : "pointer",
+                      transition: "background 0.15s",
+                      opacity: loggingOut ? 0.6 : 1,
+                      textAlign: "left" as const,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(220,80,80,0.05)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <span style={{ fontSize: "0.9rem", width: "18px", textAlign: "center" as const }}>
+                      🚪
+                    </span>
+                    {loggingOut ? "Keluar..." : "Keluar"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // ── Belum login ──
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <Link href="/login">
+              <button
+                className="btn-outline"
+                style={{ padding: "9px 20px", fontSize: "0.78rem" }}
+              >
+                Masuk
+              </button>
+            </Link>
+            <Link href="/register">
+              <button
+                className="btn-primary"
+                style={{ padding: "9px 20px", fontSize: "0.78rem" }}
+              >
+                Daftar
+              </button>
+            </Link>
+          </div>
+        )}
       </div>
 
-      {/* Mobile: hamburger placeholder */}
+      {/* ── Mobile: hamburger placeholder ── */}
       <button
         style={{
           display: "none",
@@ -95,7 +312,8 @@ export default function Navbar() {
           color: "#6B3A2A",
         }}
         className="nav-mobile-btn"
-        aria-label="Menu">
+        aria-label="Menu"
+      >
         ☰
       </button>
     </nav>
