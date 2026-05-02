@@ -1,0 +1,430 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface SalonService {
+  id: number;
+  service_name: string;
+  price: number;
+  hour_duration: number;
+  image_url: string | null;
+}
+
+type FormMode = "create" | "edit";
+
+interface ServiceForm {
+  service_name: string;
+  price: string;
+  hour_duration: string;
+  image_url: string;
+}
+
+const EMPTY_FORM: ServiceForm = {
+  service_name: "",
+  price: "",
+  hour_duration: "",
+  image_url: "",
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function formatRupiah(n: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency", currency: "IDR", minimumFractionDigits: 0,
+  }).format(n);
+}
+
+// ── Form Modal ─────────────────────────────────────────────────────────────
+
+function ServiceFormModal({
+  mode, initial, onClose, onSave,
+}: {
+  mode: FormMode;
+  initial: ServiceForm;
+  onClose: () => void;
+  onSave: (form: ServiceForm) => Promise<void>;
+}) {
+  const [form, setForm] = useState<ServiceForm>(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function update(field: keyof ServiceForm, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSave() {
+    if (!form.service_name.trim()) { setError("Nama layanan wajib diisi."); return; }
+    if (!form.price || isNaN(Number(form.price))) { setError("Harga tidak valid."); return; }
+    if (!form.hour_duration || isNaN(Number(form.hour_duration))) { setError("Durasi tidak valid."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(form);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle = {
+    width: "100%", padding: "9px 12px",
+    border: "1px solid #F0E0E6", borderRadius: "8px",
+    fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem",
+    color: "#2C1A0E", background: "#FDFAF7", outline: "none",
+    transition: "border-color 0.2s",
+  };
+
+  const labelStyle = {
+    fontFamily: "'DM Sans', sans-serif", fontSize: "0.7rem",
+    fontWeight: 600, color: "#7A5C50", letterSpacing: "0.08em",
+    textTransform: "uppercase" as const, display: "block", marginBottom: "5px",
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "480px", overflow: "hidden", boxShadow: "0 24px 64px rgba(196,120,138,0.2)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #F0E0E6", background: "linear-gradient(135deg, #FDF8F3, #FDF0F4)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.05rem", fontWeight: 700, color: "#2C1A0E" }}>
+            {mode === "create" ? "Tambah Layanan Baru" : "Edit Layanan"}
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(196,120,138,0.08)", border: "1px solid #F0E0E6", color: "#C4788A", cursor: "pointer", width: "30px", height: "30px", borderRadius: "8px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "14px" }}>
+          {error && (
+            <div style={{ background: "rgba(192,80,96,0.07)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", padding: "10px 14px", fontSize: "0.8rem", color: "#C05060", fontFamily: "'DM Sans', sans-serif" }}>
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label style={labelStyle}>Nama Layanan *</label>
+            <input value={form.service_name} onChange={(e) => update("service_name", e.target.value)} placeholder="cth. Hair Treatment" style={inputStyle}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <label style={labelStyle}>Harga (Rp) *</label>
+              <input type="number" value={form.price} onChange={(e) => update("price", e.target.value)} placeholder="85000" style={inputStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")} />
+            </div>
+            <div>
+              <label style={labelStyle}>Durasi (jam) *</label>
+              <input type="number" value={form.hour_duration} onChange={(e) => update("hour_duration", e.target.value)} placeholder="1" style={inputStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")} />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>URL Gambar</label>
+            <input value={form.image_url} onChange={(e) => update("image_url", e.target.value)} placeholder="https://..." style={inputStyle}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")} />
+          </div>
+
+          {/* Preview gambar */}
+          {form.image_url && (
+            <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid #F0E0E6", height: "120px" }}>
+              <img src={form.image_url} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "16px 24px", borderTop: "1px solid #F0E0E6", display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ background: "transparent", border: "1px solid #F0E0E6", color: "#7A5C50", padding: "9px 20px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", cursor: "pointer", borderRadius: "8px" }}>
+            Batal
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ background: saving ? "#C4A882" : "#C4788A", color: "white", border: "none", padding: "9px 24px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", borderRadius: "8px", transition: "background 0.2s" }}
+            onMouseEnter={(e) => { if (!saving) e.currentTarget.style.background = "#A85070"; }}
+            onMouseLeave={(e) => { if (!saving) e.currentTarget.style.background = "#C4788A"; }}
+          >
+            {saving ? "Menyimpan..." : mode === "create" ? "Tambah Layanan" : "Simpan Perubahan"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Delete Confirm Modal ───────────────────────────────────────────────────
+
+function DeleteConfirmModal({ name, onClose, onConfirm, loading }: {
+  name: string; onClose: () => void; onConfirm: () => void; loading: boolean;
+}) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }} onClick={onClose}>
+      <div style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "400px", padding: "28px", boxShadow: "0 24px 64px rgba(196,120,138,0.2)", textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ fontSize: "2.5rem", marginBottom: "14px" }}>🗑️</div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
+          Hapus Layanan?
+        </div>
+        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#7A5C50", lineHeight: 1.6, marginBottom: "24px" }}>
+          Layanan <strong>{name}</strong> akan dihapus permanen. Layanan yang sudah memiliki riwayat booking tidak dapat dihapus.
+        </p>
+        <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+          <button onClick={onClose} style={{ background: "transparent", border: "1px solid #F0E0E6", color: "#7A5C50", padding: "9px 20px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", cursor: "pointer", borderRadius: "8px" }}>
+            Batal
+          </button>
+          <button onClick={onConfirm} disabled={loading} style={{ background: "rgba(192,80,96,0.1)", border: "1.5px solid rgba(192,80,96,0.3)", color: "#C05060", padding: "9px 24px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", borderRadius: "8px" }}>
+            {loading ? "Menghapus..." : "Ya, Hapus"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────
+
+export default function ServicesCataloguePage() {
+  const [services, setServices] = useState<SalonService[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
+  const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const [formMode, setFormMode]     = useState<FormMode>("create");
+  const [formOpen, setFormOpen]     = useState(false);
+  const [formInitial, setFormInitial] = useState<ServiceForm>(EMPTY_FORM);
+  const [editingId, setEditingId]   = useState<number | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<SalonService | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const showToast = useCallback((msg: string, ok: boolean) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  const fetchServices = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/services");
+      const data = await res.json();
+      setServices(data);
+    } catch {
+      showToast("Gagal memuat data layanan.", false);
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => { fetchServices(); }, [fetchServices]);
+
+  const filtered = services.filter((s) =>
+    !search || s.service_name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  function openCreate() {
+    setFormMode("create");
+    setFormInitial(EMPTY_FORM);
+    setEditingId(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(s: SalonService) {
+    setFormMode("edit");
+    setFormInitial({
+      service_name: s.service_name,
+      price: String(s.price),
+      hour_duration: String(s.hour_duration),
+      image_url: s.image_url ?? "",
+    });
+    setEditingId(s.id);
+    setFormOpen(true);
+  }
+
+  async function handleSave(form: ServiceForm) {
+    const payload = {
+      service_name: form.service_name,
+      price: Number(form.price),
+      hour_duration: Number(form.hour_duration),
+      image_url: form.image_url || null,
+    };
+
+    const url    = formMode === "create" ? "/api/admin/services" : `/api/admin/services/${editingId}`;
+    const method = formMode === "create" ? "POST" : "PUT";
+
+    const res  = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error ?? "Gagal menyimpan.");
+
+    if (formMode === "create") {
+      setServices((prev) => [...prev, data].sort((a, b) => a.service_name.localeCompare(b.service_name)));
+    } else {
+      setServices((prev) => prev.map((s) => s.id === editingId ? data : s));
+    }
+
+    setFormOpen(false);
+    showToast(formMode === "create" ? "Layanan berhasil ditambahkan!" : "Layanan berhasil diperbarui!", true);
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      const res  = await fetch(`/api/admin/services/${deleteTarget.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      showToast("Layanan berhasil dihapus.", true);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Gagal menghapus.", false);
+      setDeleteTarget(null);
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: "fixed", top: "72px", right: "24px", zIndex: 2000, background: "white", border: `1.5px solid ${toast.ok ? "rgba(90,158,122,0.5)" : "rgba(192,80,96,0.5)"}`, color: toast.ok ? "#3D7A5A" : "#C05060", padding: "12px 20px", borderRadius: "10px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 600, boxShadow: "0 8px 24px rgba(196,120,138,0.15)", display: "flex", alignItems: "center", gap: "8px" }}>
+          {toast.ok ? "✓" : "✕"} {toast.msg}
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.5rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
+            Katalog Jasa Salon
+          </h1>
+          <p style={{ fontSize: "0.78rem", color: "#B09080" }}>
+            {services.length} layanan terdaftar
+          </p>
+        </div>
+        <button
+          onClick={openCreate}
+          style={{ background: "#C4788A", color: "white", border: "none", padding: "10px 20px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", borderRadius: "10px", transition: "background 0.2s", display: "flex", alignItems: "center", gap: "8px" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#A85070")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#C4788A")}
+        >
+          + Tambah Layanan
+        </button>
+      </div>
+
+      {/* Search */}
+      <div style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "12px", padding: "14px 16px", boxShadow: "0 1px 4px rgba(196,120,138,0.06)" }}>
+        <div style={{ position: "relative" }}>
+          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#C4788A", pointerEvents: "none" }}>🔍</span>
+          <input
+            type="text"
+            placeholder="Cari nama layanan..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "100%", background: "#FDFAF7", border: "1px solid #F0E0E6", borderRadius: "8px", padding: "8px 12px 8px 36px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#2C1A0E", outline: "none" }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
+          />
+        </div>
+      </div>
+
+      {/* Grid kartu layanan */}
+      {loading ? (
+        <div style={{ padding: "48px", textAlign: "center", color: "#C4788A", fontFamily: "'DM Sans', sans-serif" }}>
+          Memuat data layanan...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: "48px", textAlign: "center", color: "#B09080", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem" }}>
+          {search ? "Layanan tidak ditemukan." : "Belum ada layanan. Klik '+ Tambah Layanan' untuk mulai."}
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+          {filtered.map((s) => (
+            <div
+              key={s.id}
+              style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 4px rgba(196,120,138,0.06)", transition: "all 0.2s" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(196,120,138,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "#E8C0D0"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(196,120,138,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = "#F0E0E6"; }}
+            >
+              {/* Gambar */}
+              <div style={{ height: "160px", background: "linear-gradient(135deg, #FDF0F4, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                {s.image_url ? (
+                  <img src={s.image_url} alt={s.service_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                ) : (
+                  <span style={{ fontSize: "3rem" }}>✂️</span>
+                )}
+              </div>
+
+              {/* Info */}
+              <div style={{ padding: "14px 16px" }}>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>
+                  {s.service_name}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.88rem", fontWeight: 600, color: "#C4788A" }}>
+                    {formatRupiah(s.price)}
+                  </span>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#B09080", background: "#F5EBF0", padding: "2px 8px", borderRadius: "6px" }}>
+                    ⏱ {s.hour_duration} jam
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={() => openEdit(s)}
+                    style={{ flex: 1, background: "rgba(196,120,138,0.08)", border: "1px solid rgba(196,120,138,0.25)", color: "#C4788A", padding: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.15)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.08)")}
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(s)}
+                    style={{ flex: 1, background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", color: "#C05060", padding: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.12)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.06)")}
+                  >
+                    🗑️ Hapus
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modals */}
+      {formOpen && (
+        <ServiceFormModal
+          mode={formMode}
+          initial={formInitial}
+          onClose={() => setFormOpen(false)}
+          onSave={handleSave}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          name={deleteTarget.service_name}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
+          loading={deleteLoading}
+        />
+      )}
+    </div>
+  );
+}
