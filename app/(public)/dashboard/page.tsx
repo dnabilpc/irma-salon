@@ -32,7 +32,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     icon: "👗",
     label: "Sewa Baju",
     desc: "Lihat koleksi & sewa baju pesta",
-    href: "/sewa",
+    href: "/rent",
     accent: "#C9922A",
     bg: "rgba(201,146,42,0.06)",
   },
