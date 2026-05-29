@@ -1,8 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
-/.pnp
+# ── DEPENDENCIES ──────────────────────────────────────────────────────
+# Removed leading slashes so it targets node_modules in both frontend/ and backend/
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,32 +11,32 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# ── TESTING & DEBUG ───────────────────────────────────────────────────
+coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# ── FRONTEND (NEXT.JS) ────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/.vercel/
 
-# vercel
-.vercel
+# ── PRODUCTION BUILDS ─────────────────────────────────────────────────
+build/
+backend/dist/
 
-# typescript
+# ── ENVIRONMENT VARIABLES (CRITICAL SECURITY) ─────────────────────────
+# This keeps your Replicate Token and DB strings safe across all folders
+.env
+.env.*
+*.env
+
+# ── MISC & TYPESCRIPT ─────────────────────────────────────────────────
+.DS_Store
+*.pem
 *.tsbuildinfo
-next-env.d.ts
+
+# Keep next-env.d.ts only if you want next to auto-regenerate it without tracking
+# frontend/next-env.d.ts
