@@ -22,5 +22,5 @@ app.get('/api/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 AI Backend running on http://localhost:${PORT}`);
+    console.log(`Backend for Web Irma Salon is running on http://localhost:${PORT}`);
 });

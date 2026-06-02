@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { AppUser } from "@/types";
+import { resetVtoUsageForUser } from "@/actions/vto";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,6 @@ export interface RentalRow {
   deposit_paid: number;
   deposit_refund: number | null;
   rental_status: RentalStatus;
-  /** Alias dari rental_status — untuk kompatibilitas komponen UI */
   status: RentalStatus;
   transaction_id: number | null;
   payment_method: string;
@@ -63,8 +63,8 @@ export async function getRentalsForAdmin(filters?: {
       return { success: false, error: "Akses ditolak." };
     }
 
-    const page   = filters?.page  ?? 1;
-    const limit  = filters?.limit ?? 20;
+    const page = filters?.page ?? 1;
+    const limit = filters?.limit ?? 20;
     const offset = (page - 1) * limit;
 
     const conditions: string[] = [];
@@ -152,18 +152,25 @@ export async function updateRentalStatus(
     let queryParams: (string | number | null)[];
 
     if (status === "done" && deposit_refund !== undefined) {
-      query =
-        `UPDATE rentals SET rental_status = $1, deposit_refund = $2 WHERE id = $3 RETURNING id`;
+      query = `UPDATE rentals SET rental_status = $1, deposit_refund = $2 WHERE id = $3 RETURNING id, user_id`;
       queryParams = [status, deposit_refund, rentalId];
     } else {
-      query =
-        `UPDATE rentals SET rental_status = $1 WHERE id = $2 RETURNING id`;
+      query = `UPDATE rentals SET rental_status = $1 WHERE id = $2 RETURNING id, user_id`;
       queryParams = [status, rentalId];
     }
 
     const result = await db.query(query, queryParams);
     if (!result.rows.length) {
       return { success: false, error: "Data sewa tidak ditemukan." };
+    }
+
+    // ── Reset VTO saat transaksi selesai ──
+    if (status === "done") {
+      const userId = result.rows[0].user_id;
+      // Reset VTO secara background — tidak block response
+      resetVtoUsageForUser(userId).catch((err) =>
+        console.error("[updateRentalStatus] VTO reset failed:", err)
+      );
     }
 
     revalidatePath("/admin/rentals");
@@ -175,11 +182,8 @@ export async function updateRentalStatus(
 }
 
 // ── SYNC LATE RENTALS ──────────────────────────────────────────────────────
-// Menandai sewa yang sudah melewati tanggal kembali sebagai "terlambat"
 
-export async function syncLateRentals(): Promise<
-  ActionResult<{ updated: number }>
-> {
+export async function syncLateRentals(): Promise<ActionResult<{ updated: number }>> {
   try {
     const user = await getAuthUser();
     if (!user || user.role !== "ADMIN") {
@@ -207,9 +211,7 @@ export async function syncLateRentals(): Promise<
 
 // ── GET RENTALS FOR CUSTOMER ───────────────────────────────────────────────
 
-export async function getRentalsForCustomer(): Promise<
-  ActionResult<RentalRow[]>
-> {
+export async function getRentalsForCustomer(): Promise<ActionResult<RentalRow[]>> {
   try {
     const user = await getAuthUser();
     if (!user) return { success: false, error: "Silakan login." };
@@ -248,7 +250,7 @@ export async function getRentalsForCustomer(): Promise<
   }
 }
 
-// ── CANCEL RENTAL (Customer, hanya jika pending) ───────────────────────────
+// ── CANCEL RENTAL (Customer) ───────────────────────────────────────────────
 
 export async function cancelRental(rentalId: number): Promise<ActionResult> {
   try {
@@ -263,10 +265,7 @@ export async function cancelRental(rentalId: number): Promise<ActionResult> {
       return { success: false, error: "Data sewa tidak ditemukan." };
     }
     if (check.rows[0].rental_status !== "pending") {
-      return {
-        success: false,
-        error: "Hanya sewa berstatus pending yang dapat dibatalkan.",
-      };
+      return { success: false, error: "Hanya sewa berstatus pending yang dapat dibatalkan." };
     }
 
     await db.query(
