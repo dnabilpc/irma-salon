@@ -128,7 +128,7 @@ export default function CustomersPage() {
     r.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const tabs: { id: Tab; label: string; count: number | null; color: string }[] = [
+  const tabs: { id: Tab; label: string; count: number; color: string }[] = [
     { id: "pending",  label: "Menunggu Persetujuan", count: pending.length,   color: "#C9922A" },
     { id: "aktif",    label: "Pelanggan Aktif",      count: customers.length, color: "#1A7A4A" },
     { id: "ditolak",  label: "Ditolak",              count: rejected.length,  color: "#C05060" },
