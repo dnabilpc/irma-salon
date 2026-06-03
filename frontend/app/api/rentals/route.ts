@@ -1,12 +1,11 @@
 // app/api/rentals/route.ts
-// GET  /api/rentals  → list sewa (admin semua, customer miliknya)
-// POST /api/rentals  → buat sewa baru (customer)
+// Delegating all DB queries to the Express backend
 
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
 import type { AppUser } from "@/types";
+import { backendFetch } from "@/lib/backendClient";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,62 +15,48 @@ export async function GET(req: NextRequest) {
     const user = session.user as unknown as AppUser;
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") ?? "ALL";
-    const page   = parseInt(searchParams.get("page")  ?? "1", 10);
-    const limit  = parseInt(searchParams.get("limit") ?? "20", 10);
-    const offset = (page - 1) * limit;
+    const page   = searchParams.get("page")  ?? "1";
+    const limit  = searchParams.get("limit") ?? "20";
 
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    let response;
 
-    if (user.role !== "ADMIN") {
-      params.push(user.id);
-      conditions.push(`r.user_id = $${params.length}`);
-    }
-    if (status !== "ALL") {
-      params.push(status);
-      conditions.push(`r.rental_status = $${params.length}`);
+    if (user.role === "ADMIN") {
+      const queryParams = new URLSearchParams({ status, page, limit });
+      response = await backendFetch(`/api/admin/rentals?${queryParams.toString()}`);
+    } else {
+      response = await backendFetch("/api/rentals");
     }
 
-    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const data = await response.json();
+    if (!response.ok) {
+      return NextResponse.json({ error: data.error || "Internal Server Error" }, { status: response.status });
+    }
 
-    const countResult = await db.query(
-      `SELECT COUNT(*) FROM rentals r ${where}`,
-      params
-    );
-    const total = parseInt(countResult.rows[0].count, 10);
-
-    const result = await db.query(
-      `SELECT
-         r.id,
-         r.user_id,
-         u.name           AS customer_name,
-         u.email          AS customer_email,
-         r.outfit_catalogues_id,
-         oc.outfit_name,
-         oc.image_url     AS outfit_image,
-         cat.category_name,
-         r.start_date,
-         r.duration_days,
-         (r.start_date + r.duration_days * INTERVAL '1 day')::date AS end_date,
-         r.amount_to_be_paid,
-         r.deposit_paid,
-         r.deposit_refund,
-         r.rental_status,
-         t.id             AS transaction_id,
-         t.payment_method,
-         t.total_amount
-       FROM rentals r
-       JOIN "user" u          ON u.id  = r.user_id
-       JOIN outfit_catalogues oc ON oc.id = r.outfit_catalogues_id
-       JOIN outfit_categories cat ON cat.id = oc.outfit_category_id
-       LEFT JOIN transactions t ON t.rental_id = r.id
-       ${where}
-       ORDER BY r.id DESC
-       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-      [...params, limit, offset]
-    );
-
-    return NextResponse.json({ rows: result.rows, total, page, limit });
+    // Standardize return format for list sewa
+    if (user.role === "ADMIN") {
+      return NextResponse.json({
+        rows: data.rows,
+        total: data.total,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10)
+      });
+    } else {
+      // Customer API returns an array, wrap it in Next.js expected structure if needed or return direct
+      // Let's check what the client expects:
+      // The original return was `NextResponse.json({ rows: result.rows, total, page, limit });`
+      // Wait! The original code for Customer (role !== "ADMIN") did:
+      // `const result = await db.query(..., [...params, limit, offset]);`
+      // `return NextResponse.json({ rows: result.rows, total, page, limit });`
+      // Ah! The Next.js Route Handler GET originally returned `{ rows, total, page, limit }` for both Admin and Customer!
+      // So if the user is a CUSTOMER, and our backend `/api/rentals` returns just `data` (which is array of rows),
+      // we should wrap it to match the exact original format:
+      return NextResponse.json({
+        rows: data,
+        total: data.length,
+        page: 1,
+        limit: 1000
+      });
+    }
   } catch (err) {
     console.error("[GET /api/rentals]", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -83,70 +68,19 @@ export async function POST(req: NextRequest) {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = session.user as unknown as AppUser;
-
     const body = await req.json();
-    const { outfit_catalogues_id, start_date, duration_days, deposit_paid } = body as {
-      outfit_catalogues_id: number;
-      start_date: string;
-      duration_days: number;
-      deposit_paid: number;
-    };
 
-    if (!outfit_catalogues_id || !start_date || !duration_days) {
-      return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
+    const response = await backendFetch("/api/rentals", {
+      method: "POST",
+      body,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return NextResponse.json({ error: data.error || "Internal Server Error" }, { status: response.status });
     }
 
-    // Validasi tanggal tidak boleh di masa lalu
-    if (new Date(start_date) < new Date(new Date().toDateString())) {
-      return NextResponse.json({ error: "Tanggal mulai tidak boleh di masa lalu" }, { status: 400 });
-    }
-
-    // Ambil data baju
-    const outfitResult = await db.query(
-      `SELECT id, outfit_name, price FROM outfit_catalogues WHERE id = $1`,
-      [outfit_catalogues_id]
-    );
-    if (!outfitResult.rows.length) {
-      return NextResponse.json({ error: "Baju tidak ditemukan" }, { status: 404 });
-    }
-
-    const outfit = outfitResult.rows[0];
-    const pricePerDay = parseFloat(outfit.price);
-    const amount_to_be_paid = pricePerDay * duration_days;
-    const actualDeposit = deposit_paid ?? 0;
-
-    const client = await db.connect();
-    try {
-      await client.query("BEGIN");
-
-      // Insert rental
-      const rentalResult = await client.query(
-        `INSERT INTO rentals
-           (user_id, outfit_catalogues_id, start_date, duration_days,
-            amount_to_be_paid, deposit_paid, rental_status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-         RETURNING id`,
-        [user.id, outfit_catalogues_id, start_date, duration_days, amount_to_be_paid, actualDeposit]
-      );
-      const rentalId: number = rentalResult.rows[0].id;
-
-      // Insert transaksi
-      await client.query(
-        `INSERT INTO transactions
-           (user_id, rental_id, subtotal, total_amount, payment_method)
-         VALUES ($1, $2, $3, $3, 'cash')`,
-        [user.id, rentalId, amount_to_be_paid]
-      );
-
-      await client.query("COMMIT");
-      return NextResponse.json({ rentalId }, { status: 201 });
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
-    }
+    return NextResponse.json(data, { status: 201 });
   } catch (err) {
     console.error("[POST /api/rentals]", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

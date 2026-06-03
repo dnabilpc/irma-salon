@@ -1,0 +1,219 @@
+// backend/src/services/reminderCron.js
+import cron from 'node-cron';
+import pool from './db.js';
+import { sendWaMessage, getWhatsappStatus } from './whatsappService.js';
+
+export function initScheduler() {
+    console.log('[Scheduler] Initializing cron jobs...');
+
+    // Run every day at 08:00 AM local time (WIB - Western Indonesian Time)
+    // Format: 'minute hour day-of-month month day-of-week'
+    // '0 8 * * *' = 08:00 every day
+    cron.schedule('0 8 * * *', async () => {
+        console.log('[Scheduler] Running daily WhatsApp reminder jobs...');
+        
+        const state = getWhatsappStatus();
+        if (state.status !== 'READY') {
+            console.error('[Scheduler] WhatsApp client is not READY. Skipping reminders.');
+            return;
+        }
+
+        try {
+            await sendBookingReminders();
+            await sendPickupReminders();
+            await sendReturnReminders();
+            await sendOverdueWarnings();
+        } catch (err) {
+            console.error('[Scheduler] Error running reminder jobs:', err);
+        }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta" // Set timezone to Jakarta
+    });
+}
+
+/**
+ * Helper to format date into Indonesian standard format: DD MMMM YYYY
+ */
+function formatDateIndo(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const months = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+}
+
+/**
+ * 1. Booking Reminders (Sent 1 day before booking_datetime)
+ */
+async function sendBookingReminders() {
+    console.log('[Scheduler] Checking booking reminders...');
+    try {
+        const query = `
+            SELECT 
+                b.id, 
+                u.name as customer_name, 
+                u.phone_number as customer_phone, 
+                b.booking_datetime,
+                TO_CHAR(b.booking_datetime AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') as booking_time,
+                COALESCE(STRING_AGG(ss.service_name, ', '), '-') as services
+            FROM bookings b
+            JOIN "user" u ON b.user_id = u.id
+            LEFT JOIN booking_details bd ON bd.booking_id = b.id
+            LEFT JOIN salon_services ss ON bd.salon_service_id = ss.id
+            WHERE b.status = 'DITERIMA'
+              AND DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE + INTERVAL '1 day'
+              AND u.phone_number IS NOT NULL AND u.phone_number != ''
+            GROUP BY b.id, u.name, u.phone_number, b.booking_datetime
+        `;
+        const result = await pool.query(query);
+        console.log(`[Scheduler] Found ${result.rows.length} booking reminders to send.`);
+
+        for (const row of result.rows) {
+            const formattedDate = formatDateIndo(row.booking_datetime);
+            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa Anda memiliki jadwal booking perawatan di *Rumah Cantik Irma* untuk besok:\n\n` +
+                `📅 *Tanggal:* ${formattedDate}\n` +
+                `⏰ *Waktu:* ${row.booking_time} WIB\n` +
+                `💇‍♀️ *Layanan:* ${row.services}\n\n` +
+                `Mohon datang tepat waktu ya. Sampai jumpa di Rumah Cantik Irma! ✨`;
+            
+            try {
+                await sendWaMessage(row.customer_phone, message);
+            } catch (err) {
+                console.error(`[Scheduler] Failed sending booking reminder to ${row.customer_phone}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Scheduler] Error in sendBookingReminders:', err);
+    }
+}
+
+/**
+ * 2. Rental Pickup Reminders (Sent 1 day before rental start_date)
+ */
+async function sendPickupReminders() {
+    console.log('[Scheduler] Checking rental pickup reminders...');
+    try {
+        const query = `
+            SELECT 
+                r.id, 
+                u.name as customer_name, 
+                u.phone_number as customer_phone, 
+                oc.outfit_name, 
+                r.start_date
+            FROM rentals r
+            JOIN "user" u ON r.user_id = u.id
+            JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
+            WHERE r.rental_status IN ('pending', 'only_deposit')
+              AND r.start_date = CURRENT_DATE + INTERVAL '1 day'
+              AND u.phone_number IS NOT NULL AND u.phone_number != ''
+        `;
+        const result = await pool.query(query);
+        console.log(`[Scheduler] Found ${result.rows.length} rental pickup reminders to send.`);
+
+        for (const row of result.rows) {
+            const formattedDate = formatDateIndo(row.start_date);
+            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal pengambilan baju sewa Anda di *Rumah Cantik Irma* adalah besok:\n\n` +
+                `👗 *Baju Sewa:* ${row.outfit_name}\n` +
+                `📅 *Tanggal Ambil:* ${formattedDate}\n\n` +
+                `Silakan datang ke Rumah Cantik Irma untuk mengambil baju sewa tersebut. Terima kasih! 💖`;
+            
+            try {
+                await sendWaMessage(row.customer_phone, message);
+            } catch (err) {
+                console.error(`[Scheduler] Failed sending pickup reminder to ${row.customer_phone}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Scheduler] Error in sendPickupReminders:', err);
+    }
+}
+
+/**
+ * 3. Rental Return Reminders (Sent 1 day before return date)
+ */
+async function sendReturnReminders() {
+    console.log('[Scheduler] Checking rental return reminders...');
+    try {
+        const query = `
+            SELECT 
+                r.id, 
+                u.name as customer_name, 
+                u.phone_number as customer_phone, 
+                oc.outfit_name, 
+                (r.start_date + r.duration_days * INTERVAL '1 day')::date as return_date
+            FROM rentals r
+            JOIN "user" u ON r.user_id = u.id
+            JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
+            WHERE r.rental_status = 'ongoing'
+              AND (r.start_date + r.duration_days * INTERVAL '1 day')::date = CURRENT_DATE + INTERVAL '1 day'
+              AND u.phone_number IS NOT NULL AND u.phone_number != ''
+        `;
+        const result = await pool.query(query);
+        console.log(`[Scheduler] Found ${result.rows.length} rental return reminders to send.`);
+
+        for (const row of result.rows) {
+            const formattedDate = formatDateIndo(row.return_date);
+            const message = `Halo *${row.customer_name}*, kami mengingatkan bahwa batas waktu pengembalian baju sewa Anda adalah besok:\n\n` +
+                `👗 *Baju Sewa:* ${row.outfit_name}\n` +
+                `📅 *Batas Kembali:* ${formattedDate}\n\n` +
+                `Mohon dikembalikan tepat waktu untuk menghindari denda keterlambatan ya. Terima kasih atas kerja samanya! 😊`;
+            
+            try {
+                await sendWaMessage(row.customer_phone, message);
+            } catch (err) {
+                console.error(`[Scheduler] Failed sending return reminder to ${row.customer_phone}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Scheduler] Error in sendReturnReminders:', err);
+    }
+}
+
+/**
+ * 4. Rental Overdue Warnings (Sent daily for active overdue rentals)
+ */
+async function sendOverdueWarnings() {
+    console.log('[Scheduler] Checking rental overdue warnings...');
+    try {
+        const query = `
+            SELECT 
+                r.id, 
+                u.name as customer_name, 
+                u.phone_number as customer_phone, 
+                oc.outfit_name, 
+                (r.start_date + r.duration_days * INTERVAL '1 day')::date as return_date,
+                (CURRENT_DATE - (r.start_date + r.duration_days * INTERVAL '1 day')::date) as late_days
+            FROM rentals r
+            JOIN "user" u ON r.user_id = u.id
+            JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
+            WHERE r.rental_status = 'terlambat'
+              AND u.phone_number IS NOT NULL AND u.phone_number != ''
+        `;
+        const result = await pool.query(query);
+        console.log(`[Scheduler] Found ${result.rows.length} overdue warnings to send.`);
+
+        for (const row of result.rows) {
+            const formattedDate = formatDateIndo(row.return_date);
+            const message = `⚠️ *PERINGATAN KETERLAMBATAN* ⚠️\n\n` +
+                `Halo *${row.customer_name}*, kami menginfokan bahwa pengembalian baju sewa Anda telah *TERLAMBAT*:\n\n` +
+                `👗 *Baju Sewa:* ${row.outfit_name}\n` +
+                `📅 *Batas Kembali:* ${formattedDate}\n` +
+                `⏳ *Keterlambatan:* ${row.late_days} hari\n\n` +
+                `Mohon untuk segera mengembalikan baju sewa tersebut ke *Rumah Cantik Irma* untuk menghentikan akumulasi denda keterlambatan. Terima kasih.`;
+            
+            try {
+                await sendWaMessage(row.customer_phone, message);
+            } catch (err) {
+                console.error(`[Scheduler] Failed sending overdue warning to ${row.customer_phone}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Scheduler] Error in sendOverdueWarnings:', err);
+    }
+}

@@ -23,14 +23,6 @@ interface Category {
   category_name: string;
 }
 
-interface RentForm {
-  outfit_id: number | null;
-  outfit_name: string;
-  price_per_day: number;
-  start_date: string;
-  duration_days: number;
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function formatRupiah(n: number) {
@@ -128,6 +120,7 @@ function RentModal({
           <div style={{ display: "flex", gap: "14px", background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "12px 14px" }}>
             <div style={{ width: "60px", height: "60px", borderRadius: "8px", background: "#F5EDE0", overflow: "hidden", flexShrink: 0 }}>
               {outfit.image_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={outfit.image_url} alt={outfit.outfit_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}>👗</div>
@@ -428,6 +421,7 @@ export default function SewaBajuPage() {
                 {/* Gambar */}
                 <div style={{ height: "220px", background: "linear-gradient(135deg, #FDF0E8, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
                   {outfit.image_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={outfit.image_url} alt={outfit.outfit_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                   ) : (
                     <span style={{ fontSize: "4rem" }}>👗</span>

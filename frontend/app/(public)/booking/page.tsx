@@ -454,7 +454,8 @@ export default function BookingPage() {
 
   // Fetch slot saat tanggal berubah
   useEffect(() => {
-    if (!form.date) { setSlotData(null); return; }
+    if (!form.date) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSlotLoading(true);
     fetch(`/api/bookings/slots?date=${form.date}`)
       .then((r) => r.json())
@@ -630,7 +631,10 @@ export default function BookingPage() {
             <Step2
               date={form.date}
               time={form.time}
-              onDateChange={(d) => updateForm("date", d)}
+              onDateChange={(d) => {
+                updateForm("date", d);
+                if (!d) setSlotData(null);
+              }}
               onTimeChange={(t) => updateForm("time", t)}
               slotData={slotData}
               slotLoading={slotLoading}

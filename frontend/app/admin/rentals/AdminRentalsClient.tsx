@@ -298,7 +298,6 @@ export default function AdminRentalsClient() {
   }, []);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
     try {
       const result = await getRentalsForAdmin({
         status: filter,
@@ -326,8 +325,8 @@ export default function AdminRentalsClient() {
     });
   }, [showToast]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setPage(1); }, [filter, search]);
 
   async function handleStatusChange(id: number, status: RentalStatus, deposit_refund?: number) {
     setActionLoading(true);
@@ -381,7 +380,7 @@ export default function AdminRentalsClient() {
           </p>
         </div>
         <button
-          onClick={fetchData}
+          onClick={() => { setLoading(true); fetchData(); }}
           style={{ background: "rgba(196,120,138,0.08)", border: "1.5px solid rgba(196,120,138,0.3)", color: "#C4728E", padding: "9px 18px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", borderRadius: "10px", transition: "all 0.2s" }}
           onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.15)")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.08)")}
@@ -406,7 +405,7 @@ export default function AdminRentalsClient() {
             {stats.terlambat} baju belum dikembalikan melewati batas waktu!
           </span>
           <button
-            onClick={() => setFilter("terlambat")}
+            onClick={() => { setFilter("terlambat"); setPage(1); }}
             style={{ marginLeft: "auto", background: "rgba(217,64,96,0.1)", border: "1px solid rgba(217,64,96,0.25)", color: "#D94060", padding: "5px 12px", borderRadius: "6px", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
           >
             Lihat Sekarang →
@@ -422,7 +421,7 @@ export default function AdminRentalsClient() {
             className="search-input"
             placeholder="Cari nama pelanggan atau baju..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" as const }}>
@@ -432,7 +431,7 @@ export default function AdminRentalsClient() {
               <button
                 key={key}
                 className={`filter-btn${filter === key ? " active" : ""}`}
-                onClick={() => setFilter(key)}
+                onClick={() => { setFilter(key); setPage(1); }}
               >
                 {label}
                 <span style={{ marginLeft: "5px", background: filter === key ? "rgba(255,255,255,0.25)" : "#F0D9E0", color: filter === key ? "white" : "#B08090", fontSize: "11px", fontWeight: 700, padding: "0 5px", borderRadius: "10px" }}>

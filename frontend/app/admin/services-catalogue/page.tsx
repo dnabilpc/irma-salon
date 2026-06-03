@@ -140,6 +140,7 @@ function ServiceFormModal({
           {/* Preview gambar */}
           {form.image_url && (
             <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid #F0E0E6", height: "120px" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={form.image_url} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
             </div>
           )}
@@ -215,7 +216,6 @@ export default function ServicesCataloguePage() {
   }, []);
 
   const fetchServices = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fetch("/api/admin/services");
       const data = await res.json();
@@ -227,6 +227,7 @@ export default function ServicesCataloguePage() {
     }
   }, [showToast]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
   const filtered = services.filter((s) =>
@@ -363,6 +364,7 @@ export default function ServicesCataloguePage() {
               {/* Gambar */}
               <div style={{ height: "160px", background: "linear-gradient(135deg, #FDF0F4, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                 {s.image_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={s.image_url} alt={s.service_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                 ) : (
                   <span style={{ fontSize: "3rem" }}>✂️</span>

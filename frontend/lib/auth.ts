@@ -16,6 +16,10 @@ export const auth = betterAuth({
         required: true,
         defaultValue: "CUSTOMER",
       },
+      phone_number: {
+        type: "string",
+        required: false,
+      },
     },
   },
   session: {

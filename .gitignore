@@ -37,6 +37,7 @@ backend/dist/
 .DS_Store
 *.pem
 *.tsbuildinfo
-
+backend/.wwebjs_auth
+backend/.wwebjs_cache
 # Keep next-env.d.ts only if you want next to auto-regenerate it without tracking
 # frontend/next-env.d.ts

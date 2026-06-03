@@ -39,6 +39,7 @@ export interface AppUser {
   email: string;
   role: UserRole;
   emailVerified: boolean;
+  phone_number?: string;
   createdAt: Date;
   updatedAt: Date;
 }

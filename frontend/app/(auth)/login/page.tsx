@@ -155,18 +155,33 @@ export default function LoginPage() {
 
         {/* Password */}
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label
-            htmlFor="password"
-            style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.75rem",
-              fontWeight: 500,
-              color: "#6B3A2A",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase" as const,
-            }}>
-            Password
-          </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <label
+              htmlFor="password"
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "0.75rem",
+                fontWeight: 500,
+                color: "#6B3A2A",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase" as const,
+              }}>
+              Password
+            </label>
+            <Link
+              href="/forgot-password"
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "0.72rem",
+                color: "#8B6A5A",
+                textDecoration: "none",
+                fontWeight: 500,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#6B3A2A")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#8B6A5A")}>
+              Lupa Password?
+            </Link>
+          </div>
           <input
             id="password"
             type="password"

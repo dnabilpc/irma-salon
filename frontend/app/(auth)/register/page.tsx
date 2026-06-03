@@ -35,8 +35,9 @@ export default function RegisterPage() {
       name,
       email,
       password,
+      phone_number: phone,
       callbackURL: "/",
-    });
+    } as unknown as Parameters<typeof signUp.email>[0]);
 
     if (authError) {
       setError("Pendaftaran gagal. Email mungkin sudah terdaftar.");

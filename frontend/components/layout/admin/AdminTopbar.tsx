@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
 import NotifPanel from "@/components/layout/admin/NotifPanel";
+import { getAdminNotifications } from "@/actions/notification";
 
 interface AdminTopbarProps {
   userName: string;
@@ -37,8 +38,30 @@ export default function AdminTopbar({ userName, userRole }: AdminTopbarProps) {
   const [currentDate, setCurrentDate] = useState<string>("");
   const [showNotif, setShowNotif]     = useState<boolean>(false);
   const [loggingOut, setLoggingOut]   = useState<boolean>(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const pageInfo = PAGE_TITLES[pathname] ?? { title: "Admin", sub: "" };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await getAdminNotifications();
+      if (res.success && res.data) {
+        setUnreadCount(res.data.filter((n) => n.unread).length);
+      }
+    } catch (e) {
+      console.error("Failed to fetch unread count:", e);
+    }
+  };
+
+  useEffect(() => {
+    const timeout = setTimeout(fetchUnreadCount, 0);
+    // Poll notifications status every 10 seconds for real-time dashboard updates
+    const interval = setInterval(fetchUnreadCount, 10000);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     const update = () => {
@@ -168,25 +191,27 @@ export default function AdminTopbar({ userName, userRole }: AdminTopbarProps) {
             }}
           >
             🔔
-            <span
-              style={{
-                position: "absolute",
-                top: "-4px",
-                right: "-4px",
-                background: "#C4728E",
-                color: "white",
-                fontSize: "10px",
-                fontWeight: 700,
-                width: "16px",
-                height: "16px",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              3
-            </span>
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-4px",
+                  right: "-4px",
+                  background: "#C4728E",
+                  color: "white",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  width: "16px",
+                  height: "16px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {unreadCount}
+              </span>
+            )}
           </button>
           {showNotif && <NotifPanel />}
         </div>

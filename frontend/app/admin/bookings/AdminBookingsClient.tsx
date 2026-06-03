@@ -527,7 +527,6 @@ export default function AdminBookingsClient() {
 
   // Fetch data dari server action
   const fetchData = useCallback(async () => {
-    setLoading(true);
     try {
       const result = await getBookingsForAdmin({
         status: filter,
@@ -547,11 +546,9 @@ export default function AdminBookingsClient() {
   }, [filter, search, page, showToast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, [fetchData]);
-  useEffect(() => {
-    setPage(1);
-  }, [filter, search]);
 
   async function handleStatusChange(
     id: number,
@@ -638,7 +635,7 @@ export default function AdminBookingsClient() {
           </p>
         </div>
         <button
-          onClick={fetchData}
+          onClick={() => { setLoading(true); fetchData(); }}
           style={{
             background: "rgba(196,120,138,0.08)",
             border: "1.5px solid rgba(196,120,138,0.3)",
@@ -718,7 +715,7 @@ export default function AdminBookingsClient() {
             type="text"
             placeholder="Cari nama pelanggan atau layanan..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             style={{
               width: "100%",
               background: "#FDFAF7",
@@ -741,7 +738,7 @@ export default function AdminBookingsClient() {
             <button
               key={key}
               className={`filter-btn${filter === key ? " active" : ""}`}
-              onClick={() => setFilter(key as BookingStatusDB | "ALL")}
+              onClick={() => { setFilter(key as BookingStatusDB | "ALL"); setPage(1); }}
               style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               {label}
             </button>
