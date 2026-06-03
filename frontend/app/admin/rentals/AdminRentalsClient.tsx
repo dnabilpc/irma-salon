@@ -452,7 +452,9 @@ export default function AdminRentalsClient() {
           </span>
         </div>
 
-        {/* Header kolom */}
+        <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
+          <div style={{ minWidth: "900px" }}>
+            {/* Header kolom */}
         <div className="table-row" style={{ gridTemplateColumns: COL, background: "#FDF8F5", fontSize: "12px", color: "#B08090", letterSpacing: "0.06em", textTransform: "uppercase" as const, fontWeight: 600 }}>
           <span>#</span>
           <span>Pelanggan</span>
@@ -546,6 +548,8 @@ export default function AdminRentalsClient() {
             </div>
           </div>
         ))}
+          </div>
+        </div>
       </div>
 
       {/* Pagination */}

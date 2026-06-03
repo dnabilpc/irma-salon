@@ -3,18 +3,18 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signUp } from "@/lib/auth-client";
+import { registerCustomer } from "@/actions/authActions";
 
 export default function RegisterPage() {
   const router = useRouter();
 
-  const [name, setName]       = useState("");
-  const [email, setEmail]     = useState("");
-  const [phone, setPhone]     = useState("");
-  const [password, setPassword]     = useState("");
+  const [name, setName]                       = useState("");
+  const [email, setEmail]                     = useState("");
+  const [phone, setPhone]                     = useState("");
+  const [password, setPassword]               = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError]     = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError]                     = useState("");
+  const [loading, setLoading]                 = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,21 +31,16 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const { error: authError } = await signUp.email({
-      name,
-      email,
-      password,
-      phone_number: phone,
-      callbackURL: "/",
-    } as unknown as Parameters<typeof signUp.email>[0]);
+    const result = await registerCustomer(name, email, phone, password);
 
-    if (authError) {
-      setError("Pendaftaran gagal. Email mungkin sudah terdaftar.");
+    if (!result.success) {
+      setError(result.error || "Pendaftaran gagal. Silakan coba lagi.");
       setLoading(false);
       return;
     }
 
-    router.push("/");
+    // Redirect to pending approval page
+    router.push("/pending-approval");
   }
 
   const inputStyle = {
@@ -97,6 +92,14 @@ export default function RegisterPage() {
           <span style={{ color: "#C9922A", fontSize: "0.8rem" }}>✦</span>
           <div style={{ flex: 1, height: "1px", background: "#EDD8CC" }} />
         </div>
+      </div>
+
+      {/* Info banner */}
+      <div style={{ background: "rgba(201,146,42,0.07)", border: "1px solid rgba(201,146,42,0.25)", borderRadius: "6px", padding: "10px 14px", marginBottom: "18px", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+        <span style={{ fontSize: "1rem", flexShrink: 0, marginTop: "1px" }}>ℹ️</span>
+        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "#7A5A1A", margin: 0, lineHeight: 1.5 }}>
+          Pendaftaran memerlukan persetujuan admin. Setelah mendaftar, akun Anda akan diverifikasi terlebih dahulu.
+        </p>
       </div>
 
       {/* Error */}
@@ -153,7 +156,7 @@ export default function RegisterPage() {
             onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
           />
           <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#8B6A5A", marginTop: "4px" }}>
-            Digunakan untuk konfirmasi booking via WhatsApp
+            Digunakan untuk konfirmasi booking dan notifikasi persetujuan via WhatsApp
           </p>
         </div>
 

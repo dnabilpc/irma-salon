@@ -153,3 +153,104 @@ export async function resetPasswordDB(req, res) {
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 }
+
+/**
+ * Updates user profile details (name, phone_number, and optional base64 image)
+ */
+export async function updateProfile(req, res) {
+    const userId = req.user?.id;
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized: User not authenticated.' });
+    }
+
+    const { name, phone_number, image } = req.body;
+
+    if (!name) {
+        return res.status(400).json({ error: 'Nama wajib diisi.' });
+    }
+
+    try {
+        // Check if phone number already registered on another account
+        if (phone_number) {
+            const normalizedPhoneVal = normalizePhone(phone_number);
+            const existingPhone = await pool.query(
+                `SELECT id FROM "user" 
+                 WHERE phone_number IS NOT NULL 
+                   AND id != $1
+                   AND CASE 
+                     WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '0%' 
+                       THEN '62' || SUBSTRING(regexp_replace(phone_number, '\\D', '', 'g') FROM 2)
+                     WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '8%' 
+                       THEN '62' || regexp_replace(phone_number, '\\D', '', 'g')
+                     ELSE regexp_replace(phone_number, '\\D', '', 'g')
+                   END = $2 
+                 LIMIT 1`,
+                [userId, normalizedPhoneVal]
+            );
+
+            if (existingPhone.rows.length > 0) {
+                return res.status(409).json({ error: 'Nomor WhatsApp sudah terdaftar pada akun lain.' });
+            }
+        }
+        let query = `UPDATE "user" SET name = $1, phone_number = $2`;
+        const params = [name, phone_number || null];
+        let paramCounter = 3;
+
+        if (image !== undefined) {
+            query += `, image = $${paramCounter}`;
+            params.push(image || null);
+            paramCounter++;
+        }
+
+        query += `, "updatedAt" = NOW() WHERE id = $${paramCounter} RETURNING id, name, email, phone_number, image`;
+        params.push(userId);
+
+        const result = await pool.query(query, params);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User tidak ditemukan.' });
+        }
+
+        return res.json({ success: true, user: result.rows[0] });
+    } catch (err) {
+        console.error('[updateProfile]', err);
+        return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+}
+
+/**
+ * Resolves registered email address by phone number.
+ * GET /api/auth/resolve-email
+ */
+export async function resolveEmailByPhone(req, res) {
+    const { phone } = req.query;
+    if (!phone) {
+        return res.status(400).json({ error: 'Parameter nomor telepon wajib diisi.' });
+    }
+
+    try {
+        const cleaned = normalizePhone(phone);
+        const result = await pool.query(
+            `SELECT email FROM "user" 
+             WHERE phone_number IS NOT NULL 
+               AND CASE 
+                 WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '0%' 
+                   THEN '62' || SUBSTRING(regexp_replace(phone_number, '\\D', '', 'g') FROM 2)
+                 WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '8%' 
+                   THEN '62' || regexp_replace(phone_number, '\\D', '', 'g')
+                 ELSE regexp_replace(phone_number, '\\D', '', 'g')
+               END = $1 
+             LIMIT 1`,
+            [cleaned]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Nomor WhatsApp tidak terdaftar.' });
+        }
+
+        return res.json({ email: result.rows[0].email });
+    } catch (err) {
+        console.error('[resolveEmailByPhone]', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}

@@ -41,7 +41,7 @@ export default function VirtualTryOnSection() {
             }}>
             Virtual Try-On
             <br />
-            <em style={{ color: "#E8A89C" }}>Berbasis AR</em>
+            <em style={{ color: "#E8A89C" }}>Berbasis AI</em>
           </h2>
 
           <p

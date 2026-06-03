@@ -187,9 +187,6 @@ export default function CustomerDashboard() {
   }
 
   const user = session.user;
-  const initials = user.name
-    ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "??";
 
   return (
     <div
@@ -209,7 +206,9 @@ export default function CustomerDashboard() {
       >
 
         {/* ── Header profil ── */}
+        {/* ── Header profil ── */}
         <div
+          className="profile-header"
           style={{
             background: "white",
             border: "1px solid #EDD8CC",
@@ -228,19 +227,26 @@ export default function CustomerDashboard() {
               width: "72px",
               height: "72px",
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #6B3A2A, #C9922A)",
+              border: "2px solid #E8A89C",
+              overflow: "hidden",
+              background: "#F5E6E0",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "1.5rem",
-              fontWeight: 700,
-              color: "white",
               flexShrink: 0,
-              fontFamily: "'Playfair Display', Georgia, serif",
-              boxShadow: "0 4px 16px rgba(107,58,42,0.2)",
+              boxShadow: "0 4px 16px rgba(107,58,42,0.15)",
             }}
           >
-            {initials}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={user.image || "/avatar_placeholder.png"}
+              alt="Foto Profil"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
           </div>
 
           {/* Info */}
@@ -279,32 +285,70 @@ export default function CustomerDashboard() {
             </div>
           </div>
 
-          {/* Tombol keluar */}
-          <button
-            onClick={handleSignOut}
+          {/* Aksi Profil */}
+          <div
+            className="profile-actions"
             style={{
-              background: "transparent",
-              border: "1px solid #EDD8CC",
-              color: "#8B6A5A",
-              padding: "8px 16px",
-              borderRadius: "6px",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.78rem",
-              cursor: "pointer",
-              transition: "all 0.2s",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
               flexShrink: 0,
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "#DC5050";
-              e.currentTarget.style.color = "#DC5050";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#EDD8CC";
-              e.currentTarget.style.color = "#8B6A5A";
-            }}
           >
-            Keluar
-          </button>
+            <Link href="/profile" style={{ textDecoration: "none" }}>
+              <button
+                style={{
+                  width: "100%",
+                  background: "#6B3A2A",
+                  border: "1px solid #6B3A2A",
+                  color: "white",
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "0.78rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#C9922A";
+                  e.currentTarget.style.borderColor = "#C9922A";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#6B3A2A";
+                  e.currentTarget.style.borderColor = "#6B3A2A";
+                }}
+              >
+                Edit Profil
+              </button>
+            </Link>
+
+            <button
+              onClick={handleSignOut}
+              style={{
+                width: "100%",
+                background: "transparent",
+                border: "1px solid #EDD8CC",
+                color: "#8B6A5A",
+                padding: "8px 16px",
+                borderRadius: "6px",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "0.78rem",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#DC5050";
+                e.currentTarget.style.color = "#DC5050";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#EDD8CC";
+                e.currentTarget.style.color = "#8B6A5A";
+              }}
+            >
+              Keluar
+            </button>
+          </div>
         </div>
 
         {/* ── Divider ── */}
@@ -333,6 +377,7 @@ export default function CustomerDashboard() {
 
         {/* ── Aksi cepat ── */}
         <div
+          className="dashboard-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",

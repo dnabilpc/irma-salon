@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient, signIn } from "@/lib/auth-client";
 import { AppUser } from "@/types";
+import { resolveLoginIdentifier } from "@/actions/authActions";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,8 +20,16 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
+    // Terjemahkan nomor telepon ke email jika diinput nomor HP
+    const resolution = await resolveLoginIdentifier(email);
+    if (!resolution.success || !resolution.email) {
+      setError(resolution.error || "Email atau nomor WhatsApp tidak terdaftar.");
+      setLoading(false);
+      return;
+    }
+
     const { error: authError } = await signIn.email({
-      email,
+      email: resolution.email,
       password,
     });
 
@@ -40,6 +49,21 @@ export default function LoginPage() {
     }
 
     const user = result.data.user as unknown as AppUser;
+
+    // Block pending / rejected accounts
+    if (user.status === "PENDING") {
+      await authClient.signOut();
+      setError("Akun kamu masih menunggu persetujuan admin. Kami akan kirimkan notifikasi WhatsApp setelah disetujui.");
+      setLoading(false);
+      return;
+    }
+
+    if (user.status === "REJECTED") {
+      await authClient.signOut();
+      setError("Pendaftaran akunmu ditolak. Silakan hubungi admin untuk informasi lebih lanjut.");
+      setLoading(false);
+      return;
+    }
 
     if (user.role === "ADMIN") {
       router.push("/admin/dashboard");
@@ -116,7 +140,7 @@ export default function LoginPage() {
       <form
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-        {/* Email */}
+        {/* Email atau No HP */}
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <label
             htmlFor="email"
@@ -128,14 +152,14 @@ export default function LoginPage() {
               letterSpacing: "0.08em",
               textTransform: "uppercase" as const,
             }}>
-            Email
+            Email atau Nomor WhatsApp
           </label>
           <input
             id="email"
-            type="email"
+            type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@salonirma.com"
+            placeholder="email@contoh.com atau 08xxxxxxxxxx"
             required
             style={{
               padding: "12px 16px",
@@ -233,6 +257,24 @@ export default function LoginPage() {
           {loading ? "Memproses..." : "Masuk"}
         </button>
       </form>
+
+      {/* Belum punya akun? */}
+      <div style={{ textAlign: "center" as const, marginTop: "20px" }}>
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "#8B6A5A" }}>
+          Belum punya akun?{" "}
+          <Link
+            href="/register"
+            style={{
+              color: "#6B3A2A",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#C9922A")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#6B3A2A")}>
+            Daftar di sini
+          </Link>
+        </span>
+      </div>
 
       {/* Kembali ke homepage */}
       <div style={{ textAlign: "center" as const, marginTop: "24px" }}>

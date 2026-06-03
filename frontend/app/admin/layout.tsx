@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import AdminSidebar from "@/components/layout/admin/AdminSidebar";
 import AdminTopbar  from "@/components/layout/admin/AdminTopbar";
+import SidebarOverlay from "@/components/layout/admin/SidebarOverlay";
 import { ADMIN_STYLES } from "@/lib/styles";
 import type { AppUser } from "@/types";
 
@@ -33,19 +34,12 @@ export default async function AdminLayout({
     >
       <style>{ADMIN_STYLES}</style>
 
-      <AdminSidebar userName={user.name} userRole={user.role} />
+      <SidebarOverlay />
 
-      <div
-        style={{
-          flex: 1,
-          marginLeft: "230px",
-          display: "flex",
-          flexDirection: "column",
-          minHeight: "100vh",
-          transition: "margin-left 0.3s ease",
-        }}
-      >
-        <AdminTopbar userName={user.name} userRole={user.role} />
+      <AdminSidebar userName={user.name} userRole={user.role} userImage={user.image} />
+
+      <div className="admin-content-wrapper">
+        <AdminTopbar userName={user.name} userRole={user.role} userImage={user.image} />
 
         <main style={{ flex: 1, overflowY: "auto", padding: "0" }}>
           {children}

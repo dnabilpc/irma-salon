@@ -787,7 +787,9 @@ export default function AdminBookingsClient() {
           )}
         </div>
 
-        {/* Column headers */}
+        <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
+          <div style={{ minWidth: "800px" }}>
+            {/* Column headers */}
         <div
           className="table-row"
           style={{
@@ -984,6 +986,8 @@ export default function AdminBookingsClient() {
               </div>
             </div>
           ))}
+          </div>
+        </div>
       </div>
 
       {/* Pagination */}

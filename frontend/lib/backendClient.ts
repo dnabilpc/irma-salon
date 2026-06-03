@@ -57,7 +57,7 @@ export async function backendFetch(path: string, options: FetchOptions = {}) {
 
   const response = await fetch(url, {
     ...restOptions,
-    body: bodyToSend,
+    body: bodyToSend as BodyInit,
     headers: reqHeaders,
   });
 

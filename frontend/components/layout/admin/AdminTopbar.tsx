@@ -10,6 +10,7 @@ import { getAdminNotifications } from "@/actions/notification";
 interface AdminTopbarProps {
   userName: string;
   userRole: string;
+  userImage?: string | null;
 }
 
 const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
@@ -30,7 +31,7 @@ function formatTanggal(date: Date): string {
   });
 }
 
-export default function AdminTopbar({ userName, userRole }: AdminTopbarProps) {
+export default function AdminTopbar({ userName, userRole, userImage }: AdminTopbarProps) {
   const pathname = usePathname();
   const router   = useRouter();
 
@@ -67,7 +68,7 @@ export default function AdminTopbar({ userName, userRole }: AdminTopbarProps) {
     const update = () => {
       const now = new Date();
       setCurrentTime(
-        now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+        now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(/\./g, ":")
       );
       setCurrentDate(formatTanggal(now));
     };
@@ -109,41 +110,67 @@ export default function AdminTopbar({ userName, userRole }: AdminTopbarProps) {
         boxShadow: "0 2px 8px rgba(196,114,142,0.08)",
       }}
     >
-      {/* Kiri: judul halaman */}
-      <div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-          <h1
-            style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: "1.15rem",
-              fontWeight: 700,
-              color: "#7A2848",
-              lineHeight: 1,
-            }}
-          >
-            {pageInfo.title}
-          </h1>
-          {pageInfo.sub && (
-            <span
+      {/* Kiri: hamburger + judul halaman */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {/* Hamburger Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            document.body.classList.toggle("sidebar-open");
+          }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "#7A2848",
+            fontSize: "1.4rem",
+            cursor: "pointer",
+            display: "none",
+            padding: "4px 8px",
+            borderRadius: "6px",
+          }}
+          className="admin-hamburger-btn"
+          aria-label="Toggle Sidebar"
+        >
+          ☰
+        </button>
+
+        <div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
+            <h1
               style={{
-                fontSize: "13px",
-                color: "#B06080",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: "1.15rem",
+                fontWeight: 700,
+                color: "#7A2848",
+                lineHeight: 1,
               }}
             >
-              — {pageInfo.sub}
-            </span>
-          )}
-        </div>
-        <div
-          style={{
-            fontSize: "12px",
-            color: "#B06080",
-            fontFamily: "'DM Sans', sans-serif",
-            marginTop: "2px",
-          }}
-        >
-          {currentDate}
+              {pageInfo.title}
+            </h1>
+            {pageInfo.sub && (
+              <span
+                className="admin-topbar-sub"
+                style={{
+                  fontSize: "13px",
+                  color: "#B06080",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                — {pageInfo.sub}
+              </span>
+            )}
+          </div>
+          <div
+            className="admin-topbar-date"
+            style={{
+              fontSize: "12px",
+              color: "#B06080",
+              fontFamily: "'DM Sans', sans-serif",
+              marginTop: "2px",
+            }}
+          >
+            {currentDate}
+          </div>
         </div>
       </div>
 
@@ -226,18 +253,26 @@ export default function AdminTopbar({ userName, userRole }: AdminTopbarProps) {
               width: "34px",
               height: "34px",
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #C4728E, #C9922A)",
+              border: "1.5px solid #C4728E",
+              overflow: "hidden",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "white",
-              fontSize: "12px",
-              fontWeight: 700,
-              boxShadow: "0 2px 6px rgba(196,114,142,0.3)",
+              boxShadow: "0 2px 6px rgba(196,114,142,0.15)",
+              background: "white",
               flexShrink: 0,
             }}
           >
-            {userName.slice(0, 2).toUpperCase()}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={userImage || "/avatar_placeholder.png"}
+              alt="Avatar"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
           </div>
 
           <div>

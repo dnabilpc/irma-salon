@@ -42,9 +42,6 @@ export default function Navbar() {
   }
 
   const user      = session?.user;
-  const initials  = user?.name
-    ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "??";
   const isAdmin   = (user as { role?: string } | undefined)?.role === "ADMIN";
 
   return (
@@ -138,21 +135,28 @@ export default function Navbar() {
                   width: "38px",
                   height: "38px",
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #6B3A2A, #C9922A)",
                   border: showDropdown ? "2px solid #C9922A" : "2px solid transparent",
-                  color: "white",
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: "0.85rem",
-                  fontWeight: 700,
+                  overflow: "hidden",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   transition: "border-color 0.2s",
                   flexShrink: 0,
+                  background: "#F5E6E0",
+                  padding: 0,
                 }}
               >
-                {initials}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={user.image || "/avatar_placeholder.png"}
+                  alt="Avatar"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
               </button>
 
               {/* Dropdown menu */}

@@ -38,8 +38,10 @@ export interface AppUser {
   name: string;
   email: string;
   role: UserRole;
+  status: 'ACTIVE' | 'PENDING' | 'REJECTED';
   emailVerified: boolean;
   phone_number?: string;
+  image?: string;
   createdAt: Date;
   updatedAt: Date;
 }

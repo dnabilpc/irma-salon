@@ -80,7 +80,7 @@ export default function HeroSection() {
               borderRadius: "2px",
               marginBottom: "28px",
             }}>
-            <span>✨</span> NEW: Virtual Try-On berbasis AR
+            <span>✨</span> NEW: Virtual Try-On berbasis AI
           </div>
 
           {/* Headline */}
@@ -112,7 +112,7 @@ export default function HeroSection() {
               fontWeight: 300,
             }}>
             Salon & persewaan baju premium dengan teknologi Virtual Try-On
-            berbasis AR. Coba baju favoritmu secara virtual sebelum menyewa —
+            berbasis AI. Coba baju favoritmu secara virtual sebelum menyewa —
             langsung dari browser-mu.
           </p>
 

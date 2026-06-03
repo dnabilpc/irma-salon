@@ -9,6 +9,9 @@ export const authClient = createAuthClient({
       phone_number: {
         type: "string",
       },
+      status: {
+        type: "string",
+      },
     },
   },
 });

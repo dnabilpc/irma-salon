@@ -94,6 +94,9 @@ export const PUBLIC_STYLES = `
     .footer-grid   { flex-direction: column !important; gap: 40px !important; }
     .nav-desktop   { display: none !important; }
     .vto-section   { flex-direction: column !important; }
+    .dashboard-grid { grid-template-columns: 1fr !important; }
+    .profile-header { flex-direction: column !important; text-align: center !important; gap: 20px !important; }
+    .profile-actions { width: 100% !important; flex-direction: row !important; justify-content: center !important; }
   }
 `;
 
@@ -292,8 +295,71 @@ export const ADMIN_STYLES = `
   .search-input:focus { border-color: var(--rose-mid); }
   .search-input::placeholder { color: var(--text-soft); }
 
+  .admin-content-wrapper {
+    flex: 1;
+    margin-left: 220px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+  }
+
+  body.sidebar-collapsed .admin-content-wrapper {
+    margin-left: 58px;
+  }
+
+  .admin-sidebar-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(58, 26, 40, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 45;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .table-responsive-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    margin-top: 15px;
+    border: 1px solid var(--border-soft);
+    background: white;
+  }
+
+  .admin-sidebar {
+    transition: transform 0.3s ease, width 0.3s ease !important;
+  }
+
   @media (max-width: 900px) {
     .admin-stats-grid { grid-template-columns: 1fr 1fr !important; }
     .admin-main-grid  { grid-template-columns: 1fr !important; }
+  }
+
+  @media (max-width: 768px) {
+    .admin-content-wrapper {
+      margin-left: 0 !important;
+    }
+    
+    .admin-sidebar {
+      transform: translateX(-100%);
+      width: 260px !important;
+    }
+
+    body.sidebar-open .admin-sidebar {
+      transform: translateX(0);
+    }
+
+    body.sidebar-open .admin-sidebar-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .admin-stats-grid { grid-template-columns: 1fr !important; }
+    .admin-hamburger-btn { display: block !important; }
+    .admin-sidebar-toggle-btn { display: none !important; }
+    .admin-topbar-sub, .admin-topbar-date { display: none !important; }
   }
 `;

@@ -1,7 +1,7 @@
 // components/layout/admin/AdminSidebar.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { NavItemConfig } from "@/types";
@@ -9,6 +9,7 @@ import type { NavItemConfig } from "@/types";
 interface AdminSidebarProps {
   userName: string;
   userRole: string;
+  userImage?: string | null;
 }
 
 const NAV_ITEMS: NavItemConfig[] = [
@@ -22,12 +23,38 @@ const NAV_ITEMS: NavItemConfig[] = [
   { icon: "⚙️", label: "Pengaturan",    id: "settings"            },
 ];
 
-export default function AdminSidebar({ userName, userRole }: AdminSidebarProps) {
+export default function AdminSidebar({ userName, userRole, userImage }: AdminSidebarProps) {
   const [expanded, setExpanded] = useState<boolean>(true);
   const pathname = usePathname();
 
+  // Sync sidebar minimization class with body
+  useEffect(() => {
+    if (expanded) {
+      document.body.classList.remove("sidebar-collapsed");
+    } else {
+      document.body.classList.add("sidebar-collapsed");
+    }
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove("sidebar-collapsed");
+    };
+  }, [expanded]);
+
+  // Force expanded true on mobile resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth <= 768) {
+        setExpanded(true);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize(); // run initially
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
     <aside
+      className="admin-sidebar"
       style={{
         width: expanded ? "220px" : "58px",
         background: "#F2D8E4",
@@ -37,7 +64,6 @@ export default function AdminSidebar({ userName, userRole }: AdminSidebarProps) 
         position: "fixed",
         top: 0, left: 0, bottom: 0,
         zIndex: 50,
-        transition: "width 0.3s ease",
         overflow: "hidden",
         boxShadow: "2px 0 8px rgba(196,114,142,0.08)",
       }}
@@ -83,6 +109,7 @@ export default function AdminSidebar({ userName, userRole }: AdminSidebarProps) 
             </div>
             <button
               onClick={() => setExpanded(false)}
+              className="admin-sidebar-toggle-btn"
               style={{
                 background: "rgba(255,255,255,0.5)",
                 border: "1px solid #E8C0D0",
@@ -143,6 +170,7 @@ export default function AdminSidebar({ userName, userRole }: AdminSidebarProps) 
             <Link
               key={item.id}
               href={href}
+              onClick={() => document.body.classList.remove("sidebar-open")}
               title={!expanded ? item.label : undefined}
               style={{
                 display: "flex",
@@ -218,17 +246,25 @@ export default function AdminSidebar({ userName, userRole }: AdminSidebarProps) 
             height: "34px",
             borderRadius: "50%",
             flexShrink: 0,
-            background: "linear-gradient(135deg, #C4728E, #C9922A)",
+            border: "1.5px solid #C4728E",
+            overflow: "hidden",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "0.75rem",
-            fontWeight: 700,
-            color: "white",
-            boxShadow: "0 2px 6px rgba(196,114,142,0.3)",
+            boxShadow: "0 2px 6px rgba(196,114,142,0.15)",
+            background: "white",
           }}
         >
-          IR
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={userImage || "/avatar_placeholder.png"}
+            alt="Avatar"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
         </div>
         {expanded && (
           <div style={{ overflow: "hidden" }}>
