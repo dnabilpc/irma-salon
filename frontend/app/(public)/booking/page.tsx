@@ -398,15 +398,15 @@ function Step4({
           Metode Pembayaran
         </label>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {[
+          {([
             { id: "cash", title: "Bayar Di Tempat", desc: "Bayar di salon saat kedatangan (Tunai / QRIS Statis)", icon: "💵 / 📱" },
             { id: "midtrans", title: "Midtrans (Online)", desc: "Bayar instan via VA, QRIS, E-Wallet (+ Rp 4.000)", icon: "💳" }
-          ].map((m) => {
+          ] as const).map((m) => {
             const active = paymentMethod === m.id;
             return (
               <button
                 key={m.id}
-                onClick={() => setPaymentMethod(m.id as any)}
+                onClick={() => setPaymentMethod(m.id)}
                 type="button"
                 style={{
                   display: "flex",

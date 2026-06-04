@@ -53,7 +53,10 @@ export default function PaymentsPage() {
   };
 
   useEffect(() => {
-    loadPayments();
+    const timer = setTimeout(() => {
+      loadPayments();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const filtered = payments.filter((p) => {

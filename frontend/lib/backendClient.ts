@@ -61,5 +61,24 @@ export async function backendFetch(path: string, options: FetchOptions = {}) {
     headers: reqHeaders,
   });
 
+  // Safe JSON wrapper to prevent SyntaxError when parsing non-JSON responses (like HTML error pages)
+  const originalJson = response.json.bind(response);
+  response.json = async () => {
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      try {
+        return await originalJson();
+      } catch (err) {
+        console.error("[backendFetch] Failed to parse JSON response:", err);
+      }
+    }
+    try {
+      const text = await response.text();
+      return { error: text || `HTTP Error ${response.status}: ${response.statusText}` };
+    } catch {
+      return { error: `HTTP Error ${response.status}: ${response.statusText}` };
+    }
+  };
+
   return response;
 }

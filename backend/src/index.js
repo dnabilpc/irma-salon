@@ -35,6 +35,17 @@ async function runMigrations() {
         `);
         console.log('[Migration] user.status column ready.');
 
+        // Add VTO usage and reset tracking columns
+        await pool.query(`
+            ALTER TABLE "user"
+            ADD COLUMN IF NOT EXISTS vto_usage INTEGER NOT NULL DEFAULT 0
+        `);
+        await pool.query(`
+            ALTER TABLE "user"
+            ADD COLUMN IF NOT EXISTS vto_reset_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        `);
+        console.log('[Migration] user.vto columns ready.');
+
         // Update payment_method check constraint in transactions table
         await pool.query(`
             ALTER TABLE transactions 
