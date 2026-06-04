@@ -124,8 +124,8 @@ export default function HeroSection() {
               flexWrap: "wrap",
               marginBottom: "56px",
             }}>
-            <button className="btn-primary">Booking Sekarang</button>
-            <button className="btn-outline">Coba Virtual Try-On</button>
+            <button className="btn-primary" onClick={() => (window.location.href = "/booking")}>Booking Sekarang</button>
+            <button className="btn-outline" onClick={() => (window.location.href = "/virtual-try-on")}>Coba Virtual Try-On</button>
           </div>
 
           {/* Stats */}

@@ -483,7 +483,7 @@ export default function VirtualTryOnPage() {
       formData.append("person", personFile);
       formData.append("clothes", clothesFile);
 
-      const response = await fetch("http://localhost:5000/api/virtual-tryon", {
+      const response = await fetch("/api/vto/process", {
         method: "POST",
         body: formData,
       });
