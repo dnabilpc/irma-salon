@@ -22,6 +22,7 @@ export interface BookingRow {
 export interface CreateBookingInput {
   booking_datetime: string;
   service_ids: number[];
+  payment_method?: string;
 }
 
 export interface ActionResult<T = void> {
@@ -84,7 +85,7 @@ export async function getAvailableSlots(
 
 export async function createBooking(
   input: CreateBookingInput,
-): Promise<ActionResult<{ bookingId: number }>> {
+): Promise<ActionResult<{ bookingId: number; token?: string | null; redirect_url?: string | null }>> {
   try {
     const response = await backendFetch("/api/bookings", {
       method: "POST",

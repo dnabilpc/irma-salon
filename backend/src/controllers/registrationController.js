@@ -223,3 +223,47 @@ export async function rejectRegistration(req, res) {
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 }
+
+/**
+ * Returns pending counts for admin sidebar dashboard.
+ * GET /api/admin/dashboard/sidebar-counts
+ */
+export async function getSidebarCounts(req, res) {
+    try {
+        // 1. Pending registrations count
+        const registrationsRes = await pool.query(
+            `SELECT COUNT(*)::int AS count FROM "user" WHERE status = 'PENDING' AND role = 'CUSTOMER'`
+        );
+        const registrationsCount = registrationsRes.rows[0].count;
+
+        // 2. Pending bookings count
+        const bookingsRes = await pool.query(
+            `SELECT COUNT(*)::int AS count FROM bookings WHERE status = 'PENDING'`
+        );
+        const bookingsCount = bookingsRes.rows[0].count;
+
+        // 3. Pending rentals count
+        const rentalsRes = await pool.query(
+            `SELECT COUNT(*)::int AS count FROM rentals WHERE rental_status = 'pending'`
+        );
+        const rentalsCount = rentalsRes.rows[0].count;
+
+        // 4. Pending cash/qris payments count (transactions that are pay-at-salon and not yet confirmed as lunas)
+        const paymentsRes = await pool.query(
+            `SELECT COUNT(*)::int AS count FROM transactions t
+             WHERE t.payment_method IN ('cash', 'qris')
+               AND (t.midtrans_status IS NULL OR t.midtrans_status != 'settlement')`
+        );
+        const paymentsCount = paymentsRes.rows[0].count;
+
+        return res.json({
+            bookings: bookingsCount,
+            rentals: rentalsCount,
+            customers: registrationsCount,
+            payments: paymentsCount
+        });
+    } catch (err) {
+        console.error('[getSidebarCounts]', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}

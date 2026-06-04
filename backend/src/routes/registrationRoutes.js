@@ -7,6 +7,7 @@ import {
     getRejectedRegistrations,
     approveRegistration,
     rejectRegistration,
+    getSidebarCounts,
 } from '../controllers/registrationController.js';
 import { checkInternalApiKey } from '../middleware/authMiddleware.js';
 
@@ -16,6 +17,7 @@ const router = express.Router();
 router.post('/auth/register', checkInternalApiKey, registerCustomer);
 
 // ── Admin-only endpoints ──
+router.get('/admin/dashboard/sidebar-counts', checkInternalApiKey, getSidebarCounts);
 router.get('/admin/registrations/pending',  checkInternalApiKey, getPendingRegistrations);
 router.get('/admin/registrations/customers', checkInternalApiKey, getActiveCustomers);
 router.get('/admin/registrations/rejected', checkInternalApiKey, getRejectedRegistrations);

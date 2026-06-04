@@ -1,6 +1,7 @@
 // backend/src/controllers/rentalController.js
 import pool from '../services/db.js';
 import { sendWaMessage } from '../services/whatsappService.js';
+import { createMidtransToken } from '../services/midtransService.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 async function getAdminPhone() {
@@ -344,10 +345,15 @@ export async function createRental(req, res) {
         return res.status(401).json({ error: "Unauthorized: User ID is missing." });
     }
 
-    const { outfit_catalogues_id, start_date, duration_days, deposit_paid } = req.body;
+    const { outfit_catalogues_id, start_date, duration_days, deposit_paid, payment_method = 'cash' } = req.body;
 
     if (!outfit_catalogues_id || !start_date || !duration_days) {
         return res.status(400).json({ error: "Data tidak lengkap" });
+    }
+
+    const validMethods = ['cash', 'qris', 'midtrans'];
+    if (!validMethods.includes(payment_method)) {
+        return res.status(400).json({ error: "Metode pembayaran tidak valid." });
     }
 
     // Validasi tanggal tidak boleh di masa lalu
@@ -370,6 +376,8 @@ export async function createRental(req, res) {
         const amount_to_be_paid = pricePerDay * duration_days;
         const actualDeposit = deposit_paid ?? 0;
 
+        const totalAmount = payment_method === 'midtrans' ? amount_to_be_paid + 4000 : amount_to_be_paid;
+
         const client = await pool.connect();
         try {
             await client.query("BEGIN");
@@ -385,20 +393,36 @@ export async function createRental(req, res) {
             );
             const rentalId = rentalResult.rows[0].id;
 
-            // Insert transaksi
-            await client.query(
-                `INSERT INTO transactions
-                   (user_id, rental_id, subtotal, total_amount, payment_method)
-                 VALUES ($1, $2, $3, $3, 'cash')`,
-                [userId, rentalId, amount_to_be_paid]
-            );
-
-            // Fetch user info for WA notification
+            // Fetch user info for WA notification and Midtrans
             const userRes = await client.query(
                 `SELECT name, phone_number, email FROM "user" WHERE id = $1`,
                 [userId]
             );
             const dbUser = userRes.rows[0];
+
+            // Insert transaksi
+            await client.query(
+                `INSERT INTO transactions
+                   (user_id, rental_id, subtotal, total_amount, payment_method, midtrans_status)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [userId, rentalId, amount_to_be_paid, totalAmount, payment_method, payment_method === 'midtrans' ? 'pending' : null]
+            );
+
+            // Generate Midtrans Token if method is midtrans
+            let midtransData = null;
+            if (payment_method === 'midtrans') {
+                const orderId = `RENT-${rentalId}-${Date.now()}`;
+                try {
+                    midtransData = await createMidtransToken(orderId, totalAmount, {
+                        name: dbUser.name,
+                        email: dbUser.email,
+                        phone: dbUser.phone_number
+                    });
+                } catch (midtransErr) {
+                    console.error('[createRental] Midtrans token generation failed:', midtransErr);
+                    throw new Error("Gagal menghubungkan ke portal pembayaran online. Silakan coba metode pembayaran lain.");
+                }
+            }
 
             // Tambahkan notifikasi sistem untuk Admin
             await client.query(
@@ -422,7 +446,11 @@ export async function createRental(req, res) {
                 console.error("Failed to send rental creation WA notification:", err)
             );
 
-            res.status(201).json({ rentalId });
+            res.status(201).json({ 
+                rentalId, 
+                token: midtransData?.token || null, 
+                redirect_url: midtransData?.redirect_url || null 
+            });
         } catch (err) {
             await client.query("ROLLBACK");
             throw err;
@@ -431,7 +459,7 @@ export async function createRental(req, res) {
         }
     } catch (err) {
         console.error("[createRental]", err);
-        res.status(500).json({ error: "Terjadi kesalahan sistem. Silakan coba lagi." });
+        res.status(500).json({ error: err.message || "Terjadi kesalahan sistem. Silakan coba lagi." });
     }
 }
 

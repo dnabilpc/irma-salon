@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { NavItemConfig } from "@/types";
+import { fetchSidebarCounts } from "@/actions/admin";
 
 interface AdminSidebarProps {
   userName: string;
@@ -16,8 +17,8 @@ const NAV_ITEMS: NavItemConfig[] = [
   { icon: "▦",  label: "Dashboard",     id: "dashboard"           },
   { icon: "", label: "Katalog Jasa Salon", id: "services-catalogue" },
   { icon: "", label: "Katalog Pakaian Sewaan", id: "clothes-catalogue" },
-  { icon: "📅", label: "Booking Salon", id: "bookings",  badge: 2 },
-  { icon: "👗", label: "Sewa Baju",     id: "rentals",   badge: 1 },
+  { icon: "📅", label: "Booking Salon", id: "bookings"            },
+  { icon: "👗", label: "Sewa Baju",     id: "rentals"             },
   { icon: "👤", label: "Pelanggan",     id: "customers"           },
   { icon: "💳", label: "Pembayaran",    id: "payments"            },
   { icon: "⚙️", label: "Pengaturan",    id: "settings"            },
@@ -26,6 +27,20 @@ const NAV_ITEMS: NavItemConfig[] = [
 export default function AdminSidebar({ userName, userRole, userImage }: AdminSidebarProps) {
   const [expanded, setExpanded] = useState<boolean>(true);
   const pathname = usePathname();
+  const [counts, setCounts] = useState({ bookings: 0, rentals: 0, customers: 0, payments: 0 });
+
+  // Load and refresh counts on route changes or periodically
+  useEffect(() => {
+    async function loadCounts() {
+      const res = await fetchSidebarCounts();
+      if (res.success && res.data) {
+        setCounts(res.data);
+      }
+    }
+    loadCounts();
+    const interval = setInterval(loadCounts, 15000); // Poll every 15s
+    return () => clearInterval(interval);
+  }, [pathname]);
 
   // Sync sidebar minimization class with body
   useEffect(() => {
@@ -165,6 +180,11 @@ export default function AdminSidebar({ userName, userRole, userImage }: AdminSid
         {NAV_ITEMS.map((item) => {
           const href     = `/admin/${item.id}`;
           const isActive = pathname === href || pathname.startsWith(`${href}/`);
+          const badgeVal = item.id === "bookings" ? counts.bookings :
+                           item.id === "rentals" ? counts.rentals :
+                           item.id === "customers" ? counts.customers :
+                           item.id === "payments" ? counts.payments :
+                           undefined;
 
           return (
             <Link
@@ -207,7 +227,7 @@ export default function AdminSidebar({ userName, userRole, userImage }: AdminSid
               {expanded && (
                 <>
                   <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.badge !== undefined && item.badge > 0 && (
+                  {badgeVal !== undefined && badgeVal > 0 && (
                     <span
                       style={{
                         background: "#C4728E",
@@ -219,7 +239,7 @@ export default function AdminSidebar({ userName, userRole, userImage }: AdminSid
                         flexShrink: 0,
                       }}
                     >
-                      {item.badge}
+                      {badgeVal}
                     </span>
                   )}
                 </>

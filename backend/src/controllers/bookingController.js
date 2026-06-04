@@ -1,6 +1,7 @@
 // backend/src/controllers/bookingController.js
 import pool from '../services/db.js';
 import { sendWaMessage, getWhatsappStatus } from '../services/whatsappService.js';
+import { createMidtransToken } from '../services/midtransService.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 
@@ -260,20 +261,56 @@ export async function getAvailableSlots(req, res) {
         }
 
         const booked = await pool.query(
-            `SELECT TO_CHAR(booking_datetime AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS slot
-             FROM bookings
-             WHERE DATE(booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
-               AND status NOT IN ('DITOLAK', 'CANCELLED')`,
+            `SELECT 
+                TO_CHAR(b.booking_datetime AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS start_time,
+                COALESCE(SUM(bd.duration_at_booking), 0.5) AS total_hours
+             FROM bookings b
+             LEFT JOIN booking_details bd ON bd.booking_id = b.id
+             WHERE DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
+               AND b.status NOT IN ('DITOLAK', 'CANCELLED')
+             GROUP BY b.id, b.booking_datetime`,
             [date]
         );
 
-        const bookedSet = new Set(booked.rows.map((r) => r.slot));
-        const available = ALL_SLOTS.filter((s) => !bookedSet.has(s));
+        const bookedSet = new Set();
+        for (const row of booked.rows) {
+            const [startH, startM] = row.start_time.split(":").map(Number);
+            const totalMinutes = Math.round(parseFloat(row.total_hours) * 60);
+            
+            let currentMins = startH * 60 + startM;
+            const endMins = currentMins + totalMinutes;
+            
+            while (currentMins < endMins) {
+                const hStr = String(Math.floor(currentMins / 60)).padStart(2, "0");
+                const mStr = String(currentMins % 60).padStart(2, "0");
+                bookedSet.add(`${hStr}:${mStr}`);
+                currentMins += 30;
+            }
+        }
+
+        const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const todayStr = nowJakarta.getFullYear() + '-' + 
+                         String(nowJakarta.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(nowJakarta.getDate()).padStart(2, '0');
+        const currentMinsNow = nowJakarta.getHours() * 60 + nowJakarta.getMinutes();
+
+        // Filter out past slots for today
+        const filteredSlots = ALL_SLOTS.filter((s) => {
+            if (date === todayStr) {
+                const [slotH, slotM] = s.split(":").map(Number);
+                const slotMins = slotH * 60 + slotM;
+                if (slotMins < currentMinsNow) return false;
+            }
+            return true;
+        });
+
+        const available = filteredSlots.filter((s) => !bookedSet.has(s));
+        const finalBooked = filteredSlots.filter((s) => bookedSet.has(s));
 
         res.json({
             date,
             available,
-            booked: Array.from(bookedSet),
+            booked: finalBooked,
             closed: false,
             open_time: openTime,
             close_time: closeTime
@@ -288,7 +325,7 @@ export async function getAvailableSlots(req, res) {
 
 export async function createBooking(req, res) {
     const userId = req.user.id;
-    const { booking_datetime, service_ids } = req.body;
+    const { booking_datetime, service_ids, payment_method = 'cash' } = req.body;
 
     if (!userId) {
         return res.status(401).json({ error: "Unauthorized: User ID is missing." });
@@ -297,24 +334,17 @@ export async function createBooking(req, res) {
         return res.status(400).json({ error: "Data booking tidak lengkap." });
     }
 
+    const validMethods = ['cash', 'qris', 'midtrans'];
+    if (!validMethods.includes(payment_method)) {
+        return res.status(400).json({ error: "Metode pembayaran tidak valid." });
+    }
+
     if (new Date(booking_datetime) < new Date()) {
         return res.status(400).json({ error: "Tanggal booking tidak boleh di masa lalu." });
     }
 
     try {
-        // Check slot conflict (±30 mins)
-        const conflict = await pool.query(
-            `SELECT id FROM bookings
-             WHERE status NOT IN ('DITOLAK', 'CANCELLED')
-               AND booking_datetime BETWEEN $1::timestamptz - INTERVAL '30 minutes'
-                                        AND $1::timestamptz + INTERVAL '30 minutes'`,
-            [booking_datetime]
-        );
-        if (conflict.rows.length > 0) {
-            return res.status(400).json({ error: "Slot waktu ini sudah terisi. Silakan pilih waktu lain." });
-        }
-
-        // Fetch services price
+        // Fetch services to calculate proposed duration
         const serviceRows = await pool.query(
             `SELECT id, service_name, price, hour_duration
              FROM salon_services WHERE id = ANY($1)`,
@@ -324,10 +354,48 @@ export async function createBooking(req, res) {
             return res.status(400).json({ error: "Salah satu layanan tidak ditemukan." });
         }
 
+        const proposedDurationHours = serviceRows.rows.reduce(
+            (sum, s) => sum + parseFloat(s.hour_duration || 0.5),
+            0
+        );
+        const proposedDurationMinutes = Math.round(proposedDurationHours * 60);
+
+        const proposedStart = new Date(booking_datetime);
+        const proposedEnd = new Date(proposedStart.getTime() + proposedDurationMinutes * 60 * 1000);
+
+        // Fetch all active bookings on the same day to verify overlap (using Jakarta timezone)
+        const tzDate = new Date(proposedStart.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const dateStr = tzDate.getFullYear() + '-' + 
+                        String(tzDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(tzDate.getDate()).padStart(2, '0');
+
+        const existingBookings = await pool.query(
+            `SELECT b.id, b.booking_datetime, COALESCE(SUM(bd.duration_at_booking), 0.5) AS total_hours
+             FROM bookings b
+             LEFT JOIN booking_details bd ON bd.booking_id = b.id
+             WHERE DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
+               AND b.status NOT IN ('DITOLAK', 'CANCELLED')
+             GROUP BY b.id, b.booking_datetime`,
+            [dateStr]
+        );
+
+        for (const existing of existingBookings.rows) {
+            const start = new Date(existing.booking_datetime);
+            const durationMins = Math.round(parseFloat(existing.total_hours) * 60);
+            const end = new Date(start.getTime() + durationMins * 60 * 1000);
+
+            // Check overlap: proposedStart < end AND start < proposedEnd
+            if (proposedStart < end && start < proposedEnd) {
+                return res.status(400).json({ error: "Slot waktu ini sudah terisi oleh booking lain. Silakan pilih waktu lain." });
+            }
+        }
+
         const subtotal = serviceRows.rows.reduce(
             (sum, s) => sum + parseFloat(s.price),
             0
         );
+
+        const totalAmount = payment_method === 'midtrans' ? subtotal + 4000 : subtotal;
 
         const client = await pool.connect();
         try {
@@ -350,19 +418,35 @@ export async function createBooking(req, res) {
                 );
             }
 
-            await client.query(
-                `INSERT INTO transactions
-                   (user_id, booking_id, subtotal, total_amount, payment_method)
-                 VALUES ($1, $2, $3, $3, 'cash')`,
-                [userId, bookingId, subtotal]
-            );
-
-            // Fetch user info for WA notification
+            // Fetch user info for WA notification and Midtrans
             const userRes = await client.query(
                 `SELECT name, phone_number, email FROM "user" WHERE id = $1`,
                 [userId]
             );
             const dbUser = userRes.rows[0];
+
+            await client.query(
+                `INSERT INTO transactions
+                   (user_id, booking_id, subtotal, total_amount, payment_method, midtrans_status)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [userId, bookingId, subtotal, totalAmount, payment_method, payment_method === 'midtrans' ? 'pending' : null]
+            );
+
+            // Generate Midtrans Token if method is midtrans
+            let midtransData = null;
+            if (payment_method === 'midtrans') {
+                const orderId = `BOOK-${bookingId}-${Date.now()}`;
+                try {
+                    midtransData = await createMidtransToken(orderId, totalAmount, {
+                        name: dbUser.name,
+                        email: dbUser.email,
+                        phone: dbUser.phone_number
+                    });
+                } catch (midtransErr) {
+                    console.error('[createBooking] Midtrans token generation failed:', midtransErr);
+                    throw new Error("Gagal menghubungkan ke portal pembayaran online. Silakan coba metode pembayaran lain.");
+                }
+            }
 
             // Insert system notification for Admin
             const servicesList = serviceRows.rows.map((s) => s.service_name).join(", ");
@@ -379,7 +463,11 @@ export async function createBooking(req, res) {
                 console.error("Failed sending booking WA notification:", err)
             );
 
-            res.status(201).json({ bookingId });
+            res.status(201).json({ 
+                bookingId, 
+                token: midtransData?.token || null, 
+                redirect_url: midtransData?.redirect_url || null 
+            });
         } catch (err) {
             await client.query("ROLLBACK");
             throw err;
@@ -388,7 +476,7 @@ export async function createBooking(req, res) {
         }
     } catch (err) {
         console.error("[createBooking]", err);
-        res.status(500).json({ error: "Terjadi kesalahan sistem. Silakan coba lagi." });
+        res.status(500).json({ error: err.message || "Terjadi kesalahan sistem. Silakan coba lagi." });
     }
 }
 
