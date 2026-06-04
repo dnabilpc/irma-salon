@@ -13,7 +13,7 @@ interface Outfit {
   price: number;
   size: string | null;
   image_url: string | null;
-  model_3d_file_link: string | null;
+  model_2d_file_link: string | null;
   outfit_category_id: number;
   category_name: string;
 }
@@ -364,7 +364,7 @@ export default function SewaBajuPage() {
         </p>
         <div style={{ display: "flex", gap: "12px" }}>
           <button
-            onClick={() => router.push("/login?callbackUrl=/sewa")}
+            onClick={() => router.push("/login?callbackUrl=/rent")}
             style={{ background: "#6B3A2A", color: "white", border: "none", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
           >
             Login
@@ -584,10 +584,10 @@ export default function SewaBajuPage() {
                   <div style={{ position: "absolute", top: "12px", left: "12px", background: "rgba(107,58,42,0.85)", color: "white", fontSize: "0.62rem", fontWeight: 600, padding: "3px 10px", borderRadius: "6px", letterSpacing: "0.06em", fontFamily: "'DM Sans', sans-serif" }}>
                     {outfit.category_name}
                   </div>
-                  {/* Badge AR */}
-                  {outfit.model_3d_file_link && (
+                  {/* Badge VTO */}
+                  {outfit.model_2d_file_link && (
                     <div style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(201,146,42,0.9)", color: "white", fontSize: "0.62rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", letterSpacing: "0.06em" }}>
-                      AR 3D
+                      Try-On AI
                     </div>
                   )}
                 </div>

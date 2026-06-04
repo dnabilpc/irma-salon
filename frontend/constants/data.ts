@@ -112,15 +112,30 @@ export const HERO_STATS: Stat[] = [
 export const FOOTER_COLUMNS: FooterColumn[] = [
   {
     title: "Layanan",
-    items: ["Hair Treatment", "Makeup & Rias", "Nail Care", "Facial & Skincare"],
+    items: [
+      { label: "Hair Treatment", href: "/booking" },
+      { label: "Makeup & Rias", href: "/booking" },
+      { label: "Nail Care", href: "/booking" },
+      { label: "Facial & Skincare", href: "/booking" },
+    ],
   },
   {
     title: "Sewa Baju",
-    items: ["Katalog Koleksi", "Virtual Try-On", "Cara Sewa", "Kebijakan Sewa"],
+    items: [
+      { label: "Katalog Koleksi", href: "/rent" },
+      { label: "Virtual Try-On", href: "/virtual-try-on" },
+      { label: "Cara Sewa", href: "/rent#cara-sewa" },
+      { label: "Kebijakan Sewa", href: "/#kebijakan-sewa" },
+    ],
   },
   {
     title: "Informasi",
-    items: ["Tentang Kami", "Blog Kecantikan", "Syarat & Ketentuan", "Hubungi Kami"],
+    items: [
+      { label: "Tentang Kami", href: "/#tentang" },
+      { label: "Blog Kecantikan", href: "/#" },
+      { label: "Syarat & Ketentuan", href: "/#" },
+      { label: "Hubungi Kami", href: "https://wa.me/6285174481660" },
+    ],
   },
 ];
 
@@ -138,7 +153,7 @@ export const AR_OUTFITS: string[] = ["👗", "👘", "🥻", "👙"];
 // Dipakai di: VirtualTryOnSection — daftar fitur VTO
 export const VTO_FEATURES: string[] = [
   "Coba puluhan koleksi baju dalam hitungan menit",
-  "Teknologi AR berjalan langsung di browser, tanpa install app",
+  "Teknologi AI berjalan langsung di browser, tanpa install app",
   "Tampilan realistis dengan body tracking akurat",
 ];
 

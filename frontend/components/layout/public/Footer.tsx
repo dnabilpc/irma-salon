@@ -1,6 +1,7 @@
 "use client";
 import { FOOTER_COLUMNS } from "@/constants/data";
 import type { FooterColumn } from "@/types";
+import Link from "next/link";
 
 export default function Footer() {
   return (
@@ -65,9 +66,16 @@ export default function Footer() {
 
           {/* Social media */}
           <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
-            {["Instagram", "WhatsApp", "TikTok"].map((platform) => (
-              <button
+            {[
+              { platform: "Instagram", href: "https://instagram.com" },
+              { platform: "WhatsApp", href: "https://wa.me/6285174481660" },
+              { platform: "TikTok", href: "https://tiktok.com" },
+            ].map(({ platform, href }) => (
+              <a
                 key={platform}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   background: "rgba(255,255,255,0.08)",
                   border: "1px solid rgba(255,255,255,0.1)",
@@ -78,6 +86,8 @@ export default function Footer() {
                   cursor: "pointer",
                   borderRadius: "2px",
                   transition: "all 0.2s",
+                  textDecoration: "none",
+                  display: "inline-block",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = "rgba(201,146,42,0.15)";
@@ -91,7 +101,7 @@ export default function Footer() {
                 }}
               >
                 {platform}
-              </button>
+              </a>
             ))}
           </div>
         </div>
@@ -113,16 +123,15 @@ export default function Footer() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {items.map((item) => (
-                <button
-                  key={item}
+                <Link
+                  key={item.label}
+                  href={item.href}
                   style={{
                     fontSize: "0.875rem",
                     color: "rgba(255,255,255,0.55)",
                     cursor: "pointer",
-                    background: "none",
-                    border: "none",
+                    textDecoration: "none",
                     textAlign: "left" as const,
-                    padding: 0,
                     fontFamily: "'DM Sans', sans-serif",
                     transition: "color 0.2s",
                   }}
@@ -133,8 +142,8 @@ export default function Footer() {
                     (e.currentTarget.style.color = "rgba(255,255,255,0.55)")
                   }
                 >
-                  {item}
-                </button>
+                  {item.label}
+                </Link>
               ))}
             </div>
           </div>

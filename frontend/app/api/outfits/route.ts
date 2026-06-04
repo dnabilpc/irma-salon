@@ -9,7 +9,7 @@ export async function GET() {
     const [outfits, categories] = await Promise.all([
       db.query(
         `SELECT oc.id, oc.outfit_name, oc.description, oc.price, oc.size,
-                oc.image_url, oc.model_3d_file_link,
+                oc.image_url, oc.model_2d_file_link,
                 oc.outfit_category_id,
                 cat.category_name
          FROM outfit_catalogues oc

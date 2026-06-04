@@ -54,7 +54,7 @@ export default function VirtualTryOnSection() {
               fontWeight: 300,
             }}>
             Tidak perlu repot datang ke salon hanya untuk cek pakaian. Dengan
-            teknologi WebAR kami, kamu bisa mencoba berbagai koleksi baju secara
+            teknologi AI kami, kamu bisa mencoba berbagai koleksi baju secara
             virtual langsung dari kamera browsermu — kapan saja, di mana saja.
           </p>
 
@@ -174,7 +174,7 @@ function ARMockup({ selectedOutfit, onSelectOutfit }: ARMockupProps) {
               fontSize: "0.75rem",
               color: "rgba(255,255,255,0.4)",
             }}>
-            AR body tracking...
+            AI body fitting...
           </div>
         </div>
 
@@ -205,21 +205,23 @@ function ARMockup({ selectedOutfit, onSelectOutfit }: ARMockupProps) {
         </div>
 
         {/* Tombol sewa */}
-        <button
-          style={{
-            width: "100%",
-            background: "#E8A89C",
-            color: "#2C1A0E",
-            border: "none",
-            padding: "14px",
-            fontFamily: "'DM Sans', sans-serif",
-            fontWeight: 600,
-            fontSize: "0.85rem",
-            cursor: "pointer",
-            borderRadius: "2px",
-          }}>
-          Sewa Baju Ini ✓
-        </button>
+        <Link href="/rent">
+          <button
+            style={{
+              width: "100%",
+              background: "#E8A89C",
+              color: "#2C1A0E",
+              border: "none",
+              padding: "14px",
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              borderRadius: "2px",
+            }}>
+            Sewa Baju Ini ✓
+          </button>
+        </Link>
       </div>
     </div>
   );

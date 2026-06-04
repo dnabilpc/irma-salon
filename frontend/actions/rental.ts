@@ -154,7 +154,7 @@ export async function cancelRental(rentalId: number): Promise<ActionResult> {
       return { success: false, error: data.error || "Gagal membatalkan sewa." };
     }
 
-    revalidatePath("/sewa");
+    revalidatePath("/rent");
     return { success: true };
   } catch (err) {
     console.error("[cancelRental]", err);

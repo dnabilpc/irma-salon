@@ -218,7 +218,7 @@ export default function Navbar() {
                       ? { label: "Admin Dashboard", href: "/admin/dashboard", icon: "▦" }
                       : { label: "Dashboard Saya",   href: "/dashboard",       icon: "🏠" },
                     { label: "Booking Layanan",       href: "/booking",         icon: "📅" },
-                    { label: "Sewa Baju",             href: "/sewa",            icon: "👗" },
+                    { label: "Sewa Baju",             href: "/rent",            icon: "👗" },
                   ].map((item) => (
                     <Link
                       key={item.label}

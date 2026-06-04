@@ -16,6 +16,11 @@ export async function backendFetch(path: string, options: FetchOptions = {}) {
   const url = `${BACKEND_URL}${path}`;
   const reqHeaders = new Headers(options.headers || {});
 
+  // Debug logs to troubleshoot API key and routing issues
+  console.log(`[backendFetch] Request path: ${path}`);
+  console.log(`[backendFetch] Full URL: ${url}`);
+  console.log(`[backendFetch] API Key Status: ${INTERNAL_API_KEY ? "CONFIGURED" : "MISSING"}`);
+
   // Add INTERNAL_API_KEY bearer authorization
   reqHeaders.set("Authorization", `Bearer ${INTERNAL_API_KEY}`);
 
@@ -55,10 +60,15 @@ export async function backendFetch(path: string, options: FetchOptions = {}) {
   delete restOptions.userId;
   delete restOptions.userRole;
 
+  const headersObject: Record<string, string> = {};
+  reqHeaders.forEach((value, key) => {
+    headersObject[key] = value;
+  });
+
   const response = await fetch(url, {
     ...restOptions,
     body: bodyToSend as BodyInit,
-    headers: reqHeaders,
+    headers: headersObject,
   });
 
   // Safe JSON wrapper to prevent SyntaxError when parsing non-JSON responses (like HTML error pages)

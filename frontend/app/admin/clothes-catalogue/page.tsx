@@ -18,7 +18,7 @@ interface Outfit {
   price: number;
   size: string | null;
   image_url: string | null;
-  model_3d_file_link: string | null; // digunakan sebagai vto_image_url
+  model_2d_file_link: string | null; // digunakan sebagai vto_image_url
   outfit_category_id: number;
   category_name: string;
 }
@@ -33,7 +33,7 @@ interface OutfitForm {
   price: string;
   size: string;
   image_url: string;
-  model_3d_file_link: string; // vto_image_url
+  model_2d_file_link: string; // vto_image_url
 }
 
 interface CategoryForm {
@@ -48,7 +48,7 @@ const EMPTY_OUTFIT_FORM: OutfitForm = {
   price: "",
   size: "",
   image_url: "",
-  model_3d_file_link: "",
+  model_2d_file_link: "",
 };
 
 const EMPTY_CAT_FORM: CategoryForm = { category_name: "", description: "" };
@@ -221,15 +221,15 @@ function OutfitFormModal({
               </span>
             </div>
             <input
-              value={form.model_3d_file_link}
-              onChange={(e) => update("model_3d_file_link", e.target.value)}
+              value={form.model_2d_file_link}
+              onChange={(e) => update("model_2d_file_link", e.target.value)}
               placeholder="https://..."
               style={{
                 ...inputStyle,
-                borderColor: form.model_3d_file_link ? "#C9922A" : "#F0E0E6",
+                borderColor: form.model_2d_file_link ? "#C9922A" : "#F0E0E6",
               }}
               onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = form.model_3d_file_link ? "#C9922A" : "#F0E0E6")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = form.model_2d_file_link ? "#C9922A" : "#F0E0E6")}
             />
             <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.65rem", color: "#B08090", marginTop: "4px", lineHeight: 1.5 }}>
               Foto khusus baju yang lengkap dan sempurna untuk diproses AI Virtual Try-On.<br />
@@ -238,13 +238,13 @@ function OutfitFormModal({
           </div>
 
           {/* Preview foto VTO */}
-          {form.model_3d_file_link && (
+          {form.model_2d_file_link && (
             <div>
               <label style={{ ...labelStyle, marginBottom: "6px" }}>Preview Foto VTO</label>
               <div style={{ borderRadius: "8px", overflow: "hidden", border: "2px solid rgba(201,146,42,0.3)", height: "140px", position: "relative" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={form.model_3d_file_link}
+                  src={form.model_2d_file_link}
                   alt="preview VTO"
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   onError={(e) => { e.currentTarget.style.display = "none"; }}
@@ -508,7 +508,7 @@ export default function ClothesCataloguePage() {
       price: String(o.price),
       size: o.size ?? "",
       image_url: o.image_url ?? "",
-      model_3d_file_link: o.model_3d_file_link ?? "",
+      model_2d_file_link: o.model_2d_file_link ?? "",
     });
     setEditingOutfitId(o.id);
     setOutfitFormOpen(true);
@@ -522,7 +522,7 @@ export default function ClothesCataloguePage() {
       price: Number(form.price),
       size: form.size || null,
       image_url: form.image_url || null,
-      model_3d_file_link: form.model_3d_file_link || null,
+      model_2d_file_link: form.model_2d_file_link || null,
     };
     const url = outfitFormMode === "create" ? "/api/admin/outfits" : `/api/admin/outfits/${editingOutfitId}`;
     const method = outfitFormMode === "create" ? "POST" : "PUT";
@@ -582,7 +582,7 @@ export default function ClothesCataloguePage() {
   }
 
   // Stats
-  const vtoCount = outfits.filter((o) => !!o.model_3d_file_link).length;
+  const vtoCount = outfits.filter((o) => !!o.model_2d_file_link).length;
 
   return (
     <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -693,7 +693,7 @@ export default function ClothesCataloguePage() {
                       <span style={{ fontSize: "3rem" }}>👗</span>
                     )}
                     {/* Badge VTO */}
-                    {o.model_3d_file_link ? (
+                    {o.model_2d_file_link ? (
                       <div style={{ position: "absolute", top: "8px", right: "8px", background: "rgba(201,146,42,0.92)", color: "white", fontSize: "0.58rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", letterSpacing: "0.06em" }}>
                         ✨ VTO SIAP
                       </div>

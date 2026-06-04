@@ -6,10 +6,34 @@ import { backendFetch } from "@/lib/backendClient";
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
+    const personFile = formData.get("person");
+    const clothesUrl = formData.get("clothesUrl") as string;
+
+    if (!personFile || !clothesUrl) {
+      return NextResponse.json(
+        { error: "Parameter tidak lengkap: person atau clothesUrl tidak ditemukan." },
+        { status: 400 }
+      );
+    }
+
+    // Fetch the clothing image server-side where CORS is bypassed
+    const clothesResponse = await fetch(clothesUrl);
+    if (!clothesResponse.ok) {
+      return NextResponse.json(
+        { error: `Gagal mengunduh gambar baju: ${clothesResponse.statusText}` },
+        { status: 400 }
+      );
+    }
+    const clothesBlob = await clothesResponse.blob();
+
+    // Create a new FormData to send to the backend
+    const backendFormData = new FormData();
+    backendFormData.append("person", personFile as Blob, (personFile as File).name || "person.jpg");
+    backendFormData.append("clothes", clothesBlob, "clothes.jpg");
 
     const response = await backendFetch("/api/virtual-tryon", {
       method: "POST",
-      body: formData,
+      body: backendFormData,
     });
 
     const data = await response.json();

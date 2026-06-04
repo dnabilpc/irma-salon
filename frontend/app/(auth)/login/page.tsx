@@ -102,7 +102,7 @@ export default function LoginPage() {
             color: "#C9922A",
             textTransform: "uppercase" as const,
           }}>
-          Admin Panel
+          Login Page
         </div>
 
         {/* Ornament divider */}

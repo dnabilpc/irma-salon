@@ -18,7 +18,7 @@ interface Outfit {
   price: number;
   size: string | null;
   image_url: string | null;
-  model_3d_file_link: string | null;
+  model_2d_file_link: string | null;
   outfit_category_id: number;
   category_name: string;
 }
@@ -143,7 +143,8 @@ function PhotoSelector({
   if (selectedPhoto && mode === "preview") {
     return (
       <div style={{ position: "relative" }}>
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={selectedPhoto}
           alt="Foto kamu"
           style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", borderRadius: "12px", display: "block" }}
@@ -267,7 +268,7 @@ function OutfitCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const hasVto = !!outfit.model_3d_file_link;
+  const hasVto = !!outfit.model_2d_file_link;
 
   return (
     <div
@@ -352,14 +353,20 @@ function VtoResult({
       </div>
 
       <div style={{ width: "100%", maxWidth: "400px", borderRadius: "16px", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
-        <Image
-          src={imageUrl}
-          alt="Hasil Virtual Try-On"
-          width={800}
-          height={1000}
-          unoptimized
-          style={{ width: "100%", height: "auto", display: "block" }}
-        />
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt="Hasil Virtual Try-On"
+            width={800}
+            height={1000}
+            unoptimized
+            style={{ width: "100%", height: "auto", display: "block" }}
+          />
+        ) : (
+          <div style={{ padding: "40px", color: "rgba(255,255,255,0.4)", textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>
+            Gambar hasil tidak ditemukan.
+          </div>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
@@ -449,7 +456,7 @@ export default function VirtualTryOnPage() {
   }
 
   async function handleStartVto() {
-    if (!personFile || !selectedOutfit) return;
+    if (!personFile || !selectedOutfit || !selectedOutfit.model_2d_file_link) return;
     if (!vtoStatus?.can_use) return;
 
     setProcessing(true);
@@ -457,31 +464,24 @@ export default function VirtualTryOnPage() {
     setResultUrl(null);
 
     try {
-      // Increment usage dulu
+      // Memvalidasi kuota
       setProcessingStep("Memvalidasi kuota...");
-      const usageRes = await fetch("/api/vto/usage", { method: "POST" });
-      const usageData = await usageRes.json();
+      const statusRes = await fetch("/api/vto/usage");
+      const statusData = await statusRes.json();
 
-      if (!usageRes.ok) {
-        setError(usageData.error ?? "Kuota habis.");
-        setProcessing(false);
-        return;
+      if (!statusRes.ok) {
+        throw new Error(statusData.error ?? "Gagal memvalidasi kuota.");
       }
 
-      // Update status lokal
-      setVtoStatus((prev) => prev ? { ...prev, usage: usageData.usage, remaining: usageData.remaining, can_use: usageData.remaining > 0 } : prev);
-
-      // Fetch foto VTO baju sebagai blob
-      setProcessingStep("Menyiapkan gambar baju...");
-      const clothesResponse = await fetch(selectedOutfit.model_3d_file_link!);
-      const clothesBlob = await clothesResponse.blob();
-      const clothesFile = new File([clothesBlob], "clothes.jpg", { type: clothesBlob.type || "image/jpeg" });
+      if (!statusData.can_use) {
+        throw new Error("Kuota Virtual Try-On habis.");
+      }
 
       // Kirim ke backend
       setProcessingStep("AI sedang memproses virtual try-on... (ini memerlukan waktu ~1-2 menit)");
       const formData = new FormData();
       formData.append("person", personFile);
-      formData.append("clothes", clothesFile);
+      formData.append("clothesUrl", selectedOutfit.model_2d_file_link);
 
       const response = await fetch("/api/vto/process", {
         method: "POST",
@@ -492,6 +492,24 @@ export default function VirtualTryOnPage() {
 
       if (!response.ok || !data.success) {
         throw new Error(data.error ?? "Gagal memproses virtual try-on.");
+      }
+
+      // Kurangi/increment usage kuota setelah sukses
+      setProcessingStep("Mengupdate kuota...");
+      const usageRes = await fetch("/api/vto/usage", { method: "POST" });
+      const usageData = await usageRes.json();
+
+      if (usageRes.ok) {
+        setVtoStatus((prev) =>
+          prev
+            ? {
+                ...prev,
+                usage: usageData.usage,
+                remaining: usageData.remaining,
+                can_use: usageData.remaining > 0,
+              }
+            : prev
+        );
       }
 
       setResultUrl(data.imageUrl);

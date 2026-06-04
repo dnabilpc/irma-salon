@@ -1,7 +1,7 @@
 // backend/src/index.js
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import tryonRoutes from './routes/tryonRoutes.js';
 import whatsappRoutes from './routes/whatsappRoutes.js';
 import authRoutes from './routes/authRoutes.js';
@@ -56,12 +56,24 @@ async function runMigrations() {
             CHECK (payment_method IN ('cash', 'qris', 'midtrans', 'payment_gateway'));
         `);
         console.log('[Migration] transactions.payment_method check constraint updated.');
+
+        // Rename model_3d_file_link to model_2d_file_link in outfit_catalogues table
+        try {
+            await pool.query(`
+                ALTER TABLE outfit_catalogues 
+                RENAME COLUMN model_3d_file_link TO model_2d_file_link;
+            `);
+            console.log('[Migration] Renamed model_3d_file_link to model_2d_file_link in outfit_catalogues.');
+        } catch (err) {
+            // Ignore error if column has already been renamed
+            if (!err.message.includes('does not exist')) {
+                console.error('[Migration] Failed to rename model_3d_file_link:', err.message);
+            }
+        }
     } catch (err) {
         console.error('[Migration] Failed:', err.message);
     }
 }
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

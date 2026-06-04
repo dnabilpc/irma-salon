@@ -26,7 +26,7 @@ export interface Stat {
 
 export interface FooterColumn {
   title: string;
-  items: string[];
+  items: NavLink[];
 }
 
 // ── Auth ──

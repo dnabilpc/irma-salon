@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (isNaN(outfitId)) return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
 
     const body = await req.json();
-    const { outfit_category_id, outfit_name, description, price, size, image_url, model_3d_file_link } = body;
+    const { outfit_category_id, outfit_name, description, price, size, image_url, model_2d_file_link } = body;
 
     if (!outfit_category_id || !outfit_name || !price) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -42,7 +42,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
            price              = $4,
            size               = $5,
            image_url          = $6,
-           model_3d_file_link = $7
+           model_2d_file_link = $7
        WHERE id = $8
        RETURNING *`,
       [
@@ -52,7 +52,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         price,
         size || null,
         image_url || null,
-        model_3d_file_link || null,
+        model_2d_file_link || null,
         outfitId,
       ]
     );

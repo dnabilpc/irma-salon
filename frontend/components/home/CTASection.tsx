@@ -4,6 +4,7 @@
 
 import SectionLabel from "@/components/ui/SectionLabel";
 import DividerOrnament from "@/components/ui/DividerOrnament";
+import Link from "next/link";
 
 export default function CTASection() {
   return (
@@ -48,18 +49,22 @@ export default function CTASection() {
             flexWrap: "wrap" as const,
           }}
         >
-          <button
-            className="btn-primary"
-            style={{ fontSize: "1rem", padding: "16px 40px" }}
-          >
-            Booking Layanan Salon
-          </button>
-          <button
-            className="btn-outline"
-            style={{ fontSize: "1rem", padding: "16px 40px" }}
-          >
-            Sewa Baju
-          </button>
+          <Link href="/booking">
+            <button
+              className="btn-primary"
+              style={{ fontSize: "1rem", padding: "16px 40px" }}
+            >
+              Booking Layanan Salon
+            </button>
+          </Link>
+          <Link href="/rent">
+            <button
+              className="btn-outline"
+              style={{ fontSize: "1rem", padding: "16px 40px" }}
+            >
+              Sewa Baju
+            </button>
+          </Link>
         </div>
       </div>
     </section>
