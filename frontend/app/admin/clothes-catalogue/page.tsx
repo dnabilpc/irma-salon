@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import ImageUploader from "@/components/ui/ImageUploader";
+import MultiImageUploader from "@/components/ui/MultiImageUploader";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -18,6 +20,7 @@ interface Outfit {
   price: number;
   size: string | null;
   image_url: string | null;
+  additional_image_urls: string[] | null;
   model_2d_file_link: string | null; // digunakan sebagai vto_image_url
   outfit_category_id: number;
   category_name: string;
@@ -33,6 +36,7 @@ interface OutfitForm {
   price: string;
   size: string;
   image_url: string;
+  additional_image_urls: string[];
   model_2d_file_link: string; // vto_image_url
 }
 
@@ -48,6 +52,7 @@ const EMPTY_OUTFIT_FORM: OutfitForm = {
   price: "",
   size: "",
   image_url: "",
+  additional_image_urls: [],
   model_2d_file_link: "",
 };
 
@@ -76,7 +81,7 @@ function OutfitFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  function update(field: keyof OutfitForm, value: string) {
+  function update(field: keyof OutfitForm, value: any) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
@@ -196,81 +201,34 @@ function OutfitFormModal({
             </div>
           </div>
 
-          {/* URL Gambar Display */}
-          <div>
-            <label style={labelStyle}>URL Foto Display (untuk Katalog)</label>
-            <input
-              value={form.image_url}
-              onChange={(e) => update("image_url", e.target.value)}
-              placeholder="https://..."
-              style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
-            />
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.65rem", color: "#B08090", marginTop: "4px" }}>
-              Foto tampilan baju untuk ditampilkan di katalog (boleh banyak pose / terpisah).
-            </p>
-          </div>
+          {/* Uploader Gambar Display */}
+          <ImageUploader
+            value={form.image_url}
+            onChange={(url) => update("image_url", url)}
+            folder="outfits"
+            filenamePrefix="outfit-catalog"
+            label="Foto Display (untuk Katalog)"
+            aspectRatio="4/3"
+          />
 
-          {/* URL Foto VTO — field utama yang diupdate */}
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>URL Foto Virtual Try-On</label>
-              <span style={{ background: "rgba(201,146,42,0.12)", color: "#C9922A", fontSize: "0.6rem", fontWeight: 700, padding: "2px 8px", borderRadius: "10px", letterSpacing: "0.06em" }}>
-                VTO AI
-              </span>
-            </div>
-            <input
-              value={form.model_2d_file_link}
-              onChange={(e) => update("model_2d_file_link", e.target.value)}
-              placeholder="https://..."
-              style={{
-                ...inputStyle,
-                borderColor: form.model_2d_file_link ? "#C9922A" : "#F0E0E6",
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = form.model_2d_file_link ? "#C9922A" : "#F0E0E6")}
-            />
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.65rem", color: "#B08090", marginTop: "4px", lineHeight: 1.5 }}>
-              Foto khusus baju yang lengkap dan sempurna untuk diproses AI Virtual Try-On.<br />
-              Jika kosong, baju tidak akan muncul di pilihan Virtual Try-On.
-            </p>
-          </div>
+          {/* Uploader Gambar Galeri Tambahan */}
+          <MultiImageUploader
+            value={form.additional_image_urls}
+            onChange={(urls) => update("additional_image_urls", urls)}
+            folder="outfits"
+            filenamePrefix="outfit-gallery"
+            label="Foto Galeri Tambahan (Display Katalog)"
+          />
 
-          {/* Preview foto VTO */}
-          {form.model_2d_file_link && (
-            <div>
-              <label style={{ ...labelStyle, marginBottom: "6px" }}>Preview Foto VTO</label>
-              <div style={{ borderRadius: "8px", overflow: "hidden", border: "2px solid rgba(201,146,42,0.3)", height: "140px", position: "relative" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={form.model_2d_file_link}
-                  alt="preview VTO"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  onError={(e) => { e.currentTarget.style.display = "none"; }}
-                />
-                <div style={{ position: "absolute", top: "6px", right: "6px", background: "rgba(201,146,42,0.9)", color: "white", fontSize: "0.58rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px" }}>
-                  VTO IMAGE
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Preview foto display */}
-          {form.image_url && (
-            <div>
-              <label style={{ ...labelStyle, marginBottom: "6px" }}>Preview Foto Katalog</label>
-              <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid #F0E0E6", height: "120px" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={form.image_url}
-                  alt="preview katalog"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  onError={(e) => { e.currentTarget.style.display = "none"; }}
-                />
-              </div>
-            </div>
-          )}
+          {/* Uploader Foto VTO */}
+          <ImageUploader
+            value={form.model_2d_file_link}
+            onChange={(url) => update("model_2d_file_link", url)}
+            folder="vto"
+            filenamePrefix="outfit-vto"
+            label="Foto Virtual Try-On (VTO AI)"
+            aspectRatio="4/3"
+          />
         </div>
 
         {/* Footer */}
@@ -508,6 +466,7 @@ export default function ClothesCataloguePage() {
       price: String(o.price),
       size: o.size ?? "",
       image_url: o.image_url ?? "",
+      additional_image_urls: o.additional_image_urls ?? [],
       model_2d_file_link: o.model_2d_file_link ?? "",
     });
     setEditingOutfitId(o.id);
@@ -522,6 +481,7 @@ export default function ClothesCataloguePage() {
       price: Number(form.price),
       size: form.size || null,
       image_url: form.image_url || null,
+      additional_image_urls: form.additional_image_urls || [],
       model_2d_file_link: form.model_2d_file_link || null,
     };
     const url = outfitFormMode === "create" ? "/api/admin/outfits" : `/api/admin/outfits/${editingOutfitId}`;
@@ -688,7 +648,7 @@ export default function ClothesCataloguePage() {
                   <div style={{ height: "180px", background: "linear-gradient(135deg, #FDF0F4, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
                     {o.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={o.image_url} alt={o.outfit_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <img src={o.image_url} alt={o.outfit_name} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     ) : (
                       <span style={{ fontSize: "3rem" }}>👗</span>
                     )}

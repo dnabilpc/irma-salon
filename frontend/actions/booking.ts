@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type BookingStatusDB = "PENDING" | "DITERIMA" | "DITOLAK" | "CANCELLED";
+export type BookingStatusDB = "pending" | "confirmed" | "rejected" | "cancelled" | "completed";
 
 export interface BookingRow {
   id: number;

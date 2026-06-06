@@ -7,7 +7,6 @@ import { backendFetch } from "@/lib/backendClient";
 
 export type RentalStatus =
   | "pending"
-  | "only_deposit"
   | "ongoing"
   | "terlambat"
   | "done"

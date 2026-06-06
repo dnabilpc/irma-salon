@@ -595,6 +595,23 @@ export default function VirtualTryOnPage() {
           <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "rgba(255,255,255,0.5)", maxWidth: "480px", margin: "0 auto", lineHeight: 1.7 }}>
             Upload foto dirimu, pilih baju dari koleksi kami, dan lihat tampilanmu secara instan dengan teknologi AI.
           </p>
+          <div style={{
+            background: "rgba(201, 146, 42, 0.08)",
+            border: "1px solid rgba(201, 146, 42, 0.25)",
+            borderRadius: "10px",
+            padding: "12px 18px",
+            maxWidth: "600px",
+            margin: "20px auto 0",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            textAlign: "left"
+          }}>
+            <span style={{ fontSize: "1.2rem", flexShrink: 0 }}>⚠️</span>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "rgba(255,255,255,0.7)", lineHeight: 1.5 }}>
+              <strong>Disclaimer:</strong> Virtual Try-On ini hanya bertujuan untuk visualisasi pakaian secara estetika dan tidak mempertimbangkan kecocokan antara ukuran baju (S, M, L, XL) dengan ukuran fisik tubuh Anda yang sebenarnya.
+            </div>
+          </div>
         </div>
 
         {/* Quota bar */}

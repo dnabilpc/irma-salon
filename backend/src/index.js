@@ -11,6 +11,7 @@ import bookingRoutes from './routes/bookingRoutes.js';
 import rentalRoutes from './routes/rentalRoutes.js';
 import registrationRoutes from './routes/registrationRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import { initWhatsapp } from './services/whatsappService.js';
 import { initScheduler } from './services/reminderCron.js';
 import pool from './services/db.js';
@@ -93,10 +94,11 @@ app.use('/api', bookingRoutes);
 app.use('/api', rentalRoutes);
 app.use('/api', registrationRoutes);
 app.use('/api', paymentRoutes);
+app.use('/api', adminRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: "healthy", message: "Try-on backend is active!" });
+app.get('/', (req, res) => {
+    res.status(200).json({ message: "This is Salon Irma Backend!" });
 });
 
 // Initialize services on startup

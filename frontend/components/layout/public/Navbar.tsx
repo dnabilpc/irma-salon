@@ -42,7 +42,7 @@ export default function Navbar() {
   }
 
   const user      = session?.user;
-  const isAdmin   = (user as { role?: string } | undefined)?.role === "ADMIN";
+  const isAdmin   = (user as { role?: string } | undefined)?.role === "admin";
 
   return (
     <nav
@@ -73,18 +73,18 @@ export default function Navbar() {
               fontFamily: "'Playfair Display', Georgia, serif",
             }}
           >
-            Rumah Cantik
+            Irma Wedding Salon
           </span>
           <span
             style={{
               fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.65rem",
+              fontSize: "0.75rem",
               letterSpacing: "0.2em",
               color: "#C9922A",
               textTransform: "uppercase" as const,
             }}
           >
-            Irma Salon & Sewa Baju
+            Salon & Sewa Baju
           </span>
         </div>
       </Link>

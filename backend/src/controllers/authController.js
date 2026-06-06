@@ -2,6 +2,7 @@
 import crypto from 'crypto';
 import pool from '../services/db.js';
 import { sendWaMessage } from '../services/whatsappService.js';
+import { uploadToSupabaseStorage } from '../services/storageService.js';
 
 /**
  * Normalizes phone number format (converts 08... or 8... to 628...)
@@ -155,69 +156,6 @@ export async function resetPasswordDB(req, res) {
 }
 
 /**
- * Uploads a base64 image string to Supabase Storage and returns the public URL.
- * @param {string} base64Str - Data URL string (e.g. data:image/png;base64,...)
- * @param {string} userId - User ID to prevent duplicate/anonymous file names
- * @returns {Promise<string|null>} Public URL of the uploaded image, or null if failed
- */
-async function uploadToSupabaseStorage(base64Str, userId) {
-    if (!base64Str || !base64Str.startsWith('data:image/')) {
-        return null;
-    }
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-    const bucketName = encodeURIComponent(process.env.SUPABASE_BUCKET || 'irma-salon');
-
-    if (!supabaseUrl || !supabaseKey) {
-        console.error('[Supabase Storage] Missing SUPABASE_URL or SUPABASE_ANON_KEY in environment variables.');
-        return null;
-    }
-
-    try {
-        const matches = base64Str.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) {
-            throw new Error('Invalid base64 format.');
-        }
-
-        const contentType = matches[1];
-        const base64Data = matches[2];
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        let ext = 'png';
-        if (contentType.includes('jpeg') || contentType.includes('jpg')) ext = 'jpg';
-        else if (contentType.includes('webp')) ext = 'webp';
-        else if (contentType.includes('gif')) ext = 'gif';
-
-        const fileName = `${userId}-${Date.now()}.${ext}`;
-        const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucketName}/${fileName}`;
-
-        const response = await fetch(uploadUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${supabaseKey}`,
-                'Content-Type': contentType,
-                'x-upsert': 'true'
-            },
-            body: buffer
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Supabase upload failed: ${response.statusText} (${errText})`);
-        }
-
-        const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}/${fileName}`;
-        console.log(`[Supabase Storage] Successfully uploaded image for user ${userId}. URL: ${publicUrl}`);
-        return publicUrl;
-    } catch (error) {
-        console.error('[Supabase Storage] Upload error:', error);
-        return null;
-    }
-}
-
-/**
  * Updates user profile details (name, phone_number, and optional base64 image)
  */
 export async function updateProfile(req, res) {
@@ -258,7 +196,7 @@ export async function updateProfile(req, res) {
 
         let imageUrlToSave = image;
         if (image && image.startsWith('data:image/')) {
-            const uploadedUrl = await uploadToSupabaseStorage(image, userId);
+            const uploadedUrl = await uploadToSupabaseStorage(image, 'profiles', userId);
             if (uploadedUrl) {
                 imageUrlToSave = uploadedUrl;
             } else {

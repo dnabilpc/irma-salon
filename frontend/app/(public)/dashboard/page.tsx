@@ -153,7 +153,7 @@ export default function CustomerDashboard() {
   useEffect(() => {
     if (!isPending && session?.user) {
       const user = session.user as { role?: string };
-      if (user.role === "ADMIN") {
+      if (user.role === "admin") {
         router.push("/admin/dashboard");
       }
     }

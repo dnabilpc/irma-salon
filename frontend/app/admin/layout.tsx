@@ -20,7 +20,7 @@ export default async function AdminLayout({
   if (!session) redirect("/login");
 
   const user = session.user as unknown as AppUser;
-  if (user.role !== "ADMIN") redirect("/");
+  if (user.role !== "admin") redirect("/");
 
   return (
     <div

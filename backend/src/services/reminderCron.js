@@ -30,6 +30,26 @@ export function initScheduler() {
         scheduled: true,
         timezone: "Asia/Jakarta" // Set timezone to Jakarta
     });
+
+    // Run every hour to check and auto-expire pending bookings in the past
+    cron.schedule('0 * * * *', async () => {
+        console.log('[Scheduler] Running hourly booking expiration job...');
+        try {
+            const res = await pool.query(`
+                UPDATE bookings 
+                SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
+                WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'
+            `);
+            if (res.rowCount > 0) {
+                console.log(`[Scheduler] Auto-expired ${res.rowCount} pending bookings.`);
+            }
+        } catch (err) {
+            console.error('[Scheduler] Error running booking expiration job:', err);
+        }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
 }
 
 /**
@@ -66,7 +86,7 @@ async function sendBookingReminders() {
             JOIN "user" u ON b.user_id = u.id
             LEFT JOIN booking_details bd ON bd.booking_id = b.id
             LEFT JOIN salon_services ss ON bd.salon_service_id = ss.id
-            WHERE b.status = 'DITERIMA'
+            WHERE b.status = 'confirmed'
               AND DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE + INTERVAL '1 day'
               AND u.phone_number IS NOT NULL AND u.phone_number != ''
             GROUP BY b.id, u.name, u.phone_number, b.booking_datetime
@@ -109,7 +129,7 @@ async function sendPickupReminders() {
             FROM rentals r
             JOIN "user" u ON r.user_id = u.id
             JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
-            WHERE r.rental_status IN ('pending', 'only_deposit')
+            WHERE r.rental_status = 'pending'
               AND r.start_date = CURRENT_DATE + INTERVAL '1 day'
               AND u.phone_number IS NOT NULL AND u.phone_number != ''
         `;

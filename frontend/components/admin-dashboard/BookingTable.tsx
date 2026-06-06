@@ -1,9 +1,8 @@
-// components/admin-dashboard/BookingTable.tsx
 "use client";
 
 import { useState } from "react";
+import type { DashboardStats } from "@/actions/admin";
 import Badge from "@/components/ui/Badge";
-import { RECENT_BOOKINGS } from "@/constants/data";
 import { formatRupiah, getBookingStatusStyle, getPaymentStyle } from "@/lib/utils";
 import type { BookingStatus } from "@/types";
 
@@ -19,13 +18,19 @@ const FILTER_OPTIONS: { key: FilterOption; label: string }[] = [
 
 const COL = "76px 1fr 130px 72px 72px 96px 96px 88px";
 
-export default function BookingTable() {
+interface BookingTableProps {
+  items: DashboardStats["recentBookings"];
+}
+
+export default function BookingTable({ items }: BookingTableProps) {
   const [filter, setFilter] = useState<FilterOption>("all");
 
-  const rows =
+  const rows = !items ? [] :
     filter === "all"
-      ? RECENT_BOOKINGS
-      : RECENT_BOOKINGS.filter((b) => b.status === filter);
+      ? items
+      : items.filter((b) => b.status === filter);
+
+  const totalCount = items ? items.length : 0;
 
   return (
     <div className="admin-card" style={{ overflow: "hidden" }}>
@@ -55,7 +60,7 @@ export default function BookingTable() {
             Booking Terbaru
           </h3>
           <p style={{ fontSize: "12px", color: "#B08090", marginTop: "2px" }}>
-            {rows.length} dari {RECENT_BOOKINGS.length} data
+            {rows.length} dari {totalCount} data
           </p>
         </div>
 

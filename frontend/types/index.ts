@@ -31,7 +31,7 @@ export interface FooterColumn {
 
 // ── Auth ──
 
-export type UserRole = "ADMIN" | "CUSTOMER";
+export type UserRole = "admin" | "customer";
 
 export interface AppUser {
   id: string;

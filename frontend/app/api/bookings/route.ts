@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     let response;
 
-    if (user.role === "ADMIN") {
+    if (user.role === "admin") {
       const queryParams = new URLSearchParams({ status, search, page, limit });
       response = await backendFetch(`/api/admin/bookings?${queryParams.toString()}`);
     } else {
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: data.error || "Internal Server Error" }, { status: response.status });
     }
 
-    if (user.role === "ADMIN") {
+    if (user.role === "admin") {
       return NextResponse.json({
         rows: data.rows,
         total: data.total,

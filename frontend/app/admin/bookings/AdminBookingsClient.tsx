@@ -14,43 +14,48 @@ function formatRupiah(n: number) {
   }).format(n);
 }
 
-// ── Status config — sesuai enum DB (uppercase) ────────────────────────────────
-
 type StatusConfig = { label: string; bg: string; color: string; dot: string };
 
 const STATUS_CONFIG: Record<BookingStatusDB, StatusConfig> = {
-  PENDING: {
+  pending: {
     label: "Pending",
     bg: "rgba(201,146,42,0.12)",
     color: "#A07010",
     dot: "#C9922A",
   },
-  DITERIMA: {
+  confirmed: {
     label: "Diterima",
     bg: "rgba(90,158,122,0.12)",
     color: "#3D7A5A",
     dot: "#5A9E7A",
   },
-  DITOLAK: {
+  rejected: {
     label: "Ditolak",
     bg: "rgba(192,80,96,0.12)",
     color: "#C05060",
     dot: "#C05060",
   },
-  CANCELLED: {
+  cancelled: {
     label: "Cancelled",
     bg: "rgba(150,120,110,0.12)",
     color: "#7A5C50",
     dot: "#B09080",
   },
+  completed: {
+    label: "Completed",
+    bg: "rgba(79,70,229,0.12)",
+    color: "#4F46E5",
+    dot: "#6366F1",
+  },
 };
 
 const FILTER_TABS: { key: BookingStatusDB | "ALL"; label: string }[] = [
   { key: "ALL", label: "Semua" },
-  { key: "PENDING", label: "Pending" },
-  { key: "DITERIMA", label: "Diterima" },
-  { key: "DITOLAK", label: "Ditolak" },
-  { key: "CANCELLED", label: "Cancelled" },
+  { key: "pending", label: "Pending" },
+  { key: "confirmed", label: "Diterima" },
+  { key: "rejected", label: "Ditolak" },
+  { key: "cancelled", label: "Cancelled" },
+  { key: "completed", label: "Completed" },
 ];
 
 const LIMIT = 10;
@@ -59,7 +64,7 @@ const COL = "56px 1fr 110px 160px 100px 90px 80px 44px";
 // ── StatusBadge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: BookingStatusDB }) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.CANCELLED;
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.cancelled;
   return (
     <span
       style={{
@@ -312,7 +317,7 @@ function DetailModal({
           </div>
 
           {/* Action — PENDING */}
-          {booking.status === "PENDING" && (
+          {booking.status === "pending" && (
             <>
               <textarea
                 placeholder="Masukkan alasan penolakan..."
@@ -345,7 +350,7 @@ function DetailModal({
               <div style={{ display: "flex", gap: "10px" }}>
                 <button
                   disabled={loading}
-                  onClick={() => onStatusChange(booking.id, "DITERIMA")}
+                  onClick={() => onStatusChange(booking.id, "confirmed")}
                   style={{
                     flex: 1,
                     background: "rgba(90,158,122,0.1)",
@@ -377,7 +382,7 @@ function DetailModal({
                       setRejectError("Alasan penolakan wajib diisi.");
                       return;
                     }
-                    onStatusChange(booking.id, "DITOLAK", rejectReason);
+                    onStatusChange(booking.id, "rejected", rejectReason);
                   }}
                   style={{
                     flex: 1,
@@ -407,10 +412,10 @@ function DetailModal({
           )}
 
           {/* Action — DITERIMA: bisa batalkan */}
-          {booking.status === "DITERIMA" && (
+          {booking.status === "confirmed" && (
             <button
               disabled={loading}
-              onClick={() => onStatusChange(booking.id, "CANCELLED")}
+              onClick={() => onStatusChange(booking.id, "cancelled")}
               style={{
                 background: "rgba(150,120,110,0.08)",
                 border: "1px solid #F0E0E6",
@@ -513,10 +518,10 @@ export default function AdminBookingsClient() {
   // Stats dihitung dari data yang sudah di-fetch
   const stats = {
     total: total,
-    pending: bookings.filter((b) => b.status === "PENDING").length,
-    diterima: bookings.filter((b) => b.status === "DITERIMA").length,
+    pending: bookings.filter((b) => b.status === "pending").length,
+    diterima: bookings.filter((b) => b.status === "confirmed").length,
     revenue: bookings
-      .filter((b) => b.status === "DITERIMA")
+      .filter((b) => b.status === "confirmed")
       .reduce((s, b) => s + b.total_amount, 0),
   };
 
@@ -564,10 +569,10 @@ export default function AdminBookingsClient() {
         );
         setSelected(null);
         showToast(
-          status === "DITERIMA"
+          status === "confirmed"
             ? "Booking berhasil diterima!"
             : "Status booking diperbarui.",
-          status === "DITERIMA",
+          status === "confirmed",
         );
       } else {
         showToast(result.error ?? "Gagal mengubah status.", false);
@@ -942,12 +947,12 @@ export default function AdminBookingsClient() {
               <div
                 onClick={(e) => e.stopPropagation()}
                 style={{ display: "flex", justifyContent: "center" }}>
-                {b.status === "PENDING" ? (
+                {b.status === "pending" ? (
                   <div style={{ display: "flex", gap: "4px" }}>
                     {/* ACCEPT */}
                     <button
                       title="Terima booking"
-                      onClick={() => handleStatusChange(b.id, "DITERIMA")}
+                      onClick={() => handleStatusChange(b.id, "confirmed")}
                       style={{
                         background: "rgba(90,158,122,0.1)",
                         border: "1px solid rgba(90,158,122,0.3)",

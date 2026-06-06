@@ -1,11 +1,14 @@
-// components/admin-dashboard/RentalTable.tsx
+import type { DashboardStats } from "@/actions/admin";
 import Badge from "@/components/ui/Badge";
-import { RECENT_RENTALS } from "@/constants/data";
 import { formatRupiah, getRentalStyle } from "@/lib/utils";
 
 const COL = "76px 1fr 1fr 72px 80px 106px 88px";
 
-export default function RentalTable() {
+interface RentalTableProps {
+  items: DashboardStats["recentRentals"];
+}
+
+export default function RentalTable({ items }: RentalTableProps) {
   return (
     <div className="admin-card" style={{ overflow: "hidden" }}>
 
@@ -55,56 +58,62 @@ export default function RentalTable() {
       </div>
 
       {/* Data rows */}
-      {RECENT_RENTALS.map((r) => {
-        const rs = getRentalStyle(r.status);
-        return (
-          <div
-            key={r.id}
-            className="table-row"
-            style={{ gridTemplateColumns: COL }}
-          >
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "12px",
-                color: "#B08090",
-              }}
+      {!items || items.length === 0 ? (
+        <div style={{ padding: "40px", textAlign: "center", color: "#B08090", fontSize: "13px" }}>
+          Tidak ada persewaan baju aktif
+        </div>
+      ) : (
+        items.map((r) => {
+          const rs = getRentalStyle(r.status);
+          return (
+            <div
+              key={r.id}
+              className="table-row"
+              style={{ gridTemplateColumns: COL }}
             >
-              {r.id}
-            </span>
-            <span style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28" }}>
-              {r.customer}
-            </span>
-            <span style={{ fontSize: "13px", color: "#8A4060" }}>
-              {r.item}
-            </span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>
-              {r.rentDate}
-            </span>
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "12px",
-                color: r.status === "terlambat" ? "#D94060" : "#8A4060",
-                fontWeight: r.status === "terlambat" ? 700 : 400,
-              }}
-            >
-              {r.returnDate}
-            </span>
-            <Badge label={r.status} bg={rs.bg} color={rs.color} />
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "13px",
-                color: "#C9922A",
-                fontWeight: 600,
-              }}
-            >
-              {formatRupiah(r.amount)}
-            </span>
-          </div>
-        );
-      })}
+              <span
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: "12px",
+                  color: "#B08090",
+                }}
+              >
+                SW-{r.id}
+              </span>
+              <span style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28" }}>
+                {r.customer}
+              </span>
+              <span style={{ fontSize: "13px", color: "#8A4060" }}>
+                {r.item}
+              </span>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>
+                {r.rent_date}
+              </span>
+              <span
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: "12px",
+                  color: r.status === "terlambat" ? "#D94060" : "#8A4060",
+                  fontWeight: r.status === "terlambat" ? 700 : 400,
+                }}
+              >
+                {r.return_date}
+              </span>
+              <Badge label={r.status} bg={rs.bg} color={rs.color} />
+              <span
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: "13px",
+                  color: "#C9922A",
+                  fontWeight: 600,
+                }}
+              >
+                {formatRupiah(r.amount)}
+              </span>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

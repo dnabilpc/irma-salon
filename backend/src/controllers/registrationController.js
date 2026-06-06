@@ -69,7 +69,7 @@ export async function registerCustomer(req, res) {
         // Insert user with PENDING status
         await pool.query(
             `INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt", role, phone_number, status)
-             VALUES ($1, $2, $3, false, $4, $4, 'CUSTOMER', $5, 'PENDING')`,
+             VALUES ($1, $2, $3, false, $4, $4, 'customer', $5, 'PENDING')`,
             [userId, name, email, now, phone_number || null]
         );
 
@@ -96,7 +96,7 @@ export async function getPendingRegistrations(req, res) {
         const result = await pool.query(
             `SELECT id, name, email, phone_number, "createdAt"
              FROM "user"
-             WHERE status = 'PENDING' AND role = 'CUSTOMER'
+             WHERE status = 'PENDING' AND role = 'customer'
              ORDER BY "createdAt" DESC`
         );
 
@@ -120,7 +120,7 @@ export async function getActiveCustomers(req, res) {
              FROM "user" u
              LEFT JOIN bookings b ON b.user_id = u.id
              LEFT JOIN rentals r ON r.user_id = u.id
-             WHERE u.status = 'ACTIVE' AND u.role = 'CUSTOMER'
+             WHERE u.status = 'ACTIVE' AND u.role = 'customer'
              GROUP BY u.id
              ORDER BY u."createdAt" DESC`
         );
@@ -141,7 +141,7 @@ export async function getRejectedRegistrations(req, res) {
         const result = await pool.query(
             `SELECT id, name, email, phone_number, "createdAt", "updatedAt"
              FROM "user"
-             WHERE status = 'REJECTED' AND role = 'CUSTOMER'
+             WHERE status = 'REJECTED' AND role = 'customer'
              ORDER BY "updatedAt" DESC`
         );
 
@@ -232,13 +232,13 @@ export async function getSidebarCounts(req, res) {
     try {
         // 1. Pending registrations count
         const registrationsRes = await pool.query(
-            `SELECT COUNT(*)::int AS count FROM "user" WHERE status = 'PENDING' AND role = 'CUSTOMER'`
+            `SELECT COUNT(*)::int AS count FROM "user" WHERE status = 'PENDING' AND role = 'customer'`
         );
         const registrationsCount = registrationsRes.rows[0].count;
 
         // 2. Pending bookings count
         const bookingsRes = await pool.query(
-            `SELECT COUNT(*)::int AS count FROM bookings WHERE status = 'PENDING'`
+            `SELECT COUNT(*)::int AS count FROM bookings WHERE status = 'pending'`
         );
         const bookingsCount = bookingsRes.rows[0].count;
 

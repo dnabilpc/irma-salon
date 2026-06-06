@@ -1,13 +1,18 @@
-// components/admin-dashboard/StatCardGrid.tsx
-import { STAT_CARDS } from "@/constants/data";
+import type { DashboardStats } from "@/actions/admin";
 
-export default function StatCardGrid() {
+interface StatCardGridProps {
+  stats: DashboardStats["stats"];
+}
+
+export default function StatCardGrid({ stats }: StatCardGridProps) {
+  if (!stats || stats.length === 0) return null;
+
   return (
     <div
       className="admin-stats-grid"
       style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}
     >
-      {STAT_CARDS.map((card, i) => (
+      {stats.map((card, i) => (
         <div
           key={card.label}
           className="admin-stat-card card-anim"

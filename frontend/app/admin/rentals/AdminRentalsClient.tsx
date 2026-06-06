@@ -28,7 +28,6 @@ function formatDate(dateStr: string) {
 
 const STATUS_CONFIG: Record<RentalStatus, { label: string; bg: string; color: string }> = {
   pending:      { label: "Menunggu",     bg: "rgba(201,146,42,0.12)",  color: "#A07010" },
-  only_deposit: { label: "Dp Saja",      bg: "rgba(155,111,212,0.12)", color: "#7A50B0" },
   ongoing:      { label: "Dipinjam",     bg: "rgba(196,114,142,0.12)", color: "#C4728E" },
   terlambat:    { label: "Terlambat",    bg: "rgba(217,64,96,0.12)",   color: "#D94060" },
   done:         { label: "Selesai",      bg: "rgba(42,140,90,0.12)",   color: "#1A7A4A" },
@@ -38,7 +37,6 @@ const STATUS_CONFIG: Record<RentalStatus, { label: string; bg: string; color: st
 const FILTER_TABS: { key: RentalStatus | "ALL"; label: string }[] = [
   { key: "ALL",         label: "Semua"     },
   { key: "pending",     label: "Menunggu"  },
-  { key: "only_deposit",label: "Dp Saja"   },
   { key: "ongoing",     label: "Dipinjam"  },
   { key: "terlambat",   label: "Terlambat" },
   { key: "done",        label: "Selesai"   },
@@ -166,16 +164,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading }: DetailModalPr
             </div>
           )}
 
-          {/* Only deposit → konfirmasi dipinjam */}
-          {rental.status === "only_deposit" && (
-            <button
-              disabled={loading}
-              onClick={() => onStatusChange(rental.id, "ongoing")}
-              style={{ width: "100%", background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", padding: "12px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
-            >
-              ✓ Konfirmasi Dipinjam
-            </button>
-          )}
+
 
           {/* Ongoing → tandai dikembalikan */}
           {rental.status === "ongoing" && (

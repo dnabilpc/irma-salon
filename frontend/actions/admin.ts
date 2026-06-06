@@ -82,3 +82,90 @@ export async function confirmAdminPayment(id: number): Promise<ActionResult> {
     return { success: false, error: "Terjadi kesalahan sistem." };
   }
 }
+
+export interface DashboardStats {
+  stats: {
+    label: string;
+    value: string;
+    change: string;
+    positive: boolean;
+    icon: string;
+    accent: string;
+  }[];
+  weeklyChart: {
+    day: string;
+    bookings: number;
+    revenue: number;
+  }[];
+  todaySchedule: {
+    time: string;
+    name: string;
+    service: string;
+    status: "upcoming" | "ongoing" | "completed" | "cancelled";
+  }[];
+  topServices: {
+    name: string;
+    count: number;
+    pct: number;
+  }[];
+  recentBookings: {
+    id: string;
+    customer: string;
+    service: string;
+    date: string;
+    time: string;
+    status: "pending" | "confirmed" | "completed" | "cancelled";
+    payment: "paid" | "pending" | "refunded";
+    amount: number;
+  }[];
+  recentRentals: {
+    id: number;
+    customer: string;
+    item: string;
+    rent_date: string;
+    return_date: string;
+    status: "dipinjam" | "dikembalikan" | "terlambat" | "cancelled";
+    amount: number;
+  }[];
+}
+
+export async function getAdminDashboardStats(): Promise<ActionResult<DashboardStats>> {
+  try {
+    const response = await backendFetch("/api/admin/dashboard", {
+      method: "GET",
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || "Gagal memuat data dashboard." };
+    }
+
+    return { success: true, data };
+  } catch (err) {
+    console.error("[getAdminDashboardStats]", err);
+    return { success: false, error: "Gagal menghubungkan ke server." };
+  }
+}
+
+export async function uploadAdminImage(
+  image: string,
+  folder: string,
+  filenamePrefix: string
+): Promise<ActionResult<{ imageUrl: string }>> {
+  try {
+    const response = await backendFetch("/api/admin/upload-image", {
+      method: "POST",
+      body: { image, folder, filenamePrefix },
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || "Gagal mengunggah gambar." };
+    }
+
+    return { success: true, data: { imageUrl: data.imageUrl } };
+  } catch (err) {
+    console.error("[uploadAdminImage]", err);
+    return { success: false, error: "Gagal mengunggah gambar." };
+  }
+}

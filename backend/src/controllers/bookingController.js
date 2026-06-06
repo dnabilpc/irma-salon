@@ -18,7 +18,7 @@ async function getAdminPhone() {
     try {
         const adminRes = await pool.query(
             `SELECT phone_number FROM "user" 
-             WHERE role = 'ADMIN' AND phone_number IS NOT NULL AND phone_number != '' 
+             WHERE role = 'admin' AND phone_number IS NOT NULL AND phone_number != '' 
              LIMIT 1`
         );
         if (adminRes.rows.length > 0) {
@@ -113,12 +113,12 @@ async function triggerBookingStatusNotification(bookingId, status, reason) {
         const timeStr = `${formattedDate} pukul ${formattedTime}`;
 
         let message = "";
-        if (status === "DITERIMA") {
+        if (status === "confirmed") {
             message = `Halo *${row.customer_name}*,\n\nKabar baik! Booking Anda di *Rumah Cantik Irma* telah *DISETUJUI* oleh Admin:\n\n` +
                 `📅 *Jadwal:* ${timeStr} WIB\n` +
                 `💇‍♀️ *Layanan:* ${row.services}\n\n` +
                 `Silakan datang ke Rumah Cantik Irma sesuai dengan jadwal di atas. Sampai jumpa! ✨`;
-        } else if (status === "DITOLAK") {
+        } else if (status === "rejected") {
             message = `Halo *${row.customer_name}*,\n\nMohon maaf, booking Anda di *Rumah Cantik Irma* untuk jadwal *${timeStr} WIB* (layanan: ${row.services}) telah *DITOLAK* oleh Admin.\n\n` +
                 `💬 *Alasan Penolakan:* ${reason || "-"}\n\n` +
                 `Silakan membuat booking kembali untuk jadwal atau hari yang lain. Terima kasih.`;
@@ -214,7 +214,7 @@ export async function getAvailableSlots(req, res) {
     }
 
     try {
-        const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+        const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
         const dayOfWeek = dayNames[new Date(date).getDay()];
 
         const openCheck = await pool.query(
@@ -267,7 +267,7 @@ export async function getAvailableSlots(req, res) {
              FROM bookings b
              LEFT JOIN booking_details bd ON bd.booking_id = b.id
              WHERE DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
-               AND b.status NOT IN ('DITOLAK', 'CANCELLED')
+               AND b.status NOT IN ('rejected', 'cancelled')
              GROUP BY b.id, b.booking_datetime`,
             [date]
         );
@@ -374,7 +374,7 @@ export async function createBooking(req, res) {
              FROM bookings b
              LEFT JOIN booking_details bd ON bd.booking_id = b.id
              WHERE DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
-               AND b.status NOT IN ('DITOLAK', 'CANCELLED')
+               AND b.status NOT IN ('rejected', 'cancelled')
              GROUP BY b.id, b.booking_datetime`,
             [dateStr]
         );
@@ -403,7 +403,7 @@ export async function createBooking(req, res) {
 
             const bookingResult = await client.query(
                 `INSERT INTO bookings (user_id, booking_datetime, status)
-                 VALUES ($1, $2, 'PENDING')
+                 VALUES ($1, $2, 'pending')
                  RETURNING id`,
                 [userId, booking_datetime]
             );
@@ -483,23 +483,36 @@ export async function createBooking(req, res) {
 // ── UPDATE STATUS (Admin) ──────────────────────────────────────────────────
 
 export async function updateBookingStatus(req, res) {
-    if (req.user.role !== 'ADMIN') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ error: "Forbidden: Akses ditolak." });
     }
 
     const { id } = req.params;
     const { status, reason } = req.body;
 
-    const valid = ["PENDING", "DITERIMA", "DITOLAK", "CANCELLED"];
+    const valid = ["pending", "confirmed", "rejected", "cancelled"];
     if (!valid.includes(status)) {
         return res.status(400).json({ error: "Status tidak valid." });
     }
 
     try {
+        const checkRes = await pool.query(
+            `SELECT booking_datetime, status FROM bookings WHERE id = $1`,
+            [id]
+        );
+        if (!checkRes.rows.length) {
+            return res.status(404).json({ error: "Booking tidak ditemukan." });
+        }
+        const booking = checkRes.rows[0];
+
+        if (status === "confirmed" && new Date(booking.booking_datetime) < new Date()) {
+            return res.status(400).json({ error: "Tidak dapat menyetujui booking yang jadwalnya sudah terlewati (kedaluwarsa)." });
+        }
+
         let query;
         let params;
 
-        if (status === "DITOLAK") {
+        if (status === "rejected") {
             if (!reason) {
                 return res.status(400).json({ error: "Alasan penolakan tidak boleh kosong." });
             }
@@ -511,9 +524,6 @@ export async function updateBookingStatus(req, res) {
         }
 
         const result = await pool.query(query, params);
-        if (!result.rows.length) {
-            return res.status(404).json({ error: "Booking tidak ditemukan." });
-        }
 
         // WhatsApp notification (async)
         triggerBookingStatusNotification(id, status, reason).catch((err) =>
@@ -545,11 +555,11 @@ export async function cancelBooking(req, res) {
         if (!check.rows.length) {
             return res.status(404).json({ error: "Booking tidak ditemukan." });
         }
-        if (check.rows[0].status !== "PENDING") {
+        if (check.rows[0].status !== "pending") {
             return res.status(400).json({ error: "Hanya booking berstatus PENDING yang dapat dibatalkan." });
         }
 
-        await pool.query(`UPDATE bookings SET status = 'CANCELLED' WHERE id = $1`, [id]);
+        await pool.query(`UPDATE bookings SET status = 'cancelled' WHERE id = $1`, [id]);
 
         // Add system notification for Admin
         await pool.query(
@@ -573,11 +583,18 @@ export async function cancelBooking(req, res) {
 // ── GET BOOKINGS FOR ADMIN ─────────────────────────────────────────────────
 
 export async function getBookingsForAdmin(req, res) {
-    if (req.user.role !== 'ADMIN') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ error: "Akses ditolak." });
     }
 
     try {
+        // Auto-expire pending bookings in the past (e.g. 15 minutes past)
+        await pool.query(
+            `UPDATE bookings 
+             SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
+             WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'`
+        );
+
         const status = req.query.status ?? "ALL";
         const search = req.query.search;
         const page = parseInt(req.query.page ?? "1", 10);
@@ -644,6 +661,13 @@ export async function getBookingsForCustomer(req, res) {
     }
 
     try {
+        // Auto-expire pending bookings in the past (e.g. 15 minutes past)
+        await pool.query(
+            `UPDATE bookings 
+             SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
+             WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'`
+        );
+
         const result = await pool.query(
             `SELECT
                b.id,
@@ -718,7 +742,7 @@ export async function getBookingById(req, res) {
         const booking = result.rows[0];
 
         // Customer only sees their own
-        if (req.user.role !== "ADMIN" && booking.user_id !== userId) {
+        if (req.user.role !== "admin" && booking.user_id !== userId) {
             return res.status(403).json({ error: "Forbidden" });
         }
 

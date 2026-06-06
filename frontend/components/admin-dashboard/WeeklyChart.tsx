@@ -1,16 +1,32 @@
-// components/admin-dashboard/WeeklyChart.tsx
-import { WEEKLY_CHART } from "@/constants/data";
+import type { DashboardStats } from "@/actions/admin";
 import { formatRupiah } from "@/lib/utils";
 
-const SUMMARY = [
-  { label: "Total Booking", value: "104",       sub: "minggu ini" },
-  { label: "Total Revenue", value: "Rp 12.3jt", sub: "minggu ini" },
-  { label: "Avg. per Hari", value: "Rp 1.75jt", sub: "rata-rata"  },
-];
+interface WeeklyChartProps {
+  data: DashboardStats["weeklyChart"];
+}
 
-export default function WeeklyChart() {
-  const maxRevenue  = Math.max(...WEEKLY_CHART.map((d) => d.revenue));
-  const maxBookings = Math.max(...WEEKLY_CHART.map((d) => d.bookings));
+function formatRevenueShort(val: number) {
+  if (val >= 1000000) {
+    return `Rp ${(val / 1000000).toFixed(2).replace(/\.?0+$/, "")}jt`;
+  }
+  return formatRupiah(val);
+}
+
+export default function WeeklyChart({ data }: WeeklyChartProps) {
+  if (!data || data.length === 0) return null;
+
+  const maxRevenue  = Math.max(...data.map((d) => d.revenue), 1);
+  const maxBookings = Math.max(...data.map((d) => d.bookings), 1);
+
+  const totalBookings = data.reduce((sum, d) => sum + d.bookings, 0);
+  const totalRevenue = data.reduce((sum, d) => sum + d.revenue, 0);
+  const avgRevenue = totalRevenue / data.length;
+
+  const SUMMARY = [
+    { label: "Total Booking", value: totalBookings.toString(), sub: "7 hari terakhir" },
+    { label: "Total Revenue", value: formatRevenueShort(totalRevenue), sub: "7 hari terakhir" },
+    { label: "Avg. per Hari", value: formatRevenueShort(avgRevenue), sub: "rata-rata"  },
+  ];
 
   return (
     <div className="admin-card" style={{ padding: "22px" }}>
@@ -33,9 +49,9 @@ export default function WeeklyChart() {
               marginBottom: "2px",
             }}
           >
-            Aktivitas Minggu Ini
+            Aktivitas 7 Hari Terakhir
           </h3>
-          <p style={{ fontSize: "12px", color: "#B08090" }}>3 – 9 Maret 2026</p>
+          <p style={{ fontSize: "12px", color: "#B08090" }}>Grafik Booking & Revenue Harian</p>
         </div>
 
         {/* Legend */}
@@ -63,7 +79,7 @@ export default function WeeklyChart() {
           marginBottom: "20px",
         }}
       >
-        {WEEKLY_CHART.map((bar) => (
+        {data.map((bar) => (
           <div
             key={bar.day}
             style={{

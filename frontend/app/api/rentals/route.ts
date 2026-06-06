@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     let response;
 
-    if (user.role === "ADMIN") {
+    if (user.role === "admin") {
       const queryParams = new URLSearchParams({ status, page, limit });
       response = await backendFetch(`/api/admin/rentals?${queryParams.toString()}`);
     } else {
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Standardize return format for list sewa
-    if (user.role === "ADMIN") {
+    if (user.role === "admin") {
       return NextResponse.json({
         rows: data.rows,
         total: data.total,
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       // Customer API returns an array, wrap it in Next.js expected structure if needed or return direct
       // Let's check what the client expects:
       // The original return was `NextResponse.json({ rows: result.rows, total, page, limit });`
-      // Wait! The original code for Customer (role !== "ADMIN") did:
+      // Wait! The original code for Customer (role !== "admin") did:
       // `const result = await db.query(..., [...params, limit, offset]);`
       // `return NextResponse.json({ rows: result.rows, total, page, limit });`
       // Ah! The Next.js Route Handler GET originally returned `{ rows, total, page, limit }` for both Admin and Customer!

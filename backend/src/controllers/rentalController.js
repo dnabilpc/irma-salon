@@ -17,7 +17,7 @@ async function getAdminPhone() {
     try {
         const adminRes = await pool.query(
             `SELECT phone_number FROM "user" 
-             WHERE role = 'ADMIN' AND phone_number IS NOT NULL AND phone_number != '' 
+             WHERE role = 'admin' AND phone_number IS NOT NULL AND phone_number != '' 
              LIMIT 1`
         );
         if (adminRes.rows.length > 0) {
@@ -136,16 +136,7 @@ async function triggerRentalStatusNotification(rentalId, status, deposit_refund)
 
         let message = "";
 
-        if (status === "only_deposit") {
-            message = `Halo *${row.customer_name}*,\n\nPembayaran deposit untuk sewa baju Anda di *Rumah Cantik Irma* telah berhasil diterima!:\n\n` +
-                `👗 *Baju Sewa:* ${row.outfit_name}\n` +
-                `📅 *Tanggal Mulai:* ${formattedStart}\n` +
-                `📅 *Batas Pengembalian:* ${formattedEnd}\n` +
-                `⏳ *Durasi:* ${row.duration_days} hari\n` +
-                `💵 *Biaya Sewa:* ${amountRupiah}\n` +
-                `💰 *Deposit paid:* ${depositRupiah}\n\n` +
-                `Silakan ambil baju sewa Anda sesuai dengan tanggal mulai sewa. Terima kasih! 👗`;
-        } else if (status === "ongoing") {
+        if (status === "ongoing") {
             message = `Halo *${row.customer_name}*,\n\nBaju sewa Anda: *${row.outfit_name}* telah berhasil diambil! Mohon jaga baju sewa tersebut dengan baik:\n\n` +
                 `📅 *Tanggal Ambil:* ${formattedStart}\n` +
                 `📅 *Batas Pengembalian:* ${formattedEnd}\n` +
@@ -226,7 +217,7 @@ async function triggerRentalCancelNotification(rentalId) {
 
 // ── GET RENTALS FOR ADMIN ──────────────────────────────────────────────────
 export async function getRentalsForAdmin(req, res) {
-    if (req.user.role !== 'ADMIN') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ error: "Akses ditolak." });
     }
 
@@ -465,14 +456,14 @@ export async function createRental(req, res) {
 
 // ── UPDATE RENTAL STATUS (Admin) ───────────────────────────────────────────
 export async function updateRentalStatus(req, res) {
-    if (req.user.role !== 'ADMIN') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ error: "Akses ditolak." });
     }
 
     const { id } = req.params;
     const { status, deposit_refund } = req.body;
 
-    const valid = ["pending", "only_deposit", "ongoing", "terlambat", "done", "cancelled"];
+    const valid = ["pending", "ongoing", "terlambat", "done", "cancelled"];
     if (!valid.includes(status)) {
         return res.status(400).json({ error: "Status tidak valid." });
     }
@@ -571,7 +562,7 @@ export async function cancelRental(req, res) {
 
 // ── SYNC LATE RENTALS (Admin) ──────────────────────────────────────────────
 export async function syncLateRentals(req, res) {
-    if (req.user.role !== 'ADMIN') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ error: "Akses ditolak." });
     }
 
@@ -647,7 +638,7 @@ export async function getRentalById(req, res) {
         const rental = result.rows[0];
 
         // Customer only sees their own
-        if (req.user.role !== "ADMIN" && rental.user_id !== userId) {
+        if (req.user.role !== "admin" && rental.user_id !== userId) {
             return res.status(403).json({ error: "Forbidden" });
         }
 

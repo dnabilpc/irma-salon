@@ -12,7 +12,7 @@ async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return null;
   const user = session.user as unknown as AppUser;
-  if (user.role !== "ADMIN") return null;
+  if (user.role !== "admin") return null;
   return user;
 }
 

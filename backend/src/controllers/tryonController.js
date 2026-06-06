@@ -37,16 +37,17 @@ realistically over a real human body with its own unique proportions.
 const CROP_ANALYSIS_PROMPT = `
 Analyze this person image and describe ONLY the following with extreme precision:
 
-1. VISIBLE BODY PARTS: List every body part that is fully or partially visible.
-2. CROPPED/HIDDEN BODY PARTS: List every body part that is NOT visible (cut off by frame, hidden behind clothing, or simply not in frame).
-3. ARM TERMINATION: Describe exactly where each arm ends in the image. 
+1. SHOT TYPE: Define if it is a [full-body / half-body / upper-body / close-up] shot.
+2. VISIBLE BODY PARTS: List every body part that is fully or partially visible.
+3. CROPPED/HIDDEN BODY PARTS: List every body part that is NOT visible (cut off by frame, hidden behind clothing, or simply not in frame).
+4. ARM TERMINATION: Describe exactly where each arm ends in the image. 
    Example: "Left arm ends at mid-forearm, no hand visible. Right arm ends at elbow, tucked behind body."
-4. FRAME EDGES: Describe what gets cut off at each edge of the image frame.
+5. FRAME EDGES: Describe what gets cut off at each edge of the image frame.
 
-Be brutally literal. Do not assume or infer what might be outside the frame.
+Be brutally literal. Do not assume or infer what might be outside the frame. If the SHOT TYPE is half-body or upper-body, state clearly that legs, pants, and feet are out of frame and should NOT be generated.
 `;
 
-function buildTryonPrompt(bodyCropDescription, garmentDescription) {
+function buildTryonPrompt(bodyCropDescription, garmentDescription, isHalfBody = false) {
     return `
 You are performing a photorealistic virtual clothing try-on task.
 
@@ -132,6 +133,18 @@ ABSOLUTE PROHIBITIONS:
 ✗ Do NOT use IMAGE 2's model body, pose, or limb positions as reference
 ✗ Do NOT complete body parts that are cropped by the frame
 
+${isHalfBody ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL SHOT TYPE RESTRICTION: HALF-BODY / UPPER-BODY DETECTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The person in IMAGE 1 is captured in a half-body or upper-body shot. The lower body (legs, feet, hips/pants area) is completely outside the frame.
+- You are FORBIDDEN from generating pants, trousers, skirts, legs, or shoes.
+- If the garment in IMAGE 2 is a full-body set (such as a suit jacket with pants, or a long dress), you MUST ONLY render the top portion (jacket, shirt, blouse) fitted to the visible body.
+- Completely ignore/discard the lower portion (pants/skirt) of the garment.
+- Truncate and crop the garment naturally at the bottom edge of the frame.
+- Do NOT zoom out, do NOT extend the canvas, and do NOT draw any limbs or body parts that do not exist in IMAGE 1.
+` : ''}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FINAL OUTPUT REQUIREMENTS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -187,20 +200,57 @@ export const handleVirtualTryOn = async (req, res) => {
         });
         const bodyCropDescription = Array.isArray(cropAnalysis) ? cropAnalysis.join("") : cropAnalysis;
 
+        // Detect if half-body/upper-body
+        const isHalfBody = bodyCropDescription.toLowerCase().includes("half-body") || 
+                           bodyCropDescription.toLowerCase().includes("upper-body") || 
+                           bodyCropDescription.toLowerCase().includes("legs are not visible") || 
+                           bodyCropDescription.toLowerCase().includes("feet are not visible") || 
+                           bodyCropDescription.toLowerCase().includes("legs: out of frame") || 
+                           bodyCropDescription.toLowerCase().includes("feet: out of frame") || 
+                           bodyCropDescription.toLowerCase().includes("legs and feet are out of frame");
+
+        console.log(`[Try-On Controller] Detected Half-Body: ${isHalfBody}`);
+
         await delay(3000); // 3-second delay 
 
         // ── Step 3: Generate Virtual Try-On Prompt & Execution ─────────────
-        console.log("\nStep 3: Generating try-on dengan Gemini 2.5 Flash Image...");
-        const tryonPrompt = buildTryonPrompt(bodyCropDescription, garmentDescription);
+        const tryonPrompt = buildTryonPrompt(bodyCropDescription, garmentDescription, isHalfBody);
 
-        const output = await replicate.run("google/gemini-2.5-flash-image", {
-            input: {
+        const selectedModel = process.env.VTO_MODEL || 'gemini-flash';
+        let modelName;
+        let inputPayload;
+
+        if (selectedModel === 'gpt-image-2') {
+            modelName = "openai/gpt-image-2";
+            inputPayload = {
+                prompt: tryonPrompt,
+                input_images: [personUri, clothesUri],
+                aspect_ratio: "2:3", // 3:4 is not supported, using closest portrait ratio 2:3
+                quality: "low",
+                output_format: "jpeg" // "jpg" is not in schema enum, using "jpeg"
+            };
+        } else if (selectedModel === 'gpt-image-1.5') {
+            modelName = "openai/gpt-image-1.5";
+            inputPayload = {
+                prompt: tryonPrompt,
+                input_images: [personUri, clothesUri],
+                aspect_ratio: "2:3",
+                quality: "low",
+                input_fidelity: "high", // Ensures high facial/feature matching fidelity
+                output_format: "jpeg"
+            };
+        } else {
+            modelName = "google/gemini-2.5-flash-image";
+            inputPayload = {
                 prompt: tryonPrompt,
                 image_input: [personUri, clothesUri],
                 aspect_ratio: "3:4",
                 output_format: "jpg"
-            }
-        });
+            };
+        }
+
+        console.log(`\nStep 3: Generating try-on dengan model ${modelName}...`);
+        const output = await replicate.run(modelName, { input: inputPayload });
 
         const finalImageUrl = Array.isArray(output) ? output[0] : output;
         console.log(`\nURL hasil: ${finalImageUrl}`);

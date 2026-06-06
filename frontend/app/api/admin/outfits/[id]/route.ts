@@ -12,7 +12,7 @@ async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return null;
   const user = session.user as unknown as AppUser;
-  if (user.role !== "ADMIN") return null;
+  if (user.role !== "admin") return null;
   return user;
 }
 
@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (isNaN(outfitId)) return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
 
     const body = await req.json();
-    const { outfit_category_id, outfit_name, description, price, size, image_url, model_2d_file_link } = body;
+    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link } = body;
 
     if (!outfit_category_id || !outfit_name || !price) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -42,8 +42,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
            price              = $4,
            size               = $5,
            image_url          = $6,
-           model_2d_file_link = $7
-       WHERE id = $8
+           additional_image_urls = $7,
+           model_2d_file_link = $8
+       WHERE id = $9
        RETURNING *`,
       [
         outfit_category_id,
@@ -52,6 +53,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         price,
         size || null,
         image_url || null,
+        additional_image_urls || [],
         model_2d_file_link || null,
         outfitId,
       ]

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ interface Outfit {
   price: number;
   size: string | null;
   image_url: string | null;
+  additional_image_urls: string[] | null;
   model_2d_file_link: string | null;
   outfit_category_id: number;
   category_name: string;
@@ -42,6 +44,220 @@ function getEndDate(start: string, days: number): string {
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
 
+// ── Outfit Card with gallery ────────────────────────────────────────────────
+
+function OutfitCard({ outfit, onRentClick }: { outfit: Outfit; onRentClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
+
+  const allImages = [outfit.image_url, ...(outfit.additional_image_urls ?? [])].filter(Boolean) as string[];
+
+  const nextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (allImages.length > 1) {
+      setActiveImgIdx((prev) => (prev + 1) % allImages.length);
+    }
+  };
+
+  const prevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (allImages.length > 1) {
+      setActiveImgIdx((prev) => (prev - 1 + allImages.length) % allImages.length);
+    }
+  };
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => {
+        setHovered(false);
+        setActiveImgIdx(0);
+      }}
+      style={{
+        background: "white",
+        border: "1px solid #EDD8CC",
+        borderRadius: "12px",
+        overflow: "hidden",
+        boxShadow: hovered
+          ? "0 12px 32px rgba(107,58,42,0.12)"
+          : "0 2px 12px rgba(107,58,42,0.06)",
+        transform: hovered ? "translateY(-4px)" : "translateY(0)",
+        transition: "all 0.25s",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+      }}
+    >
+      {/* Gambar Container */}
+      <div
+        style={{
+          height: "220px",
+          background: "linear-gradient(135deg, #FDF0E8, #FDF8F3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        {allImages.length > 0 ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={allImages[activeImgIdx]}
+            alt={`${outfit.outfit_name} - ${activeImgIdx + 1}`}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              transform: hovered ? "scale(1.03)" : "scale(1)",
+              transition: "transform 0.5s ease",
+            }}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: "4rem" }}>👗</span>
+        )}
+
+        {/* Navigation Arrows for Card Gallery */}
+        {hovered && allImages.length > 1 && (
+          <>
+            <button
+              onClick={prevImage}
+              style={{
+                position: "absolute",
+                left: "8px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "24px",
+                height: "24px",
+                borderRadius: "50%",
+                background: "rgba(255, 255, 255, 0.85)",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "#6B3A2A",
+                zIndex: 2,
+                boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+              }}
+              aria-label="Foto sebelumnya"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              onClick={nextImage}
+              style={{
+                position: "absolute",
+                right: "8px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "24px",
+                height: "24px",
+                borderRadius: "50%",
+                background: "rgba(255, 255, 255, 0.85)",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "#6B3A2A",
+                zIndex: 2,
+                boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+              }}
+              aria-label="Foto berikutnya"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </>
+        )}
+
+        {/* Gallery Dots Indicators inside Card */}
+        {allImages.length > 1 && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "8px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              display: "flex",
+              gap: "4px",
+              zIndex: 2,
+              background: "rgba(0,0,0,0.3)",
+              padding: "2px 6px",
+              borderRadius: "8px",
+              backdropFilter: "blur(1px)",
+            }}
+          >
+            {allImages.map((_, i) => (
+              <span
+                key={i}
+                style={{
+                  width: "4px",
+                  height: "4px",
+                  borderRadius: "50%",
+                  background: activeImgIdx === i ? "white" : "rgba(255,255,255,0.4)",
+                  transition: "all 0.2s",
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Badge kategori */}
+        <div style={{ position: "absolute", top: "12px", left: "12px", background: "rgba(107,58,42,0.85)", color: "white", fontSize: "0.62rem", fontWeight: 600, padding: "3px 10px", borderRadius: "6px", letterSpacing: "0.06em", fontFamily: "'DM Sans', sans-serif", zIndex: 1 }}>
+          {outfit.category_name}
+        </div>
+
+        {/* Badge VTO */}
+        {outfit.model_2d_file_link && (
+          <div style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(201,146,42,0.9)", color: "white", fontSize: "0.62rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", letterSpacing: "0.06em", zIndex: 1 }}>
+            Try-On AI
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
+          {outfit.outfit_name}
+        </div>
+        {outfit.description && (
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "#8B6A5A", marginBottom: "10px", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {outfit.description}
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", marginTop: "auto" }}>
+          <div>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1rem", fontWeight: 700, color: "#6B3A2A" }}>
+              {formatRupiah(outfit.price)}
+            </div>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.65rem", color: "#8B6A5A" }}>per hari</div>
+          </div>
+          {outfit.size && (
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#8B6A5A", background: "#F5EDE0", padding: "3px 10px", borderRadius: "6px" }}>
+              {outfit.size}
+            </span>
+          )}
+        </div>
+
+        <button
+          onClick={onRentClick}
+          style={{ width: "100%", background: "#6B3A2A", color: "white", border: "none", padding: "11px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 500, letterSpacing: "0.06em", cursor: "pointer", borderRadius: "8px", transition: "background 0.2s" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#C9922A")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#6B3A2A")}
+        >
+          Sewa Baju Ini
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Rent Modal ─────────────────────────────────────────────────────────────
 
 function RentModal({
@@ -53,11 +269,13 @@ function RentModal({
   onClose: () => void;
   onSuccess: (rentalId: number, method: "cash" | "qris" | "midtrans", redirectUrl?: string | null) => void;
 }) {
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [startDate, setStartDate]     = useState("");
   const [durationDays, setDurationDays] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris" | "midtrans">("cash");
   const [submitting, setSubmitting]   = useState(false);
   const [error, setError]             = useState("");
+  const allImages = [outfit.image_url, ...(outfit.additional_image_urls ?? [])].filter(Boolean) as string[];
 
   const isMidtrans = paymentMethod === "midtrans";
   const adminFee = isMidtrans ? 4000 : 0;
@@ -121,21 +339,55 @@ function RentModal({
         {/* Body */}
         <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
 
-          {/* Info baju */}
-          <div style={{ display: "flex", gap: "14px", background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "12px 14px" }}>
-            <div style={{ width: "60px", height: "60px", borderRadius: "8px", background: "#F5EDE0", overflow: "hidden", flexShrink: 0 }}>
-              {outfit.image_url ? (
+          {/* Foto Slider Premium */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "10px", padding: "14px" }}>
+            <div style={{ position: "relative", width: "100%", height: "200px", background: "linear-gradient(135deg, #FDF0E8, #FDF8F3)", borderRadius: "8px", overflow: "hidden", border: "1px solid #EDD8CC", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {allImages.length > 0 ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={outfit.image_url} alt={outfit.outfit_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={allImages[activeImgIdx]} alt={outfit.outfit_name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
               ) : (
-                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}>👗</div>
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>👗</div>
+              )}
+              
+              {/* Navigasi Gambar */}
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setActiveImgIdx((prev) => (prev - 1 + allImages.length) % allImages.length)}
+                    style={{ position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)", width: "24px", height: "24px", borderRadius: "50%", background: "rgba(255,255,255,0.85)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B3A2A", boxShadow: "0 1px 4px rgba(0,0,0,0.1)", zIndex: 2 }}
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveImgIdx((prev) => (prev + 1) % allImages.length)}
+                    style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", width: "24px", height: "24px", borderRadius: "50%", background: "rgba(255,255,255,0.85)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B3A2A", boxShadow: "0 1px 4px rgba(0,0,0,0.1)", zIndex: 2 }}
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </>
+              )}
+              
+              {/* Titik Indikator */}
+              {allImages.length > 1 && (
+                <div style={{ position: "absolute", bottom: "8px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "4px", background: "rgba(0,0,0,0.25)", padding: "2px 6px", borderRadius: "8px", zIndex: 2 }}>
+                  {allImages.map((_, i) => (
+                    <span key={i} style={{ width: "4px", height: "4px", borderRadius: "50%", background: activeImgIdx === i ? "white" : "rgba(255,255,255,0.5)", transition: "all 0.2s" }} />
+                  ))}
+                </div>
               )}
             </div>
-            <div>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.9rem", fontWeight: 700, color: "#2C1A0E" }}>{outfit.outfit_name}</div>
-              <div style={{ fontSize: "0.72rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", marginTop: "2px" }}>{outfit.category_name} {outfit.size && `· ${outfit.size}`}</div>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.82rem", fontWeight: 600, color: "#6B3A2A", marginTop: "4px" }}>
-                {formatRupiah(outfit.price)} / hari
+            
+            {/* Detail Baju */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: "4px" }}>
+              <div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.95rem", fontWeight: 700, color: "#2C1A0E" }}>{outfit.outfit_name}</div>
+                <div style={{ fontSize: "0.75rem", color: "#8B6A5A", marginTop: "2px" }}>{outfit.category_name} {outfit.size && `· Size ${outfit.size}`}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.9rem", fontWeight: 700, color: "#6B3A2A" }}>{formatRupiah(outfit.price)}</div>
+                <div style={{ fontSize: "0.65rem", color: "#8B6A5A" }}>per hari</div>
               </div>
             </div>
           </div>
@@ -566,66 +818,11 @@ export default function SewaBajuPage() {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px" }}>
             {filtered.map((outfit) => (
-              <div
+              <OutfitCard
                 key={outfit.id}
-                style={{ background: "white", border: "1px solid #EDD8CC", borderRadius: "12px", overflow: "hidden", boxShadow: "0 2px 12px rgba(107,58,42,0.06)", transition: "all 0.25s" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 12px 32px rgba(107,58,42,0.12)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 12px rgba(107,58,42,0.06)"; }}
-              >
-                {/* Gambar */}
-                <div style={{ height: "220px", background: "linear-gradient(135deg, #FDF0E8, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
-                  {outfit.image_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={outfit.image_url} alt={outfit.outfit_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                  ) : (
-                    <span style={{ fontSize: "4rem" }}>👗</span>
-                  )}
-                  {/* Badge kategori */}
-                  <div style={{ position: "absolute", top: "12px", left: "12px", background: "rgba(107,58,42,0.85)", color: "white", fontSize: "0.62rem", fontWeight: 600, padding: "3px 10px", borderRadius: "6px", letterSpacing: "0.06em", fontFamily: "'DM Sans', sans-serif" }}>
-                    {outfit.category_name}
-                  </div>
-                  {/* Badge VTO */}
-                  {outfit.model_2d_file_link && (
-                    <div style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(201,146,42,0.9)", color: "white", fontSize: "0.62rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", letterSpacing: "0.06em" }}>
-                      Try-On AI
-                    </div>
-                  )}
-                </div>
-
-                {/* Info */}
-                <div style={{ padding: "16px" }}>
-                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
-                    {outfit.outfit_name}
-                  </div>
-                  {outfit.description && (
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "#8B6A5A", marginBottom: "10px", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                      {outfit.description}
-                    </div>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-                    <div>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1rem", fontWeight: 700, color: "#6B3A2A" }}>
-                        {formatRupiah(outfit.price)}
-                      </div>
-                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.65rem", color: "#8B6A5A" }}>per hari</div>
-                    </div>
-                    {outfit.size && (
-                      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#8B6A5A", background: "#F5EDE0", padding: "3px 10px", borderRadius: "6px" }}>
-                        {outfit.size}
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setSelectedOutfit(outfit)}
-                    style={{ width: "100%", background: "#6B3A2A", color: "white", border: "none", padding: "11px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 500, letterSpacing: "0.06em", cursor: "pointer", borderRadius: "8px", transition: "background 0.2s" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#C9922A")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "#6B3A2A")}
-                  >
-                    Sewa Baju Ini
-                  </button>
-                </div>
-              </div>
+                outfit={outfit}
+                onRentClick={() => setSelectedOutfit(outfit)}
+              />
             ))}
           </div>
         )}

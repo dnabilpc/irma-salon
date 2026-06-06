@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import ImageUploader from "@/components/ui/ImageUploader";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -130,20 +131,15 @@ function ServiceFormModal({
             </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>URL Gambar</label>
-            <input value={form.image_url} onChange={(e) => update("image_url", e.target.value)} placeholder="https://..." style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")} />
-          </div>
-
-          {/* Preview gambar */}
-          {form.image_url && (
-            <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid #F0E0E6", height: "120px" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={form.image_url} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-            </div>
-          )}
+          {/* Uploader Gambar Jasa */}
+          <ImageUploader
+            value={form.image_url}
+            onChange={(url) => update("image_url", url)}
+            folder="services"
+            filenamePrefix="service-catalog"
+            label="Foto Jasa Salon"
+            aspectRatio="4/3"
+          />
         </div>
 
         {/* Footer */}
