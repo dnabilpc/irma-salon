@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: "%s | Salon Rumah Cantik Irma",
   },
   description:
-    "Salon kecantikan & persewaan baju dengan Virtual Try-On berbasis AR. Booking online mudah & cepat. Berlokasi di Sukodono, Sidoarjo.",
+    "Salon kecantikan & persewaan baju dengan Virtual Try-On berbasis AI. Booking online mudah & cepat. Berlokasi di Sukodono, Sidoarjo.",
   keywords: [
     "salon",
     "kecantikan",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   authors: [{ name: "Diandra Nabil Putra Cahyono" }],
   openGraph: {
     title: "Salon Rumah Cantik Irma",
-    description: "Salon kecantikan & persewaan baju dengan Virtual Try-On berbasis AR.",
+    description: "Salon kecantikan & persewaan baju dengan Virtual Try-On berbasis AI.",
     locale: "id_ID",
     type: "website",
   },

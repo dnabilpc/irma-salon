@@ -165,7 +165,7 @@ export default function Footer() {
         }}
       >
         <span style={{ fontSize: "0.8rem" }}>
-          © 2026 Rumah Cantik Irma. All rights reserved.
+          © 2026 Irma Wedding Salon. All rights reserved.
         </span>
         <span style={{ fontSize: "0.8rem", color: "#C9922A" }}>
           Dibuat dengan ❤ untuk Tugas Akhir Telkom University Surabaya
