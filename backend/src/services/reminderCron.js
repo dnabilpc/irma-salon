@@ -31,9 +31,11 @@ export function initScheduler() {
         timezone: "Asia/Jakarta" // Set timezone to Jakarta
     });
 
-    // Run every hour to check and auto-expire pending bookings in the past
+    // Run every hour to check 3-hour reminders and auto-expire pending bookings in the past
     cron.schedule('0 * * * *', async () => {
-        console.log('[Scheduler] Running hourly booking expiration job...');
+        console.log('[Scheduler] Running hourly booking expiration & 3-hour reminder jobs...');
+        
+        // 1. Expiration job
         try {
             const res = await pool.query(`
                 UPDATE bookings 
@@ -45,6 +47,19 @@ export function initScheduler() {
             }
         } catch (err) {
             console.error('[Scheduler] Error running booking expiration job:', err);
+        }
+
+        // 2. 3-hour reminders
+        const state = getWhatsappStatus();
+        if (state.status !== 'READY') {
+            console.error('[Scheduler] WhatsApp client is not READY. Skipping 3-hour reminders.');
+            return;
+        }
+
+        try {
+            await sendBooking3HourReminders();
+        } catch (err) {
+            console.error('[Scheduler] Error running 3-hour reminders:', err);
         }
     }, {
         scheduled: true,
@@ -71,8 +86,8 @@ function formatDateIndo(dateStr) {
 /**
  * 1. Booking Reminders (Sent 1 day before booking_datetime)
  */
-async function sendBookingReminders() {
-    console.log('[Scheduler] Checking booking reminders...');
+export async function sendBookingReminders() {
+    console.log('[Scheduler] Checking booking reminders (1-day before)...');
     try {
         const query = `
             SELECT 
@@ -87,12 +102,13 @@ async function sendBookingReminders() {
             LEFT JOIN booking_details bd ON bd.booking_id = b.id
             LEFT JOIN salon_services ss ON bd.salon_service_id = ss.id
             WHERE b.status = 'confirmed'
+              AND b.reminder_1d_sent = FALSE
               AND DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE + INTERVAL '1 day'
               AND u.phone_number IS NOT NULL AND u.phone_number != ''
             GROUP BY b.id, u.name, u.phone_number, b.booking_datetime
         `;
         const result = await pool.query(query);
-        console.log(`[Scheduler] Found ${result.rows.length} booking reminders to send.`);
+        console.log(`[Scheduler] Found ${result.rows.length} 1-day booking reminders to send.`);
 
         for (const row of result.rows) {
             const formattedDate = formatDateIndo(row.booking_datetime);
@@ -104,6 +120,8 @@ async function sendBookingReminders() {
             
             try {
                 await sendWaMessage(row.customer_phone, message);
+                await pool.query('UPDATE bookings SET reminder_1d_sent = TRUE WHERE id = $1', [row.id]);
+                console.log(`[Scheduler] Sent 1-day reminder to booking ID #${row.id} (${row.customer_phone})`);
             } catch (err) {
                 console.error(`[Scheduler] Failed sending booking reminder to ${row.customer_phone}:`, err.message);
             }
@@ -114,9 +132,58 @@ async function sendBookingReminders() {
 }
 
 /**
- * 2. Rental Pickup Reminders (Sent 1 day before rental start_date)
+ * 2. Booking Reminders (Sent 3 hours before booking_datetime)
  */
-async function sendPickupReminders() {
+export async function sendBooking3HourReminders() {
+    console.log('[Scheduler] Checking booking reminders (3-hour before)...');
+    try {
+        const query = `
+            SELECT 
+                b.id, 
+                u.name as customer_name, 
+                u.phone_number as customer_phone, 
+                b.booking_datetime,
+                TO_CHAR(b.booking_datetime AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') as booking_time,
+                COALESCE(STRING_AGG(ss.service_name, ', '), '-') as services
+            FROM bookings b
+            JOIN "user" u ON b.user_id = u.id
+            LEFT JOIN booking_details bd ON bd.booking_id = b.id
+            LEFT JOIN salon_services ss ON bd.salon_service_id = ss.id
+            WHERE b.status = 'confirmed'
+              AND b.reminder_3h_sent = FALSE
+              AND b.booking_datetime <= NOW() + INTERVAL '3 hours'
+              AND b.booking_datetime > NOW()
+              AND u.phone_number IS NOT NULL AND u.phone_number != ''
+            GROUP BY b.id, u.name, u.phone_number, b.booking_datetime
+        `;
+        const result = await pool.query(query);
+        console.log(`[Scheduler] Found ${result.rows.length} 3-hour booking reminders to send.`);
+
+        for (const row of result.rows) {
+            const formattedDate = formatDateIndo(row.booking_datetime);
+            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal booking perawatan Anda di *Rumah Cantik Irma* akan dimulai dalam 3 jam lagi:\n\n` +
+                `📅 *Tanggal:* ${formattedDate}\n` +
+                `⏰ *Waktu:* ${row.booking_time} WIB\n` +
+                `💇‍♀️ *Layanan:* ${row.services}\n\n` +
+                `Mohon datang tepat waktu ya. Sampai jumpa di Rumah Cantik Irma! ✨`;
+            
+            try {
+                await sendWaMessage(row.customer_phone, message);
+                await pool.query('UPDATE bookings SET reminder_3h_sent = TRUE WHERE id = $1', [row.id]);
+                console.log(`[Scheduler] Sent 3-hour reminder to booking ID #${row.id} (${row.customer_phone})`);
+            } catch (err) {
+                console.error(`[Scheduler] Failed sending 3-hour booking reminder to ${row.customer_phone}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Scheduler] Error in sendBooking3HourReminders:', err);
+    }
+}
+
+/**
+ * 3. Rental Pickup Reminders (Sent 1 day before rental start_date)
+ */
+export async function sendPickupReminders() {
     console.log('[Scheduler] Checking rental pickup reminders...');
     try {
         const query = `
@@ -155,9 +222,9 @@ async function sendPickupReminders() {
 }
 
 /**
- * 3. Rental Return Reminders (Sent 1 day before return date)
+ * 4. Rental Return Reminders (Sent 1 day before return date)
  */
-async function sendReturnReminders() {
+export async function sendReturnReminders() {
     console.log('[Scheduler] Checking rental return reminders...');
     try {
         const query = `
@@ -196,9 +263,9 @@ async function sendReturnReminders() {
 }
 
 /**
- * 4. Rental Overdue Warnings (Sent daily for active overdue rentals)
+ * 5. Rental Overdue Warnings (Sent daily for active overdue rentals)
  */
-async function sendOverdueWarnings() {
+export async function sendOverdueWarnings() {
     console.log('[Scheduler] Checking rental overdue warnings...');
     try {
         const query = `

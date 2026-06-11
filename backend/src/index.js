@@ -12,6 +12,8 @@ import rentalRoutes from './routes/rentalRoutes.js';
 import registrationRoutes from './routes/registrationRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import openingTimeRoutes from './routes/openingTimeRoutes.js';
+import closingTimeRoutes from './routes/closingTimeRoutes.js';
 import { initWhatsapp } from './services/whatsappService.js';
 import { initScheduler } from './services/reminderCron.js';
 import pool from './services/db.js';
@@ -54,9 +56,20 @@ async function runMigrations() {
             
             ALTER TABLE transactions 
             ADD CONSTRAINT transactions_payment_method_check 
-            CHECK (payment_method IN ('cash', 'qris', 'midtrans', 'payment_gateway'));
+            CHECK (payment_method IN ('cash', 'qris'));
         `);
         console.log('[Migration] transactions.payment_method check constraint updated.');
+
+        // Add booking reminder tracking columns
+        await pool.query(`
+            ALTER TABLE bookings
+            ADD COLUMN IF NOT EXISTS reminder_1d_sent BOOLEAN NOT NULL DEFAULT FALSE
+        `);
+        await pool.query(`
+            ALTER TABLE bookings
+            ADD COLUMN IF NOT EXISTS reminder_3h_sent BOOLEAN NOT NULL DEFAULT FALSE
+        `);
+        console.log('[Migration] bookings reminder columns ready.');
 
         // Rename model_3d_file_link to model_2d_file_link in outfit_catalogues table
         try {
@@ -95,6 +108,8 @@ app.use('/api', rentalRoutes);
 app.use('/api', registrationRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', adminRoutes);
+app.use('/api', openingTimeRoutes);
+app.use('/api', closingTimeRoutes);
 
 // Health check
 app.get('/', (req, res) => {

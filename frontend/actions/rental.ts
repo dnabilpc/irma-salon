@@ -22,8 +22,6 @@ export interface RentalRow {
   end_date: string;
   duration_days: number;
   amount_to_be_paid: number;
-  deposit_paid: number;
-  deposit_refund: number | null;
   rental_status: RentalStatus;
   status: RentalStatus;
   transaction_id: number | null;
@@ -77,13 +75,12 @@ export async function getRentalsForAdmin(filters?: {
 
 export async function updateRentalStatus(
   rentalId: number,
-  status: RentalStatus,
-  deposit_refund?: number
+  status: RentalStatus
 ): Promise<ActionResult> {
   try {
     const response = await backendFetch(`/api/admin/rentals/${rentalId}/status`, {
       method: "PATCH",
-      body: { status, deposit_refund },
+      body: { status },
     });
 
     const data = await response.json();

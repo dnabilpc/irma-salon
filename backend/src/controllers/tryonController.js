@@ -216,38 +216,14 @@ export const handleVirtualTryOn = async (req, res) => {
         // ── Step 3: Generate Virtual Try-On Prompt & Execution ─────────────
         const tryonPrompt = buildTryonPrompt(bodyCropDescription, garmentDescription, isHalfBody);
 
-        const selectedModel = process.env.VTO_MODEL || 'gemini-flash';
-        let modelName;
-        let inputPayload;
-
-        if (selectedModel === 'gpt-image-2') {
-            modelName = "openai/gpt-image-2";
-            inputPayload = {
-                prompt: tryonPrompt,
-                input_images: [personUri, clothesUri],
-                aspect_ratio: "2:3", // 3:4 is not supported, using closest portrait ratio 2:3
-                quality: "low",
-                output_format: "jpeg" // "jpg" is not in schema enum, using "jpeg"
-            };
-        } else if (selectedModel === 'gpt-image-1.5') {
-            modelName = "openai/gpt-image-1.5";
-            inputPayload = {
-                prompt: tryonPrompt,
-                input_images: [personUri, clothesUri],
-                aspect_ratio: "2:3",
-                quality: "low",
-                input_fidelity: "high", // Ensures high facial/feature matching fidelity
-                output_format: "jpeg"
-            };
-        } else {
-            modelName = "google/gemini-2.5-flash-image";
-            inputPayload = {
-                prompt: tryonPrompt,
-                image_input: [personUri, clothesUri],
-                aspect_ratio: "3:4",
-                output_format: "jpg"
-            };
-        }
+        const modelName = "openai/gpt-image-2";
+        const inputPayload = {
+            prompt: tryonPrompt,
+            input_images: [personUri, clothesUri],
+            aspect_ratio: "2:3", // 3:4 is not supported, using closest portrait ratio 2:3
+            quality: "low",
+            output_format: "jpeg" // "jpg" is not in schema enum, using "jpeg"
+        };
 
         console.log(`\nStep 3: Generating try-on dengan model ${modelName}...`);
         const output = await replicate.run(modelName, { input: inputPayload });

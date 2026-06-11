@@ -1,7 +1,6 @@
 // backend/src/controllers/bookingController.js
 import pool from '../services/db.js';
 import { sendWaMessage, getWhatsappStatus } from '../services/whatsappService.js';
-import { createMidtransToken } from '../services/midtransService.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 
@@ -214,6 +213,22 @@ export async function getAvailableSlots(req, res) {
     }
 
     try {
+        const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const maxBookingDateObj = new Date(nowJakarta.getTime() + 21 * 24 * 60 * 60 * 1000);
+        const maxBookingDateStr = maxBookingDateObj.getFullYear() + '-' + 
+                                  String(maxBookingDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
+                                  String(maxBookingDateObj.getDate()).padStart(2, '0');
+
+        if (date > maxBookingDateStr) {
+            return res.json({
+                date,
+                available: [],
+                booked: [],
+                closed: true,
+                message: "Jadwal booking tidak boleh lebih dari 3 minggu ke depan",
+            });
+        }
+
         const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
         const dayOfWeek = dayNames[new Date(date).getDay()];
 
@@ -288,20 +303,12 @@ export async function getAvailableSlots(req, res) {
             }
         }
 
-        const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
-        const todayStr = nowJakarta.getFullYear() + '-' + 
-                         String(nowJakarta.getMonth() + 1).padStart(2, '0') + '-' + 
-                         String(nowJakarta.getDate()).padStart(2, '0');
-        const currentMinsNow = nowJakarta.getHours() * 60 + nowJakarta.getMinutes();
-
-        // Filter out past slots for today
+        // Filter out past slots and slots less than 3 hours in the future
         const filteredSlots = ALL_SLOTS.filter((s) => {
-            if (date === todayStr) {
-                const [slotH, slotM] = s.split(":").map(Number);
-                const slotMins = slotH * 60 + slotM;
-                if (slotMins < currentMinsNow) return false;
-            }
-            return true;
+            const slotDate = new Date(`${date}T${s}:00+07:00`);
+            const diffMs = slotDate.getTime() - Date.now();
+            // Must be at least 3 hours in the future
+            return diffMs >= 3 * 60 * 60 * 1000;
         });
 
         const available = filteredSlots.filter((s) => !bookedSet.has(s));
@@ -334,13 +341,32 @@ export async function createBooking(req, res) {
         return res.status(400).json({ error: "Data booking tidak lengkap." });
     }
 
-    const validMethods = ['cash', 'qris', 'midtrans'];
+    const validMethods = ['qris'];
     if (!validMethods.includes(payment_method)) {
-        return res.status(400).json({ error: "Metode pembayaran tidak valid." });
+        return res.status(400).json({ error: "Metode pembayaran tidak valid. Booking salon hanya menerima QRIS Statis." });
     }
 
-    if (new Date(booking_datetime) < new Date()) {
-        return res.status(400).json({ error: "Tanggal booking tidak boleh di masa lalu." });
+    const bookingDate = new Date(booking_datetime);
+    // 3 hours limit with a 5 minutes buffer
+    const minBookingTime = new Date(Date.now() + 3 * 60 * 60 * 1000 - 5 * 60 * 1000);
+    
+    // 3 weeks limit (21 days boundary in Asia/Jakarta timezone)
+    const targetDateJakarta = new Date(bookingDate.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const targetDateStr = targetDateJakarta.getFullYear() + '-' + 
+                          String(targetDateJakarta.getMonth() + 1).padStart(2, '0') + '-' + 
+                          String(targetDateJakarta.getDate()).padStart(2, '0');
+
+    const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const maxBookingDateObj = new Date(nowJakarta.getTime() + 21 * 24 * 60 * 60 * 1000);
+    const maxBookingDateStr = maxBookingDateObj.getFullYear() + '-' + 
+                              String(maxBookingDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(maxBookingDateObj.getDate()).padStart(2, '0');
+
+    if (bookingDate < minBookingTime) {
+        return res.status(400).json({ error: "Booking harus dipesan minimal 3 jam sebelum waktu yang diinginkan." });
+    }
+    if (targetDateStr > maxBookingDateStr) {
+        return res.status(400).json({ error: "Booking tidak boleh lebih dari 3 minggu ke depan." });
     }
 
     try {
@@ -395,7 +421,7 @@ export async function createBooking(req, res) {
             0
         );
 
-        const totalAmount = payment_method === 'midtrans' ? subtotal + 4000 : subtotal;
+        const totalAmount = subtotal;
 
         const client = await pool.connect();
         try {
@@ -418,7 +444,7 @@ export async function createBooking(req, res) {
                 );
             }
 
-            // Fetch user info for WA notification and Midtrans
+            // Fetch user info for WA notification
             const userRes = await client.query(
                 `SELECT name, phone_number, email FROM "user" WHERE id = $1`,
                 [userId]
@@ -428,25 +454,9 @@ export async function createBooking(req, res) {
             await client.query(
                 `INSERT INTO transactions
                    (user_id, booking_id, subtotal, total_amount, payment_method, midtrans_status)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [userId, bookingId, subtotal, totalAmount, payment_method, payment_method === 'midtrans' ? 'pending' : null]
+                 VALUES ($1, $2, $3, $4, $5, 'pending')`,
+                [userId, bookingId, subtotal, totalAmount, payment_method]
             );
-
-            // Generate Midtrans Token if method is midtrans
-            let midtransData = null;
-            if (payment_method === 'midtrans') {
-                const orderId = `BOOK-${bookingId}-${Date.now()}`;
-                try {
-                    midtransData = await createMidtransToken(orderId, totalAmount, {
-                        name: dbUser.name,
-                        email: dbUser.email,
-                        phone: dbUser.phone_number
-                    });
-                } catch (midtransErr) {
-                    console.error('[createBooking] Midtrans token generation failed:', midtransErr);
-                    throw new Error("Gagal menghubungkan ke portal pembayaran online. Silakan coba metode pembayaran lain.");
-                }
-            }
 
             // Insert system notification for Admin
             const servicesList = serviceRows.rows.map((s) => s.service_name).join(", ");
@@ -465,8 +475,8 @@ export async function createBooking(req, res) {
 
             res.status(201).json({ 
                 bookingId, 
-                token: midtransData?.token || null, 
-                redirect_url: midtransData?.redirect_url || null 
+                token: null, 
+                redirect_url: null 
             });
         } catch (err) {
             await client.query("ROLLBACK");
@@ -750,5 +760,109 @@ export async function getBookingById(req, res) {
     } catch (err) {
         console.error("[getBookingById]", err);
         res.status(500).json({ error: "Internal Server Error" });
+    }
+}
+
+/**
+ * Endpoint to manually trigger and test WhatsApp reminders
+ */
+export async function triggerRemindersTest(req, res) {
+    const { type } = req.query;
+    const booking_id = req.query.booking_id || req.body.booking_id;
+
+    try {
+        const { 
+            sendBookingReminders, 
+            sendBooking3HourReminders,
+            sendPickupReminders,
+            sendReturnReminders,
+            sendOverdueWarnings
+        } = await import('../services/reminderCron.js');
+
+        // If booking_id is provided, force-send reminders for that specific booking immediately (for testing)
+        if (booking_id) {
+            const bookingRes = await pool.query(`
+                SELECT 
+                    b.id, 
+                    u.name as customer_name, 
+                    u.phone_number as customer_phone, 
+                    b.booking_datetime,
+                    TO_CHAR(b.booking_datetime AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') as booking_time,
+                    COALESCE(STRING_AGG(ss.service_name, ', '), '-') as services
+                FROM bookings b
+                JOIN "user" u ON b.user_id = u.id
+                LEFT JOIN booking_details bd ON bd.booking_id = b.id
+                LEFT JOIN salon_services ss ON bd.salon_service_id = ss.id
+                WHERE b.id = $1
+                GROUP BY b.id, u.name, u.phone_number, b.booking_datetime
+            `, [booking_id]);
+
+            if (bookingRes.rows.length === 0) {
+                return res.status(404).json({ error: `Booking dengan ID ${booking_id} tidak ditemukan.` });
+            }
+
+            const row = bookingRes.rows[0];
+            const months = [
+                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+            ];
+            const dateObj = new Date(row.booking_datetime);
+            const formattedDate = `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+            
+            const results = {};
+
+            if (!type || type === '1d') {
+                const message = `[TEST-1D] Halo *${row.customer_name}*, kami ingin mengingatkan bahwa Anda memiliki jadwal booking perawatan di *Rumah Cantik Irma* untuk besok:\n\n` +
+                    `📅 *Tanggal:* ${formattedDate}\n` +
+                    `⏰ *Waktu:* ${row.booking_time} WIB\n` +
+                    `💇‍♀️ *Layanan:* ${row.services}\n\n` +
+                    `Mohon datang tepat waktu ya. Sampai jumpa di Rumah Cantik Irma! ✨`;
+                await sendWaMessage(row.customer_phone, message);
+                await pool.query('UPDATE bookings SET reminder_1d_sent = TRUE WHERE id = $1', [row.id]);
+                results['1d'] = 'Sent successfully';
+            }
+
+            if (!type || type === '3h') {
+                const message = `[TEST-3H] Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal booking perawatan Anda di *Rumah Cantik Irma* akan dimulai dalam 3 jam lagi:\n\n` +
+                    `📅 *Tanggal:* ${formattedDate}\n` +
+                    `⏰ *Waktu:* ${row.booking_time} WIB\n` +
+                    `💇‍♀️ *Layanan:* ${row.services}\n\n` +
+                    `Mohon datang tepat waktu ya. Sampai jumpa di Rumah Cantik Irma! ✨`;
+                await sendWaMessage(row.customer_phone, message);
+                await pool.query('UPDATE bookings SET reminder_3h_sent = TRUE WHERE id = $1', [row.id]);
+                results['3h'] = 'Sent successfully';
+            }
+
+            return res.json({ success: true, message: `Berhasil mengirim reminder uji coba untuk Booking #${booking_id}`, results });
+        }
+
+        // Otherwise, trigger the standard cron scans immediately and return what was triggered
+        console.log('[Test API] Triggering normal reminder cron scans...');
+        const scans = [];
+        if (!type || type === '1d') {
+            await sendBookingReminders();
+            scans.push('1-day booking reminders');
+        }
+        if (!type || type === '3h') {
+            await sendBooking3HourReminders();
+            scans.push('3-hour booking reminders');
+        }
+        if (!type || type === 'pickup') {
+            await sendPickupReminders();
+            scans.push('rental pickup reminders');
+        }
+        if (!type || type === 'return') {
+            await sendReturnReminders();
+            scans.push('rental return reminders');
+        }
+        if (!type || type === 'overdue') {
+            await sendOverdueWarnings();
+            scans.push('rental overdue warnings');
+        }
+
+        return res.json({ success: true, message: 'Scan reminder berhasil dijalankan.', scans });
+    } catch (err) {
+        console.error('[triggerRemindersTest]', err);
+        return res.status(500).json({ error: err.message || 'Internal Server Error' });
     }
 }

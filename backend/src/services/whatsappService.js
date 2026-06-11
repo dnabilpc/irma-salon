@@ -1,6 +1,6 @@
-// backend/src/services/whatsappService.js
 import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth } = pkg;
+const { Client, LocalAuth, MessageMedia } = pkg;
+export { MessageMedia };
 import qrcode from 'qrcode';
 
 let client;
@@ -100,8 +100,9 @@ export function formatPhoneNumber(phone) {
  * Send a message to a WhatsApp number
  * @param {string} to - Target phone number (e.g. 08123456789 or 628123456789)
  * @param {string} message - Content of the message
+ * @param {object} [options] - Additional send options (e.g. { media })
  */
-export async function sendWaMessage(to, message) {
+export async function sendWaMessage(to, message, options = {}) {
     if (clientStatus !== 'READY') {
         console.error('[WhatsApp] Cannot send message. Client status:', clientStatus);
         throw new Error('WhatsApp client is not ready. Please scan the QR code first.');
@@ -110,7 +111,14 @@ export async function sendWaMessage(to, message) {
     try {
         const jid = formatPhoneNumber(to);
         console.log(`[WhatsApp] Sending message to ${jid}...`);
-        const response = await client.sendMessage(jid, message);
+        
+        let response;
+        if (options.media) {
+            response = await client.sendMessage(jid, options.media, { caption: message });
+        } else {
+            response = await client.sendMessage(jid, message);
+        }
+        
         console.log(`[WhatsApp] Message sent successfully to ${to}`);
         return response;
     } catch (error) {

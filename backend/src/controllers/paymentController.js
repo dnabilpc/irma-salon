@@ -1,55 +1,12 @@
 // backend/src/controllers/paymentController.js
 import pool from '../services/db.js';
-import { verifyMidtransSignature } from '../services/midtransService.js';
-
-/**
- * Handles Midtrans Snap webhook notifications
- */
-export async function handleMidtransWebhook(req, res) {
-    const notification = req.body;
-    console.log('[Midtrans Webhook] Received notification:', notification);
-
-    if (!verifyMidtransSignature(notification)) {
-        console.error('[Midtrans Webhook] Invalid signature key.');
-        return res.status(403).json({ error: 'Invalid signature key.' });
-    }
-
-    const { order_id, transaction_status, transaction_id } = notification;
-
-    try {
-        let statusToSave = 'pending';
-        if (transaction_status === 'settlement' || transaction_status === 'capture') {
-            statusToSave = 'settlement';
-        } else if (['expire', 'cancel', 'deny'].includes(transaction_status)) {
-            statusToSave = 'gagal';
-        }
-
-        if (order_id.startsWith('BOOK-')) {
-            const bookingId = parseInt(order_id.split('-')[1], 10);
-            await pool.query(
-                `UPDATE transactions 
-                 SET midtrans_status = $1, midtrans_transaction_id = $2 
-                 WHERE booking_id = $3`,
-                [statusToSave, transaction_id || null, bookingId]
-            );
-            console.log(`[Midtrans Webhook] Booking ${bookingId} transaction status updated to ${statusToSave}`);
-        } else if (order_id.startsWith('RENT-')) {
-            const rentalId = parseInt(order_id.split('-')[1], 10);
-            await pool.query(
-                `UPDATE transactions 
-                 SET midtrans_status = $1, midtrans_transaction_id = $2 
-                 WHERE rental_id = $3`,
-                [statusToSave, transaction_id || null, rentalId]
-            );
-            console.log(`[Midtrans Webhook] Rental ${rentalId} transaction status updated to ${statusToSave}`);
-        }
-
-        return res.json({ success: true });
-    } catch (err) {
-        console.error('[handleMidtransWebhook] Error:', err);
-        return res.status(500).json({ error: 'Internal Server Error' });
-    }
-}
+import { 
+    getInvoiceData, 
+    generateInvoiceImageBuffer, 
+    generateInvoiceText, 
+    formatRupiah 
+} from '../services/invoiceService.js';
+import { sendWaMessage, MessageMedia } from '../services/whatsappService.js';
 
 /**
  * Returns all transactions for the Admin dashboard
@@ -113,6 +70,53 @@ export async function confirmPayment(req, res) {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Transaksi tidak ditemukan.' });
         }
+
+        const transactionId = result.rows[0].id;
+
+        // Auto-generate invoice and send via WhatsApp in the background
+        (async () => {
+            try {
+                console.log(`[Invoice] Starting invoice generation for transaction ID: ${transactionId}`);
+                const data = await getInvoiceData(transactionId);
+                if (!data) {
+                    console.error(`[Invoice] Transaction data not found for ID: ${transactionId}`);
+                    return;
+                }
+
+                const { transaction, items } = data;
+                if (!transaction.customer_phone) {
+                    console.log(`[Invoice] Customer has no phone number, skipping WhatsApp receipt.`);
+                    return;
+                }
+
+                const caption = `Halo *${transaction.customer_name}*,\n\n` +
+                    `Pembayaran Anda untuk invoice *INV/2026/${transaction.id}* sebesar *${formatRupiah(transaction.total_amount)}* telah *BERHASIL* dikonfirmasi oleh Admin.\n\n` +
+                    `Berikut kami lampirkan bukti pembayaran resmi Anda. Terima kasih telah mempercayai Rumah Cantik Irma! ✨`;
+
+                try {
+                    // Try generating JPEG image using Puppeteer screenshot
+                    console.log(`[Invoice] Generating screenshot of invoice using Puppeteer...`);
+                    const imgBuffer = await generateInvoiceImageBuffer(transaction, items);
+                    const media = new MessageMedia('image/jpeg', imgBuffer.toString('base64'), `invoice_${transaction.id}.jpg`);
+                    
+                    console.log(`[Invoice] Dispatching image receipt to ${transaction.customer_phone}...`);
+                    await sendWaMessage(transaction.customer_phone, caption, { media });
+                    console.log(`[Invoice] Image receipt sent successfully.`);
+                } catch (imgErr) {
+                    console.error(`[Invoice] Puppeteer screenshot failed. Falling back to text receipt. Error:`, imgErr);
+                    
+                    // Fallback to plain text receipt
+                    const fallbackText = generateInvoiceText(transaction, items);
+                    const fallbackMessage = `${caption}\n\n-----------------------------------\n${fallbackText}`;
+                    
+                    console.log(`[Invoice] Dispatching fallback text receipt to ${transaction.customer_phone}...`);
+                    await sendWaMessage(transaction.customer_phone, fallbackMessage);
+                    console.log(`[Invoice] Fallback text receipt sent successfully.`);
+                }
+            } catch (bgErr) {
+                console.error(`[Invoice] Background invoice processing encountered an error:`, bgErr);
+            }
+        })();
 
         return res.json({ success: true });
     } catch (err) {

@@ -237,10 +237,10 @@ export default function PaymentsPage() {
               {selected.status === "lunas" && (
                 <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => window.open(`/invoice/${selected.id}`, "_blank")}
                     style={{ flex: 1, background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", padding: "11px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}
                   >
-                    Cetak Bukti
+                    Cetak Bukti (Invoice)
                   </button>
                 </div>
               )}

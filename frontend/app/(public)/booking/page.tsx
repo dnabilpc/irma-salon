@@ -37,6 +37,12 @@ function getTodayString() {
   return new Date().toISOString().split("T")[0];
 }
 
+function getMaxDateString() {
+  const date = new Date();
+  date.setDate(date.getDate() + 21);
+  return date.toISOString().split("T")[0];
+}
+
 // ── Step Indicator ─────────────────────────────────────────────────────────
 
 const STEPS = ["Layanan", "Jadwal", "Catatan", "Konfirmasi"];
@@ -188,6 +194,7 @@ function Step2({
           type="date"
           value={date}
           min={getTodayString()}
+          max={getMaxDateString()}
           onChange={(e) => { onDateChange(e.target.value); onTimeChange(""); }}
           style={{ width: "100%", padding: "11px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#2C1A0E", background: "#FDFAF7", outline: "none" }}
           onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
@@ -342,7 +349,7 @@ function ConfirmRow({ label, value, accent }: { label: string; value: string; ac
 // ── Step 4: Konfirmasi ─────────────────────────────────────────────────────
 
 function Step4({
-  form, submitting, onSubmit, services, error, userName, userPhone, paymentMethod, setPaymentMethod
+  form, submitting, onSubmit, services, error, userName, userPhone, paymentMethod
 }: {
   form: BookingForm;
   submitting: boolean;
@@ -351,14 +358,11 @@ function Step4({
   error: string;
   userName: string;
   userPhone: string;
-  paymentMethod: "cash" | "qris" | "midtrans";
-  setPaymentMethod: (m: "cash" | "qris" | "midtrans") => void;
+  paymentMethod: "qris";
 }) {
   const service = services.find((s) => s.id === form.serviceId);
-  const isMidtrans = paymentMethod === "midtrans";
   const subtotal = service?.price ?? 0;
-  const adminFee = isMidtrans ? 4000 : 0;
-  const totalAmount = subtotal + adminFee;
+  const totalAmount = subtotal;
 
   return (
     <div>
@@ -381,66 +385,47 @@ function Step4({
         <ConfirmRow label="Nama"  value={userName} />
         {userPhone && <ConfirmRow label="WhatsApp" value={userPhone} />}
         {form.notes && <ConfirmRow label="Catatan" value={form.notes} />}
-        {isMidtrans && <ConfirmRow label="Biaya Admin" value={formatRupiah(4000)} />}
         <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0" }}>
           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", letterSpacing: "0.06em", textTransform: "uppercase" }}>
             Pembayaran
           </span>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: isMidtrans ? "#C4728E" : "#5A9E7A", fontWeight: 600 }}>
-            {paymentMethod === "midtrans" ? "Online via Midtrans" : "Bayar di Tempat"}
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#5A9E7A", fontWeight: 600 }}>
+            QRIS Statis
           </span>
         </div>
       </div>
 
-      {/* Pilihan Metode Pembayaran */}
+      {/* Pilihan Metode Pembayaran (Locked to QRIS Statis) */}
       <div style={{ marginBottom: "20px" }}>
         <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "10px" }}>
           Metode Pembayaran
         </label>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {([
-            { id: "cash", title: "Bayar Di Tempat", desc: "Bayar di salon saat kedatangan (Tunai / QRIS Statis)", icon: "💵 / 📱" },
-            { id: "midtrans", title: "Midtrans (Online)", desc: "Bayar instan via VA, QRIS, E-Wallet (+ Rp 4.000)", icon: "💳" }
-          ] as const).map((m) => {
-            const active = paymentMethod === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => setPaymentMethod(m.id)}
-                type="button"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "12px 14px",
-                  background: active ? "#FDF0E6" : "white",
-                  border: `2px solid ${active ? "#C9922A" : "#EDD8CC"}`,
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  transition: "all 0.2s"
-                }}
-              >
-                <span style={{ fontSize: "1.4rem" }}>{m.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E" }}>{m.title}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", marginTop: "2px" }}>{m.desc}</div>
-                </div>
-                <div style={{
-                  width: "16px",
-                  height: "16px",
-                  borderRadius: "50%",
-                  border: `2px solid ${active ? "#C9922A" : "#EDD8CC"}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: active ? "#C9922A" : "transparent"
-                }}>
-                  {active && <span style={{ color: "white", fontSize: "0.6rem" }}>✓</span>}
-                </div>
-              </button>
-            );
-          })}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          padding: "12px 14px",
+          background: "#FDF0E6",
+          border: "2px solid #C9922A",
+          borderRadius: "8px",
+        }}>
+          <span style={{ fontSize: "1.4rem" }}>📱</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E" }}>QRIS Statis</div>
+            <div style={{ fontSize: "0.72rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", marginTop: "2px" }}>Pembayaran via scan QRIS Rumah Cantik Irma</div>
+          </div>
+          <div style={{
+            width: "16px",
+            height: "16px",
+            borderRadius: "50%",
+            border: "2px solid #C9922A",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#C9922A"
+          }}>
+            <span style={{ color: "white", fontSize: "0.6rem" }}>✓</span>
+          </div>
         </div>
       </div>
 
@@ -463,10 +448,7 @@ function Step4({
 
       {/* Info */}
       <div style={{ background: "rgba(90,158,122,0.07)", border: "1px solid rgba(90,158,122,0.2)", borderRadius: "8px", padding: "11px 14px", marginBottom: "18px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "#3A9B6A", lineHeight: 1.6 }}>
-        {paymentMethod === "midtrans" 
-          ? "✓ Setelah mengonfirmasi, Anda akan diarahkan ke portal Midtrans untuk menyelesaikan pembayaran online."
-          : "✓ Booking akan dikonfirmasi oleh admin. Pembayaran dapat dilakukan langsung di tempat menggunakan Tunai atau QRIS Statis saat kedatangan."
-        }
+        ✓ Booking akan dikonfirmasi oleh admin setelah Anda menyelesaikan pembayaran via scan QRIS Statis.
       </div>
 
       <button
@@ -493,8 +475,9 @@ export default function BookingPage() {
   const [success, setSuccess]     = useState(false);
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [error, setError]         = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris" | "midtrans">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"qris">("qris");
   const [redirectUrl, setRedirectUrl]     = useState<string | null>(null);
+  const [qrisImageError, setQrisImageError] = useState(false);
 
   const [services, setServices]           = useState<SalonService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
@@ -562,9 +545,6 @@ export default function BookingPage() {
         setBookingId(result.data.bookingId);
         setRedirectUrl(result.data.redirect_url || null);
         setSuccess(true);
-        if (paymentMethod === "midtrans" && result.data.redirect_url) {
-          window.location.href = result.data.redirect_url;
-        }
       } else {
         setError(result.error ?? "Gagal membuat booking. Silakan coba lagi.");
       }
@@ -631,52 +611,42 @@ export default function BookingPage() {
           </div>
         )}
         
-        {paymentMethod === "midtrans" ? (
-          <>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "16px" }}>
-              Booking Anda sudah diterima dan menunggu pembayaran online via Midtrans.
-            </p>
-            {redirectUrl && (
-              <a href={redirectUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", marginBottom: "32px" }}>
-                <button style={{ background: "#C9922A", color: "white", border: "none", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 600, letterSpacing: "0.08em", cursor: "pointer", borderRadius: "8px" }}>
-                  💳 Selesaikan Pembayaran Online
-                </button>
-              </a>
-            )}
-            {!redirectUrl && (
-              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#C9922A", marginBottom: "32px" }}>
-                Mengarahkan ke gerbang pembayaran...
-              </p>
-            )}
-          </>
-        ) : (
-          <>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "440px", lineHeight: 1.7, marginBottom: "8px" }}>
-              Booking kamu sudah diterima dan menunggu konfirmasi admin. Pembayaran dilakukan di salon saat kedatangan (Cash / QRIS Statis).
-            </p>
-            
-            {/* QRIS Card */}
-            <div style={{ 
-              background: "white", 
-              border: "2px solid #EDD8CC", 
-              borderRadius: "12px", 
-              padding: "16px", 
-              margin: "12px auto 20px", 
-              maxWidth: "280px",
-              boxShadow: "0 8px 24px rgba(107,58,42,0.08)",
-              textAlign: "center"
-            }}>
-              <div style={{ background: "#004b7b", color: "white", padding: "6px", borderRadius: "6px 6px 0 0", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em" }}>
-                QRIS
+        <>
+          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "440px", lineHeight: 1.7, marginBottom: "8px" }}>
+            Booking kamu sudah diterima dan menunggu konfirmasi admin. Silakan lakukan pembayaran via scan QRIS Statis di bawah ini dan tunjukkan bukti transaksi kepada kasir saat kedatangan.
+          </p>
+          
+          {/* QRIS Card */}
+          <div style={{ 
+            background: "white", 
+            border: "2px solid #EDD8CC", 
+            borderRadius: "12px", 
+            padding: "16px", 
+            margin: "12px auto 20px", 
+            maxWidth: "280px",
+            boxShadow: "0 8px 24px rgba(107,58,42,0.08)",
+            textAlign: "center"
+          }}>
+            <div style={{ background: "#004b7b", color: "white", padding: "6px", borderRadius: "6px 6px 0 0", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em" }}>
+              QRIS
+            </div>
+            <div style={{ border: "1px solid #EDD8CC", borderTop: "none", padding: "16px 12px 12px", borderRadius: "0 0 6px 6px" }}>
+              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
+                RUMAH CANTIK IRMA
               </div>
-              <div style={{ border: "1px solid #EDD8CC", borderTop: "none", padding: "16px 12px 12px", borderRadius: "0 0 6px 6px" }}>
-                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
-                  RUMAH CANTIK IRMA
-                </div>
-                <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
-                  NMID: ID1020304050607
-                </div>
-                {/* Mock QR Pattern in pure CSS */}
+              <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
+                NMID: ID1020304050607
+              </div>
+              {!qrisImageError ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img 
+                  src="/qris.png" 
+                  alt="QRIS Rumah Cantik Irma" 
+                  onError={() => setQrisImageError(true)}
+                  style={{ width: "180px", height: "180px", objectFit: "contain", margin: "0 auto 12px", display: "block" }} 
+                />
+              ) : (
+                /* Mock QR Pattern in pure CSS */
                 <div style={{ 
                   width: "180px", 
                   height: "180px", 
@@ -698,17 +668,17 @@ export default function BookingPage() {
                     IRMA
                   </div>
                 </div>
-                <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontWeight: 500 }}>
-                  Scan dengan E-Wallet atau Mobile Banking
-                </div>
+              )}
+              <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontWeight: 500 }}>
+                Scan dengan E-Wallet atau Mobile Banking
               </div>
             </div>
-            
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "32px" }}>
-              Anda dapat membayar menggunakan Uang Tunai saat kedatangan, atau melakukan pembayaran QRIS di atas terlebih dahulu dan menunjukkan buktinya ke kasir.
-            </p>
-          </>
-        )}
+          </div>
+          
+          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "32px" }}>
+            Silakan lakukan pembayaran sesuai dengan total biaya booking di atas menggunakan QRIS Statis, lalu simpan bukti pembayaran Anda untuk ditunjukkan ke salon saat kedatangan.
+          </p>
+        </>
 
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
           <button
@@ -723,7 +693,7 @@ export default function BookingPage() {
               setStep(0);
               setForm({ serviceId: null, date: "", time: "", notes: "" });
               setError("");
-              setPaymentMethod("cash");
+              setPaymentMethod("qris");
               setRedirectUrl(null);
             }}
             style={{ background: "transparent", color: "#6B3A2A", border: "1.5px solid #6B3A2A", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
@@ -803,7 +773,6 @@ export default function BookingPage() {
               userName={userName}
               userPhone={userPhone}
               paymentMethod={paymentMethod}
-              setPaymentMethod={setPaymentMethod}
             />
           )}
 

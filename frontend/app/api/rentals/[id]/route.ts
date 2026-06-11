@@ -47,15 +47,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (isNaN(rentalId)) return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
 
     const body = await req.json();
-    const { rental_status, deposit_refund } = body as {
+    const { rental_status } = body as {
       rental_status: string;
-      deposit_refund?: number;
     };
 
     // Forward to backend update status API
     const response = await backendFetch(`/api/admin/rentals/${rentalId}/status`, {
       method: "PATCH",
-      body: { status: rental_status, deposit_refund },
+      body: { status: rental_status },
     });
 
     const data = await response.json();

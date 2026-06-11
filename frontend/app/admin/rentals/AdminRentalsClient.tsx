@@ -69,12 +69,11 @@ function StatusBadge({ status }: { status: RentalStatus }) {
 interface DetailModalProps {
   rental: RentalRow;
   onClose: () => void;
-  onStatusChange: (id: number, status: RentalStatus, deposit_refund?: number) => void;
+  onStatusChange: (id: number, status: RentalStatus) => void;
   loading: boolean;
 }
 
 function DetailModal({ rental, onClose, onStatusChange, loading }: DetailModalProps) {
-  const [depositRefund, setDepositRefund] = useState<number>(rental.deposit_paid ?? 0);
 
   return (
     <div
@@ -128,9 +127,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading }: DetailModalPr
               { label: "Tanggal Mulai", value: formatDate(rental.start_date) },
               { label: "Tanggal Kembali", value: formatDate(rental.end_date) },
               { label: "Durasi",        value: `${rental.duration_days} hari` },
-              { label: "Total Biaya",   value: formatRupiah(rental.amount_to_be_paid), accent: true },
-              { label: "Deposit",       value: formatRupiah(rental.deposit_paid) },
-              { label: "Sisa Bayar",    value: formatRupiah(Math.max(0, rental.amount_to_be_paid - rental.deposit_paid)) },
+              { label: "Total Biaya",   value: formatRupiah(rental.amount_to_be_paid), accent: true }
             ].map((row) => (
               <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #F0D9E0" }}>
                 <span style={{ fontSize: "13px", color: "#B08090" }}>{row.label}</span>
@@ -169,27 +166,9 @@ function DetailModal({ rental, onClose, onStatusChange, loading }: DetailModalPr
           {/* Ongoing → tandai dikembalikan */}
           {rental.status === "ongoing" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div>
-                <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#7A2848", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                  Refund Deposit (Rp)
-                </label>
-                <input
-                  type="number"
-                  value={depositRefund}
-                  min={0}
-                  max={rental.deposit_paid}
-                  onChange={(e) => setDepositRefund(parseFloat(e.target.value) || 0)}
-                  style={{ width: "100%", padding: "10px 14px", border: "1px solid #E8C0D0", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", color: "#3A1A28", outline: "none" }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = "#C4728E")}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = "#E8C0D0")}
-                />
-                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#B08090", marginTop: "4px" }}>
-                  Maks. {formatRupiah(rental.deposit_paid)}. Kosongkan jika tidak ada refund.
-                </p>
-              </div>
               <button
                 disabled={loading}
-                onClick={() => onStatusChange(rental.id, "done", depositRefund)}
+                onClick={() => onStatusChange(rental.id, "done")}
                 style={{ width: "100%", background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", padding: "12px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
               >
                 ✓ Tandai Sudah Dikembalikan
@@ -203,24 +182,9 @@ function DetailModal({ rental, onClose, onStatusChange, loading }: DetailModalPr
               <div style={{ background: "rgba(217,64,96,0.07)", border: "1px solid rgba(217,64,96,0.2)", borderRadius: "8px", padding: "10px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#D94060" }}>
                 ⚠️ Baju belum dikembalikan melewati batas waktu!
               </div>
-              <div>
-                <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#7A2848", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                  Refund Deposit (Rp)
-                </label>
-                <input
-                  type="number"
-                  value={depositRefund}
-                  min={0}
-                  max={rental.deposit_paid}
-                  onChange={(e) => setDepositRefund(parseFloat(e.target.value) || 0)}
-                  style={{ width: "100%", padding: "10px 14px", border: "1px solid #E8C0D0", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", color: "#3A1A28", outline: "none" }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = "#C4728E")}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = "#E8C0D0")}
-                />
-              </div>
               <button
                 disabled={loading}
-                onClick={() => onStatusChange(rental.id, "done", depositRefund)}
+                onClick={() => onStatusChange(rental.id, "done")}
                 style={{ width: "100%", background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", padding: "12px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
               >
                 ✓ Tandai Sudah Dikembalikan
@@ -232,11 +196,6 @@ function DetailModal({ rental, onClose, onStatusChange, loading }: DetailModalPr
           {(rental.status === "done" || rental.status === "cancelled") && (
             <div style={{ background: "#FDF8F5", border: "1px solid #F0D9E0", borderRadius: "8px", padding: "12px 16px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#B08090", textAlign: "center" }}>
               {rental.status === "done" ? "Transaksi sewa selesai." : "Transaksi sewa dibatalkan."}
-              {rental.deposit_refund !== null && rental.deposit_refund !== undefined && rental.status === "done" && (
-                <div style={{ marginTop: "4px", fontWeight: 600, color: "#1A7A4A" }}>
-                  Refund deposit: {formatRupiah(rental.deposit_refund)}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -317,12 +276,12 @@ export default function AdminRentalsClient() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  async function handleStatusChange(id: number, status: RentalStatus, deposit_refund?: number) {
+  async function handleStatusChange(id: number, status: RentalStatus) {
     setActionLoading(true);
     try {
-      const result = await updateRentalStatus(id, status, deposit_refund);
+      const result = await updateRentalStatus(id, status);
       if (result.success) {
-        setRentals((prev) => prev.map((r) => r.id === id ? { ...r, rental_status: status, deposit_refund: deposit_refund ?? r.deposit_refund } : r));
+        setRentals((prev) => prev.map((r) => r.id === id ? { ...r, rental_status: status } : r));
         setSelected(null);
         showToast(
           status === "done" ? "Sewa selesai dicatat!" :

@@ -8,11 +8,15 @@ import {
     cancelBooking,
     getBookingsForAdmin,
     getBookingsForCustomer,
-    getBookingById
+    getBookingById,
+    triggerRemindersTest
 } from '../controllers/bookingController.js';
 import { checkInternalApiKey } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+router.get('/bookings/test/reminders', triggerRemindersTest);
+router.post('/bookings/test/reminders', triggerRemindersTest);
 
 router.get('/bookings/services', checkInternalApiKey, getSalonServices);
 router.get('/bookings/slots', checkInternalApiKey, getAvailableSlots);

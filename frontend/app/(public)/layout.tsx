@@ -1,5 +1,6 @@
 import Navbar from "@/components/layout/public/Navbar";
 import Footer from "@/components/layout/public/Footer";
+import AnnouncementBanner from "@/components/layout/public/AnnouncementBanner";
 import { PUBLIC_STYLES } from "@/lib/styles";
 
 export default function PublicLayout({
@@ -17,6 +18,7 @@ export default function PublicLayout({
       }}
     >
       <style>{PUBLIC_STYLES}</style>
+      <AnnouncementBanner />
       <Navbar />
       <main>{children}</main>
       <Footer />

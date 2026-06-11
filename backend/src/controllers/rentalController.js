@@ -1,7 +1,6 @@
 // backend/src/controllers/rentalController.js
 import pool from '../services/db.js';
 import { sendWaMessage } from '../services/whatsappService.js';
-import { createMidtransToken } from '../services/midtransService.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 async function getAdminPhone() {
@@ -36,8 +35,7 @@ async function triggerRentalCreationNotification(
     outfitName,
     startDateStr,
     durationDays,
-    amount,
-    deposit
+    amount
 ) {
     try {
         const userRes = await pool.query(
@@ -61,7 +59,6 @@ async function triggerRentalCreationNotification(
         const formattedEnd = formatD(endDate);
 
         const amountRupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount);
-        const depositRupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(deposit);
 
         if (customer.phone_number) {
             const customerMsg = `Halo *${customer.name}*,\n\nTerima kasih! Pemesanan sewa baju Anda di *Rumah Cantik Irma* telah berhasil dibuat dan berstatus *PENDING*:\n\n` +
@@ -69,9 +66,8 @@ async function triggerRentalCreationNotification(
                 `📅 *Tanggal Mulai:* ${formattedStart}\n` +
                 `📅 *Batas Pengembalian:* ${formattedEnd}\n` +
                 `⏳ *Durasi:* ${durationDays} hari\n` +
-                `💵 *Biaya Sewa:* ${amountRupiah}\n` +
-                `💰 *Deposit:* ${depositRupiah}\n\n` +
-                `Silakan lakukan pembayaran deposit atau pelunasan untuk memproses pemesanan Anda. Terima kasih! ✨`;
+                `💵 *Biaya Sewa:* ${amountRupiah}\n\n` +
+                `Jaminan sewa (KTP asli) diserahkan langsung di salon saat pengambilan baju. Silakan selesaikan pelunasan biaya sewa Anda untuk memproses pemesanan. Terima kasih! ✨`;
             await sendWaMessage(customer.phone_number, customerMsg);
         }
 
@@ -82,8 +78,8 @@ async function triggerRentalCreationNotification(
                 `🆔 *Sewa ID:* #${rentalId}\n` +
                 `👗 *Baju Sewa:* ${outfitName}\n` +
                 `📅 *Tanggal:* ${formattedStart} s.d ${formattedEnd} (${durationDays} hari)\n` +
-                `💵 *Biaya Sewa:* ${amountRupiah}\n` +
-                `💰 *Deposit:* ${depositRupiah}\n\n` +
+                `💵 *Biaya Sewa:* ${amountRupiah}\n\n` +
+                `Jaminan sewa (KTP asli) diselesaikan langsung di salon.\n` +
                 `Silakan cek admin panel untuk memproses sewa.`;
             await sendWaMessage(adminPhone, adminMsg);
         }
@@ -92,7 +88,7 @@ async function triggerRentalCreationNotification(
     }
 }
 
-async function triggerRentalStatusNotification(rentalId, status, deposit_refund) {
+async function triggerRentalStatusNotification(rentalId, status) {
     try {
         const rentalRes = await pool.query(
             `SELECT
@@ -102,8 +98,7 @@ async function triggerRentalStatusNotification(rentalId, status, deposit_refund)
                  oc.outfit_name,
                  r.start_date,
                  r.duration_days,
-                 r.amount_to_be_paid,
-                 r.deposit_paid
+                 r.amount_to_be_paid
              FROM rentals r
              JOIN "user" u ON r.user_id = u.id
              JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
@@ -129,10 +124,6 @@ async function triggerRentalStatusNotification(rentalId, status, deposit_refund)
         const formattedEnd = formatD(endDate);
 
         const amountRupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(row.amount_to_be_paid);
-        const depositRupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(row.deposit_paid);
-        const refundRupiah = deposit_refund !== undefined && deposit_refund !== null
-            ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(deposit_refund)
-            : "";
 
         let message = "";
 
@@ -144,8 +135,7 @@ async function triggerRentalStatusNotification(rentalId, status, deposit_refund)
                 `Selamat mengenakan! Mohon dikembalikan tepat waktu ya. Terima kasih! 💖`;
         } else if (status === "done") {
             message = `Halo *${row.customer_name}*,\n\nTransaksi sewa baju Anda: *${row.outfit_name}* telah *SELESAI*:\n\n` +
-                `📅 *Batas Kembali:* ${formattedEnd}\n` +
-                `💰 *Deposit dikembalikan:* ${refundRupiah || "-"}\n\n` +
+                `📅 *Batas Kembali:* ${formattedEnd}\n\n` +
                 `Baju sewa telah kami terima kembali dengan baik. Terima kasih telah menyewa di Rumah Cantik Irma! ✨`;
         } else if (status === "terlambat") {
             message = `Halo *${row.customer_name}*,\n\nStatus sewa baju Anda: *${row.outfit_name}* saat ini terdeteksi *TERLAMBAT*:\n\n` +
@@ -263,8 +253,6 @@ export async function getRentalsForAdmin(req, res) {
                (r.start_date + r.duration_days * INTERVAL '1 day')::date::text AS end_date,
                r.duration_days,
                r.amount_to_be_paid,
-               r.deposit_paid,
-               r.deposit_refund,
                r.rental_status,
                r.rental_status                                                 AS status,
                t.id                                                            AS transaction_id,
@@ -306,8 +294,6 @@ export async function getRentalsForCustomer(req, res) {
                (r.start_date + r.duration_days * INTERVAL '1 day')::date::text AS end_date,
                r.duration_days,
                r.amount_to_be_paid,
-               r.deposit_paid,
-               r.deposit_refund,
                r.rental_status,
                r.rental_status                                                 AS status,
                t.id                                                            AS transaction_id,
@@ -336,15 +322,15 @@ export async function createRental(req, res) {
         return res.status(401).json({ error: "Unauthorized: User ID is missing." });
     }
 
-    const { outfit_catalogues_id, start_date, duration_days, deposit_paid, payment_method = 'cash' } = req.body;
+    const { outfit_catalogues_id, start_date, duration_days, payment_method = 'cash' } = req.body;
 
     if (!outfit_catalogues_id || !start_date || !duration_days) {
         return res.status(400).json({ error: "Data tidak lengkap" });
     }
 
-    const validMethods = ['cash', 'qris', 'midtrans'];
+    const validMethods = ['cash', 'qris'];
     if (!validMethods.includes(payment_method)) {
-        return res.status(400).json({ error: "Metode pembayaran tidak valid." });
+        return res.status(400).json({ error: "Metode pembayaran tidak valid. Penyewaan hanya menerima cash atau qris." });
     }
 
     // Validasi tanggal tidak boleh di masa lalu
@@ -365,9 +351,8 @@ export async function createRental(req, res) {
         const outfit = outfitResult.rows[0];
         const pricePerDay = parseFloat(outfit.price);
         const amount_to_be_paid = pricePerDay * duration_days;
-        const actualDeposit = deposit_paid ?? 0;
 
-        const totalAmount = payment_method === 'midtrans' ? amount_to_be_paid + 4000 : amount_to_be_paid;
+        const totalAmount = amount_to_be_paid;
 
         const client = await pool.connect();
         try {
@@ -377,14 +362,14 @@ export async function createRental(req, res) {
             const rentalResult = await client.query(
                 `INSERT INTO rentals
                    (user_id, outfit_catalogues_id, start_date, duration_days,
-                    amount_to_be_paid, deposit_paid, rental_status)
-                 VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+                    amount_to_be_paid, rental_status)
+                 VALUES ($1, $2, $3, $4, $5, 'pending')
                  RETURNING id`,
-                [userId, outfit_catalogues_id, start_date, duration_days, amount_to_be_paid, actualDeposit]
+                [userId, outfit_catalogues_id, start_date, duration_days, amount_to_be_paid]
             );
             const rentalId = rentalResult.rows[0].id;
 
-            // Fetch user info for WA notification and Midtrans
+            // Fetch user info for WA notification
             const userRes = await client.query(
                 `SELECT name, phone_number, email FROM "user" WHERE id = $1`,
                 [userId]
@@ -395,25 +380,9 @@ export async function createRental(req, res) {
             await client.query(
                 `INSERT INTO transactions
                    (user_id, rental_id, subtotal, total_amount, payment_method, midtrans_status)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [userId, rentalId, amount_to_be_paid, totalAmount, payment_method, payment_method === 'midtrans' ? 'pending' : null]
+                 VALUES ($1, $2, $3, $4, $5, 'pending')`,
+                [userId, rentalId, amount_to_be_paid, totalAmount, payment_method]
             );
-
-            // Generate Midtrans Token if method is midtrans
-            let midtransData = null;
-            if (payment_method === 'midtrans') {
-                const orderId = `RENT-${rentalId}-${Date.now()}`;
-                try {
-                    midtransData = await createMidtransToken(orderId, totalAmount, {
-                        name: dbUser.name,
-                        email: dbUser.email,
-                        phone: dbUser.phone_number
-                    });
-                } catch (midtransErr) {
-                    console.error('[createRental] Midtrans token generation failed:', midtransErr);
-                    throw new Error("Gagal menghubungkan ke portal pembayaran online. Silakan coba metode pembayaran lain.");
-                }
-            }
 
             // Tambahkan notifikasi sistem untuk Admin
             await client.query(
@@ -431,16 +400,15 @@ export async function createRental(req, res) {
                 outfit.outfit_name, 
                 start_date, 
                 duration_days, 
-                amount_to_be_paid, 
-                actualDeposit
+                amount_to_be_paid
             ).catch(err => 
                 console.error("Failed to send rental creation WA notification:", err)
             );
 
             res.status(201).json({ 
                 rentalId, 
-                token: midtransData?.token || null, 
-                redirect_url: midtransData?.redirect_url || null 
+                token: null, 
+                redirect_url: null 
             });
         } catch (err) {
             await client.query("ROLLBACK");
@@ -461,7 +429,7 @@ export async function updateRentalStatus(req, res) {
     }
 
     const { id } = req.params;
-    const { status, deposit_refund } = req.body;
+    const { status } = req.body;
 
     const valid = ["pending", "ongoing", "terlambat", "done", "cancelled"];
     if (!valid.includes(status)) {
@@ -469,16 +437,8 @@ export async function updateRentalStatus(req, res) {
     }
 
     try {
-        let query;
-        let queryParams;
-
-        if (status === "done" && deposit_refund !== undefined && deposit_refund !== null) {
-            query = `UPDATE rentals SET rental_status = $1, deposit_refund = $2 WHERE id = $3 RETURNING id, user_id`;
-            queryParams = [status, deposit_refund, id];
-        } else {
-            query = `UPDATE rentals SET rental_status = $1 WHERE id = $2 RETURNING id, user_id`;
-            queryParams = [status, id];
-        }
+        const query = `UPDATE rentals SET rental_status = $1 WHERE id = $2 RETURNING id, user_id`;
+        const queryParams = [status, id];
 
         const result = await pool.query(query, queryParams);
         if (!result.rows.length) {
@@ -486,7 +446,7 @@ export async function updateRentalStatus(req, res) {
         }
 
         // Kirim notifikasi WhatsApp ke Pelanggan di background
-        triggerRentalStatusNotification(id, status, deposit_refund).catch((err) =>
+        triggerRentalStatusNotification(id, status).catch((err) =>
             console.error("Failed to send rental status WA notification:", err)
         );
 
@@ -615,8 +575,6 @@ export async function getRentalById(req, res) {
                r.duration_days,
                (r.start_date + r.duration_days * INTERVAL '1 day')::date::text AS end_date,
                r.amount_to_be_paid,
-               r.deposit_paid,
-               r.deposit_refund,
                r.rental_status,
                t.id             AS transaction_id,
                t.payment_method,
