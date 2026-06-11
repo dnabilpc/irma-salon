@@ -119,7 +119,7 @@ async function triggerClosingTimeAnnouncements(startDateStr, endDateStr, reason)
            r.duration_days
          FROM rentals r
          JOIN "user" u ON r.user_id = u.id
-         WHERE r.rental_status IN ('pending', 'approved', 'ongoing')
+         WHERE r.rental_status IN ('pending', 'ongoing')
            AND (r.start_date - INTERVAL '1 day')::date <= $2::date
            AND (r.start_date + INTERVAL '1 day')::date >= $1::date
            AND u.phone_number IS NOT NULL AND u.phone_number != ''`,
