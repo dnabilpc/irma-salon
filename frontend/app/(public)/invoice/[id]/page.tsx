@@ -9,7 +9,7 @@ interface Transaction {
   subtotal: number;
   payment_method: string;
   created_at: string;
-  midtrans_status: string;
+  status: string;
   customer_name: string;
   customer_phone: string;
   customer_email: string;
@@ -76,7 +76,7 @@ export default function InvoicePage() {
   }
 
   const { transaction, items } = data;
-  const isLunas = transaction.midtrans_status === "settlement" || transaction.midtrans_status === "capture";
+  const isLunas = transaction.status === "lunas";
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(val);

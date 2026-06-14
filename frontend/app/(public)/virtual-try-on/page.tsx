@@ -630,7 +630,7 @@ export default function VirtualTryOnPage() {
         )}
 
         {/* Main grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "28px", alignItems: "start" }}>
+        <div className="vto-main-grid">
 
           {/* Kiri: Upload foto */}
           <div>
@@ -787,6 +787,18 @@ export default function VirtualTryOnPage() {
       </div>
 
       <style>{`
+        .vto-main-grid {
+          display: grid;
+          grid-template-columns: 320px 1fr;
+          gap: 28px;
+          align-items: start;
+        }
+        @media (max-width: 768px) {
+          .vto-main-grid {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }

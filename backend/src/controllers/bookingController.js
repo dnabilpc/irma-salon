@@ -453,7 +453,7 @@ export async function createBooking(req, res) {
 
             await client.query(
                 `INSERT INTO transactions
-                   (user_id, booking_id, subtotal, total_amount, payment_method, midtrans_status)
+                   (user_id, booking_id, subtotal, total_amount, payment_method, status)
                  VALUES ($1, $2, $3, $4, $5, 'pending')`,
                 [userId, bookingId, subtotal, totalAmount, payment_method]
             );
@@ -731,7 +731,7 @@ export async function getBookingById(req, res) {
                ) FILTER (WHERE ss.id IS NOT NULL) AS details,
                COALESCE(t.total_amount, 0)        AS total_amount,
                COALESCE(t.payment_method, 'cash') AS payment_method,
-               t.midtrans_status,
+               t.status                           AS payment_status,
                t.id AS transaction_id
              FROM bookings b
              JOIN "user" u ON b.user_id = u.id
@@ -741,7 +741,7 @@ export async function getBookingById(req, res) {
              WHERE b.id = $1
              GROUP BY b.id, b.booking_datetime, b.status, b.user_id,
                       u.name, u.email,
-                      t.total_amount, t.payment_method, t.midtrans_status, t.id`,
+                      t.total_amount, t.payment_method, t.status, t.id`,
             [bookingId]
         );
 

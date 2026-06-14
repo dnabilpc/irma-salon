@@ -379,7 +379,7 @@ export async function createRental(req, res) {
             // Insert transaksi
             await client.query(
                 `INSERT INTO transactions
-                   (user_id, rental_id, subtotal, total_amount, payment_method, midtrans_status)
+                   (user_id, rental_id, subtotal, total_amount, payment_method, status)
                  VALUES ($1, $2, $3, $4, $5, 'pending')`,
                 [userId, rentalId, amount_to_be_paid, totalAmount, payment_method]
             );
@@ -579,7 +579,7 @@ export async function getRentalById(req, res) {
                t.id             AS transaction_id,
                t.payment_method,
                t.total_amount,
-               t.midtrans_status
+               t.status         AS payment_status
              FROM rentals r
              JOIN "user" u          ON u.id  = r.user_id
              JOIN outfit_catalogues oc ON oc.id = r.outfit_catalogues_id

@@ -27,17 +27,14 @@ export async function getPaymentsForAdmin(req, res) {
                     ELSE 'Sewa Pakaian'
                 END AS description,
                 t.payment_method AS method,
-                CASE 
-                    WHEN t.midtrans_status = 'settlement' OR t.midtrans_status = 'capture' THEN 'lunas'
-                    WHEN t.midtrans_status = 'gagal' THEN 'gagal'
-                    ELSE 'pending'
-                END AS status,
+                t.status AS status,
                 t.total_amount AS amount,
                 COALESCE(
                     TO_CHAR(b.booking_datetime AT TIME ZONE 'Asia/Jakarta', 'DD Mon YYYY'),
                     TO_CHAR(r.start_date, 'DD Mon YYYY'),
                     '—'
-                ) AS date
+                ) AS date,
+                TO_CHAR(t.created_at AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS payment_time
              FROM transactions t
              JOIN "user" u ON t.user_id = u.id
              LEFT JOIN bookings b ON t.booking_id = b.id
@@ -61,7 +58,7 @@ export async function confirmPayment(req, res) {
     try {
         const result = await pool.query(
             `UPDATE transactions 
-             SET midtrans_status = 'settlement' 
+             SET status = 'lunas' 
              WHERE id = $1 
              RETURNING id`,
             [id]

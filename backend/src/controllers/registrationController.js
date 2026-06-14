@@ -252,7 +252,7 @@ export async function getSidebarCounts(req, res) {
         const paymentsRes = await pool.query(
             `SELECT COUNT(*)::int AS count FROM transactions t
              WHERE t.payment_method IN ('cash', 'qris')
-               AND (t.midtrans_status IS NULL OR t.midtrans_status != 'settlement')`
+               AND t.status = 'pending'`
         );
         const paymentsCount = paymentsRes.rows[0].count;
 

@@ -56,7 +56,7 @@ export async function getDashboardStats(req, res) {
             FROM transactions t
             LEFT JOIN bookings b ON t.booking_id = b.id
             LEFT JOIN rentals r ON t.rental_id = r.id
-            WHERE t.midtrans_status IN ('settlement', 'capture')
+            WHERE t.status = 'lunas'
               AND (
                 (t.booking_id IS NOT NULL AND b.booking_datetime >= DATE_TRUNC('month', CURRENT_DATE) AND b.booking_datetime < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')
                 OR
@@ -68,7 +68,7 @@ export async function getDashboardStats(req, res) {
             FROM transactions t
             LEFT JOIN bookings b ON t.booking_id = b.id
             LEFT JOIN rentals r ON t.rental_id = r.id
-            WHERE t.midtrans_status IN ('settlement', 'capture')
+            WHERE t.status = 'lunas'
               AND (
                 (t.booking_id IS NOT NULL AND b.booking_datetime >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND b.booking_datetime < DATE_TRUNC('month', CURRENT_DATE))
                 OR
@@ -131,7 +131,7 @@ export async function getDashboardStats(req, res) {
                 FROM transactions t
                 LEFT JOIN bookings b ON t.booking_id = b.id
                 LEFT JOIN rentals r ON t.rental_id = r.id
-                WHERE t.midtrans_status IN ('settlement', 'capture')
+                WHERE t.status = 'lunas'
                   AND COALESCE(b.booking_datetime::date, r.start_date) >= CURRENT_DATE - INTERVAL '6 days'
                 GROUP BY day_date
             )
@@ -214,8 +214,8 @@ export async function getDashboardStats(req, res) {
                TO_CHAR(b.booking_datetime, 'HH24:MI')           AS time,
                b.status,
                CASE 
-                   WHEN t.midtrans_status IN ('settlement', 'capture') THEN 'paid'
-                   WHEN t.midtrans_status = 'gagal' THEN 'refunded'
+                   WHEN t.status = 'lunas' THEN 'paid'
+                   WHEN t.status = 'gagal' THEN 'refunded'
                    ELSE 'pending'
                END                                              AS payment,
                COALESCE(t.total_amount, 0)::numeric             AS amount
@@ -224,7 +224,7 @@ export async function getDashboardStats(req, res) {
             LEFT JOIN booking_details bd ON bd.booking_id = b.id
             LEFT JOIN salon_services ss  ON ss.id = bd.salon_service_id
             LEFT JOIN transactions t     ON t.booking_id = b.id
-            GROUP BY b.id, u.name, b.booking_datetime, b.status, t.midtrans_status, t.total_amount
+            GROUP BY b.id, u.name, b.booking_datetime, b.status, t.status, t.total_amount
             ORDER BY b.booking_datetime DESC, b.id DESC
             LIMIT 5
         `);

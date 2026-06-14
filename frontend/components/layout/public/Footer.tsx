@@ -1,9 +1,22 @@
 "use client";
+import { useState, useEffect } from "react";
 import { FOOTER_COLUMNS } from "@/constants/data";
 import type { FooterColumn } from "@/types";
 import Link from "next/link";
 
 export default function Footer() {
+  const [salonOpenHours, setSalonOpenHours] = useState<string>("Senin – Sabtu (09.00 – 18.00 WIB)");
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.salon_open_description) {
+          setSalonOpenHours(data.salon_open_description);
+        }
+      })
+      .catch((err) => console.error("Error loading footer operational hours:", err));
+  }, []);
   return (
     <footer
       style={{
@@ -62,6 +75,19 @@ export default function Footer() {
           </p>
           <p style={{ fontSize: "0.875rem", marginTop: "12px" }}>
             📱 085174481660
+          </p>
+          <p
+            style={{
+              fontSize: "0.875rem",
+              lineHeight: 1.6,
+              maxWidth: "300px",
+              fontWeight: 300,
+              marginTop: "8px",
+              color: "rgba(255,255,255,0.7)",
+            }}
+          >
+            🏪 Jam Operasional:<br />
+            {salonOpenHours}
           </p>
 
           {/* Social media */}

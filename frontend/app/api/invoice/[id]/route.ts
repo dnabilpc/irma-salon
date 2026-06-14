@@ -31,7 +31,7 @@ export async function GET(
         t.subtotal,
         t.payment_method,
         t.created_at,
-        t.midtrans_status,
+        t.status,
         t.user_id,
         u.name AS customer_name,
         u.phone_number AS customer_phone,

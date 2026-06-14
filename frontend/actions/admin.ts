@@ -25,6 +25,7 @@ export interface PaymentRow {
   status: 'lunas' | 'pending' | 'gagal';
   amount: number;
   date: string;
+  payment_time?: string;
 }
 
 export async function fetchSidebarCounts(): Promise<ActionResult<SidebarCounts>> {

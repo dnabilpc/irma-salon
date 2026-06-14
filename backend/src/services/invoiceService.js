@@ -41,7 +41,7 @@ export async function getInvoiceData(transactionId) {
             t.subtotal::numeric AS subtotal,
             t.payment_method,
             t.created_at,
-            t.midtrans_status,
+            t.status AS payment_status,
             t.user_id,
             u.name AS customer_name,
             u.phone_number AS customer_phone,

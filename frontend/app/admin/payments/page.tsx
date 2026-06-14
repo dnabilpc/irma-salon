@@ -32,12 +32,13 @@ function formatRupiah(n: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 }
 
-const COL = "80px 1fr 80px 90px 100px 90px 100px";
+const COL = "75px 1.2fr 80px 80px 90px 90px 60px 90px 105px";
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submittingRowId, setSubmittingRowId] = useState<number | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "all">("all");
   const [typeFilter, setTypeFilter] = useState<PaymentType | "all">("all");
   const [search, setSearch]   = useState("");
@@ -158,7 +159,9 @@ export default function PaymentsPage() {
           <span>Metode</span>
           <span>Status</span>
           <span>Tanggal</span>
+          <span>Jam</span>
           <span>Jumlah</span>
+          <span>Aksi</span>
         </div>
 
         {loading ? (
@@ -189,7 +192,41 @@ export default function PaymentsPage() {
                   {sc.label}
                 </span>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.date}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.payment_time || "—"}</span>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{formatRupiah(Number(p.amount))}</span>
+                <div onClick={(e) => e.stopPropagation()}>
+                  {p.status === "pending" ? (
+                    <button
+                      onClick={async () => {
+                        setSubmittingRowId(p.id);
+                        const res = await confirmAdminPayment(Number(p.id));
+                        setSubmittingRowId(null);
+                        if (res.success) {
+                          loadPayments();
+                        } else {
+                          alert(res.error || "Gagal memverifikasi pembayaran.");
+                        }
+                      }}
+                      disabled={submittingRowId !== null}
+                      style={{
+                        background: "linear-gradient(135deg, #2A8C5A, #1A7A4A)",
+                        border: "none",
+                        color: "white",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        padding: "5px 10px",
+                        borderRadius: "6px",
+                        cursor: submittingRowId !== null ? "not-allowed" : "pointer",
+                        boxShadow: "0 2px 4px rgba(42, 140, 90, 0.2)",
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      {submittingRowId === p.id ? "..." : "✓ Konfirmasi"}
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: "12px", color: "#B08090" }}>—</span>
+                  )}
+                </div>
               </div>
             );
           })
