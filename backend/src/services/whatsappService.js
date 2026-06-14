@@ -62,21 +62,6 @@ export async function initWhatsapp() {
         console.log('[WhatsApp] Client is ready and connected!');
         clientStatus = 'READY';
         qrCodeString = null;
-
-        try {
-            console.log('[WhatsApp] Injecting LID migration gating patch...');
-            await client.pupPage.evaluate(() => {
-                if (window.WWebJS && typeof window.WWebJS.injectToFunction === 'function') {
-                    window.WWebJS.injectToFunction({ 
-                        module: 'WAWebLid1X1MigrationGating', 
-                        function: 'Lid1X1MigrationUtils.isLidMigrated' 
-                    }, () => false);
-                    console.log('[WhatsApp] LID migration gating patch injected successfully in browser context!');
-                }
-            });
-        } catch (err) {
-            console.error('[WhatsApp] Failed to inject LID migration gating patch:', err);
-        }
     });
 
     client.on('disconnected', async (reason) => {
@@ -143,19 +128,7 @@ export async function sendWaMessage(to, message, options = {}) {
         }
         let jid = formattedJid;
 
-        // Inject LID migration gating patch to ensure browser safety
-        try {
-            await client.pupPage.evaluate(() => {
-                if (window.WWebJS && typeof window.WWebJS.injectToFunction === 'function') {
-                    window.WWebJS.injectToFunction({ 
-                        module: 'WAWebLid1X1MigrationGating', 
-                        function: 'Lid1X1MigrationUtils.isLidMigrated' 
-                    }, () => false);
-                }
-            });
-        } catch (injectErr) {
-            console.warn('[WhatsApp] Failed to inject LID migration gating patch before sending:', injectErr.message);
-        }
+
 
         try {
             console.log(`[WhatsApp] Resolving JID/LID for ${formattedJid}...`);
