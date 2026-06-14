@@ -16,6 +16,10 @@ export function initWhatsapp() {
             clientId: 'irma-salon-session',
             dataPath: './.wwebjs_auth' // Stores session locally so we don't have to scan QR code every time
         }),
+        webVersionCache: {
+            type: 'remote',
+            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+        },
         puppeteer: {
             headless: true,
             args: [
