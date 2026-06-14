@@ -7,8 +7,19 @@ let client;
 let qrCodeString = null;
 let clientStatus = 'DISCONNECTED'; // 'DISCONNECTED' | 'AUTHENTICATING' | 'READY'
 
-export function initWhatsapp() {
+export async function initWhatsapp() {
     console.log('[WhatsApp] Initializing client...');
+
+    // If a client already exists, destroy it first to avoid duplicate instances
+    if (client) {
+        try {
+            console.log('[WhatsApp] Destroying existing client before re-initializing...');
+            await client.destroy();
+        } catch (err) {
+            console.warn('[WhatsApp] Failed to destroy existing client:', err.message);
+        }
+    }
+
     clientStatus = 'AUTHENTICATING';
 
     client = new Client({
@@ -68,10 +79,18 @@ export function initWhatsapp() {
         }
     });
 
-    client.on('disconnected', (reason) => {
+    client.on('disconnected', async (reason) => {
         console.log('[WhatsApp] Client was disconnected:', reason);
         clientStatus = 'DISCONNECTED';
         qrCodeString = null;
+
+        try {
+            console.log('[WhatsApp] Destroying old client instance...');
+            await client.destroy();
+        } catch (destroyErr) {
+            console.error('[WhatsApp] Failed to destroy old client:', destroyErr.message);
+        }
+
         // Re-initialize after disconnection
         setTimeout(() => {
             initWhatsapp();
