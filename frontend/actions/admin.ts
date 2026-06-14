@@ -26,6 +26,7 @@ export interface PaymentRow {
   amount: number;
   date: string;
   payment_time?: string;
+  payment_proof_sent?: boolean;
 }
 
 export async function fetchSidebarCounts(): Promise<ActionResult<SidebarCounts>> {

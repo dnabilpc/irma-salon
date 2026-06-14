@@ -34,7 +34,8 @@ export async function getPaymentsForAdmin(req, res) {
                     TO_CHAR(r.start_date, 'DD Mon YYYY'),
                     '—'
                 ) AS date,
-                TO_CHAR(t.created_at AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS payment_time
+                TO_CHAR(t.created_at AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS payment_time,
+                t.payment_proof_sent
              FROM transactions t
              JOIN "user" u ON t.user_id = u.id
              LEFT JOIN bookings b ON t.booking_id = b.id
@@ -119,5 +120,114 @@ export async function confirmPayment(req, res) {
     } catch (err) {
         console.error('[confirmPayment]', err);
         return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+async function getAdminPhone() {
+    try {
+        const settingsRes = await pool.query("SELECT value FROM settings WHERE key = 'salon_whatsapp' LIMIT 1");
+        if (settingsRes.rows.length > 0 && settingsRes.rows[0].value) {
+            return settingsRes.rows[0].value;
+        }
+    } catch (err) {
+        console.error("Failed to query settings for admin phone:", err);
+    }
+
+    try {
+        const adminRes = await pool.query(
+            `SELECT phone_number FROM "user" 
+             WHERE role = 'admin' AND phone_number IS NOT NULL AND phone_number != '' 
+             LIMIT 1`
+        );
+        if (adminRes.rows.length > 0) {
+            return adminRes.rows[0].phone_number;
+        }
+    } catch (err) {
+        console.error("Failed to query user for admin phone:", err);
+    }
+    return null;
+}
+
+export async function uploadPaymentProof(req, res) {
+    try {
+        const { bookingId, rentalId, transactionId } = req.body;
+        if (!req.file) {
+            return res.status(400).json({ error: 'File screenshot bukti pembayaran wajib diunggah.' });
+        }
+
+        // Find transaction
+        let queryStr = `
+            SELECT t.id, t.total_amount, t.booking_id, t.rental_id, t.user_id,
+                   u.name AS customer_name, u.phone_number AS customer_phone
+            FROM transactions t
+            JOIN "user" u ON t.user_id = u.id
+        `;
+        let params = [];
+
+        if (transactionId) {
+            queryStr += ` WHERE t.id = $1`;
+            params = [transactionId];
+        } else if (bookingId) {
+            queryStr += ` WHERE t.booking_id = $1`;
+            params = [bookingId];
+        } else if (rentalId) {
+            queryStr += ` WHERE t.rental_id = $1`;
+            params = [rentalId];
+        } else {
+            return res.status(400).json({ error: 'Parameter ID transaksi, booking, atau sewa wajib disertakan.' });
+        }
+
+        const trxRes = await pool.query(queryStr, params);
+        if (trxRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Transaksi tidak ditemukan.' });
+        }
+
+        const transaction = trxRes.rows[0];
+
+        // Format message
+        const typeStr = transaction.booking_id ? 'Booking Salon' : 'Sewa Baju';
+        const idStr = transaction.booking_id ? `#${transaction.booking_id}` : `#${transaction.rental_id}`;
+        
+        // Format local date and time (Jakarta)
+        const dateStr = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+
+        const caption = `Halo Admin Rumah Cantik Irma,\n\n` +
+            `Pelanggan telah mengirimkan bukti pembayaran QRIS Statis:\n\n` +
+            `• *Nama Pelanggan*: ${transaction.customer_name}\n` +
+            `• *No. WhatsApp*: ${transaction.customer_phone || '—'}\n` +
+            `• *Tipe Transaksi*: ${typeStr}\n` +
+            `• *ID Booking/Sewa*: ${idStr}\n` +
+            `• *Total Pembayaran*: ${formatRupiah(transaction.total_amount)}\n` +
+            `• *Waktu Pengiriman*: ${dateStr} WIB\n\n` +
+            `Mohon verifikasi pembayaran ini di Dashboard Admin.`;
+
+        // Get admin phone number
+        const adminPhone = await getAdminPhone();
+        if (!adminPhone) {
+            console.error('[uploadPaymentProof] Admin phone number not found in settings or user table.');
+            return res.status(500).json({ error: 'Nomor WhatsApp admin belum dikonfigurasi.' });
+        }
+
+        // Send WhatsApp message to admin
+        const media = new MessageMedia(
+            req.file.mimetype,
+            req.file.buffer.toString('base64'),
+            req.file.originalname
+        );
+
+        await sendWaMessage(adminPhone, caption, { media });
+
+        // Update database status
+        await pool.query(
+            `UPDATE transactions 
+             SET payment_proof_sent = TRUE 
+             WHERE id = $1`,
+            [transaction.id]
+        );
+
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[uploadPaymentProof]', err);
+        return res.status(500).json({ error: err.message || 'Internal Server Error' });
     }
 }

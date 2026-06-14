@@ -188,9 +188,16 @@ export default function PaymentsPage() {
                   {tc.label}
                 </span>
                 <span style={{ fontSize: "13px", color: "#8A4060" }}>{mc.icon} {mc.label}</span>
-                <span style={{ display: "inline-flex", background: sc.bg, color: sc.color, fontSize: "12px", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", whiteSpace: "nowrap" as const, height: "fit-content", width: "fit-content" }}>
-                  {sc.label}
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <span style={{ display: "inline-flex", background: sc.bg, color: sc.color, fontSize: "12px", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", whiteSpace: "nowrap" as const, height: "fit-content", width: "fit-content" }}>
+                    {sc.label}
+                  </span>
+                  {p.payment_proof_sent && p.status === "pending" && (
+                    <span style={{ display: "inline-flex", background: "rgba(0,75,123,0.08)", color: "#004b7b", fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", width: "fit-content", border: "1px dashed rgba(0,75,123,0.3)" }}>
+                      Bukti Dikirim 📱
+                    </span>
+                  )}
+                </div>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.date}</span>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.payment_time || "—"}</span>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{formatRupiah(Number(p.amount))}</span>
@@ -262,6 +269,7 @@ export default function PaymentsPage() {
                 { label: "Metode",     value: `${(METHOD_CONFIG[selected.method] || { icon: "💳", label: selected.method }).icon} ${(METHOD_CONFIG[selected.method] || { label: selected.method }).label}` },
                 { label: "Tanggal",    value: selected.date     },
                 { label: "Status",     value: (STATUS_CONFIG[selected.status] || { label: selected.status }).label },
+                { label: "Bukti QRIS",  value: selected.payment_proof_sent ? "Sudah Dikirim (WhatsApp Admin) 📱" : "Belum Dikirim" },
                 { label: "Jumlah",     value: formatRupiah(Number(selected.amount)), accent: true },
               ].map((row) => (
                 <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #F0D9E0" }}>

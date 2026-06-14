@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import PaymentProofUpload from "@/components/payment/PaymentProofUpload";
 
 interface Transaction {
   id: number;
@@ -13,6 +14,7 @@ interface Transaction {
   customer_name: string;
   customer_phone: string;
   customer_email: string;
+  payment_proof_sent?: boolean;
   booking_datetime?: string;
   start_date?: string;
   duration_days?: number;
@@ -268,6 +270,16 @@ export default function InvoicePage() {
             <span style={{ fontFamily: "'DM Mono', monospace" }}>{formatRupiah(transaction.total_amount)}</span>
           </div>
         </div>
+
+        {/* Payment Proof Upload for QRIS pending */}
+        {transaction.payment_method === "qris" && !isLunas && (
+          <div className="no-print">
+            <PaymentProofUpload 
+              transactionId={transaction.id} 
+              initialProofSent={transaction.payment_proof_sent} 
+            />
+          </div>
+        )}
 
         <div style={{ textAlign: "center", fontSize: "0.78rem", color: "#B09080", marginTop: "40px" }}>
           Terima kasih atas kunjungan Anda di Rumah Cantik Irma! ✨

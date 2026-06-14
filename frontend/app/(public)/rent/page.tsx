@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+import PaymentProofUpload from "@/components/payment/PaymentProofUpload";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -691,6 +692,8 @@ export default function SewaBajuPage() {
                 </div>
               </div>
             </div>
+            
+            <PaymentProofUpload rentalId={Number(successRentalId)} />
             
             <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "32px" }}>
               Silakan lakukan pembayaran sesuai dengan total biaya sewa menggunakan QRIS Statis, lalu simpan bukti pembayaran Anda untuk ditunjukkan ke salon saat pengambilan baju.

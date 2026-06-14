@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { createBooking, getSalonServices } from "@/actions/booking";
 import type { SalonService } from "@/actions/booking";
+import PaymentProofUpload from "@/components/payment/PaymentProofUpload";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -674,6 +675,8 @@ export default function BookingPage() {
               </div>
             </div>
           </div>
+          
+          <PaymentProofUpload bookingId={Number(bookingId)} />
           
           <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "32px" }}>
             Silakan lakukan pembayaran sesuai dengan total biaya booking di atas menggunakan QRIS Statis, lalu simpan bukti pembayaran Anda untuk ditunjukkan ke salon saat kedatangan.
