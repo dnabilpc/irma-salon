@@ -796,7 +796,7 @@ export default function CustomerDashboard() {
                       }
 
                       const showInvoiceBtn = booking.transaction_id && 
-                        (booking.status === "confirmed" || booking.status === "completed");
+                        booking.status !== "cancelled" && booking.status !== "rejected";
 
                       return (
                         <div
@@ -839,32 +839,32 @@ export default function CustomerDashboard() {
                             </div>
                           </div>
 
-                          {showInvoiceBtn && (
-                            <button
-                              onClick={() => window.open(`/invoice/${booking.transaction_id}`, "_blank")}
-                              style={{
-                                background: "white",
-                                border: "1px solid #C9922A",
-                                color: "#C9922A",
-                                padding: "8px 14px",
-                                borderRadius: "6px",
-                                fontSize: "0.78rem",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                transition: "all 0.2s",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#C9922A";
-                                e.currentTarget.style.color = "white";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "white";
-                                e.currentTarget.style.color = "#C9922A";
-                              }}
-                            >
-                              📄 Cetak Invoice
-                            </button>
-                          )}
+                           {showInvoiceBtn && (
+                             <button
+                               onClick={() => window.open(`/invoice/${booking.transaction_id}`, "_blank")}
+                               style={{
+                                 background: booking.status === "pending" ? "#C9922A" : "white",
+                                 border: "1px solid #C9922A",
+                                 color: booking.status === "pending" ? "white" : "#C9922A",
+                                 padding: "8px 14px",
+                                 borderRadius: "6px",
+                                 fontSize: "0.78rem",
+                                 fontWeight: 600,
+                                 cursor: "pointer",
+                                 transition: "all 0.2s",
+                               }}
+                               onMouseEnter={(e) => {
+                                 e.currentTarget.style.background = booking.status === "pending" ? "#6B3A2A" : "#C9922A";
+                                 e.currentTarget.style.color = "white";
+                               }}
+                               onMouseLeave={(e) => {
+                                 e.currentTarget.style.background = booking.status === "pending" ? "#C9922A" : "white";
+                                 e.currentTarget.style.color = booking.status === "pending" ? "white" : "#C9922A";
+                               }}
+                             >
+                               {booking.status === "pending" ? "💳 Bayar" : "📄 Cetak Invoice"}
+                             </button>
+                           )}
                         </div>
                       );
                     })}
