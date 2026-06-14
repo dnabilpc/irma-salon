@@ -148,10 +148,8 @@ export async function sendWaMessage(to, message, options = {}) {
                 throw new Error(`Phone number ${to} is not registered on WhatsApp.`);
             }
         } catch (resErr) {
-            if (resErr.message.includes('not registered')) {
-                throw resErr;
-            }
-            console.warn(`[WhatsApp] Failed to resolve LID for ${formattedJid}, falling back to default.`, resErr.message);
+            console.error(`[WhatsApp] Failed to resolve JID/LID for ${formattedJid}:`, resErr.message);
+            throw resErr;
         }
 
         console.log(`[WhatsApp] Sending message to ${jid}...`);

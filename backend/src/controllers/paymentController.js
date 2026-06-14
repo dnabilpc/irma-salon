@@ -127,7 +127,11 @@ async function getAdminPhone() {
     try {
         const settingsRes = await pool.query("SELECT value FROM settings WHERE key = 'salon_whatsapp' LIMIT 1");
         if (settingsRes.rows.length > 0 && settingsRes.rows[0].value) {
-            return settingsRes.rows[0].value;
+            const val = settingsRes.rows[0].value.trim();
+            // Fallback to user table if the settings value is the default dummy placeholder
+            if (val && val !== '628123456789' && val !== '08123456789' && val !== '8123456789') {
+                return val;
+            }
         }
     } catch (err) {
         console.error("Failed to query settings for admin phone:", err);
