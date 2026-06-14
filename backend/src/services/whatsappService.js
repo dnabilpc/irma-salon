@@ -51,10 +51,25 @@ export function initWhatsapp() {
         qrCodeString = null;
     });
 
-    client.on('ready', () => {
+    client.on('ready', async () => {
         console.log('[WhatsApp] Client is ready and connected!');
         clientStatus = 'READY';
         qrCodeString = null;
+
+        try {
+            console.log('[WhatsApp] Injecting LID migration gating patch...');
+            await client.pupPage.evaluate(() => {
+                if (window.WWebJS && typeof window.WWebJS.injectToFunction === 'function') {
+                    window.WWebJS.injectToFunction({ 
+                        module: 'WAWebLid1X1MigrationGating', 
+                        function: 'Lid1X1MigrationUtils.isLidMigrated' 
+                    }, () => false);
+                    console.log('[WhatsApp] LID migration gating patch injected successfully in browser context!');
+                }
+            });
+        } catch (err) {
+            console.error('[WhatsApp] Failed to inject LID migration gating patch:', err);
+        }
     });
 
     client.on('disconnected', (reason) => {
@@ -108,7 +123,24 @@ export async function sendWaMessage(to, message, options = {}) {
 
     try {
         const formattedJid = formatPhoneNumber(to);
+        if (!formattedJid) {
+            throw new Error(`Invalid phone number format: ${to}`);
+        }
         let jid = formattedJid;
+
+        // Inject LID migration gating patch to ensure browser safety
+        try {
+            await client.pupPage.evaluate(() => {
+                if (window.WWebJS && typeof window.WWebJS.injectToFunction === 'function') {
+                    window.WWebJS.injectToFunction({ 
+                        module: 'WAWebLid1X1MigrationGating', 
+                        function: 'Lid1X1MigrationUtils.isLidMigrated' 
+                    }, () => false);
+                }
+            });
+        } catch (injectErr) {
+            console.warn('[WhatsApp] Failed to inject LID migration gating patch before sending:', injectErr.message);
+        }
 
         try {
             console.log(`[WhatsApp] Resolving JID/LID for ${formattedJid}...`);
@@ -116,8 +148,13 @@ export async function sendWaMessage(to, message, options = {}) {
             if (numberDetails && numberDetails._serialized) {
                 jid = numberDetails._serialized;
                 console.log(`[WhatsApp] Resolved JID to: ${jid}`);
+            } else {
+                throw new Error(`Phone number ${to} is not registered on WhatsApp.`);
             }
         } catch (resErr) {
+            if (resErr.message.includes('not registered')) {
+                throw resErr;
+            }
             console.warn(`[WhatsApp] Failed to resolve LID for ${formattedJid}, falling back to default.`, resErr.message);
         }
 

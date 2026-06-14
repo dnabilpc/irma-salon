@@ -215,7 +215,12 @@ export async function uploadPaymentProof(req, res) {
             req.file.originalname
         );
 
-        await sendWaMessage(adminPhone, caption, { media });
+        try {
+            await sendWaMessage(adminPhone, caption, { media });
+        } catch (waErr) {
+            console.error('[uploadPaymentProof] Failed to send WhatsApp notification to admin:', waErr.message);
+            // We proceed with updating database and returning success even if notification fails
+        }
 
         // Update database status
         await pool.query(
