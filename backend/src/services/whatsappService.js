@@ -100,12 +100,6 @@ export function formatPhoneNumber(phone) {
     return cleaned;
 }
 
-/**
- * Send a message to a WhatsApp number
- * @param {string} to - Target phone number (e.g. 08123456789 or 628123456789)
- * @param {string} message - Content of the message
- * @param {object} [options] - Additional send options (e.g. { media })
- */
 export async function sendWaMessage(to, message, options = {}) {
     if (clientStatus !== 'READY') {
         console.error('[WhatsApp] Cannot send message. Client status:', clientStatus);
@@ -113,7 +107,20 @@ export async function sendWaMessage(to, message, options = {}) {
     }
 
     try {
-        const jid = formatPhoneNumber(to);
+        const formattedJid = formatPhoneNumber(to);
+        let jid = formattedJid;
+
+        try {
+            console.log(`[WhatsApp] Resolving JID/LID for ${formattedJid}...`);
+            const numberDetails = await client.getNumberId(formattedJid);
+            if (numberDetails && numberDetails._serialized) {
+                jid = numberDetails._serialized;
+                console.log(`[WhatsApp] Resolved JID to: ${jid}`);
+            }
+        } catch (resErr) {
+            console.warn(`[WhatsApp] Failed to resolve LID for ${formattedJid}, falling back to default.`, resErr.message);
+        }
+
         console.log(`[WhatsApp] Sending message to ${jid}...`);
         
         let response;
