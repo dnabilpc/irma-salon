@@ -80,6 +80,37 @@ export async function registerCustomer(req, res) {
             [accountId, userId, email, hashedPassword, now]
         );
 
+        // Generate and send registration OTP via WhatsApp
+        if (phone_number) {
+            const cleanedPhone = normalizePhone(phone_number);
+            const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+            const identifier = `registration_otp:${email}`;
+            const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins expiry
+
+            // Delete previous OTP tokens
+            await pool.query(
+                `DELETE FROM verification WHERE identifier = $1`,
+                [identifier]
+            );
+
+            // Save OTP to verification table
+            const verificationId = crypto.randomUUID();
+            await pool.query(
+                `INSERT INTO verification (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+                 VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+                [verificationId, identifier, otp, expiresAt]
+            );
+
+            // Send OTP via WhatsApp
+            const message = `Halo *${name}*,\n\nBerikut adalah kode OTP untuk melakukan verifikasi akun Anda di *Rumah Cantik Irma*:\n\n🔑 Kode OTP: *${otp}*\n\nKode ini berlaku selama *10 menit*. Mohon untuk tidak membagikan kode ini kepada siapapun demi keamanan akun Anda.`;
+            
+            try {
+                await sendWaMessage(cleanedPhone, message);
+            } catch (waErr) {
+                console.error('[registerCustomer] Failed to send registration OTP WhatsApp message:', waErr.message);
+            }
+        }
+
         return res.status(201).json({ success: true, userId });
     } catch (err) {
         console.error('[registerCustomer]', err);
@@ -256,7 +287,7 @@ export async function getSidebarCounts(req, res) {
         );
         const paymentsCount = paymentsRes.rows[0].count;
 
-        return res.json({
+            return res.json({
             bookings: bookingsCount,
             rentals: rentalsCount,
             customers: registrationsCount,
@@ -265,5 +296,192 @@ export async function getSidebarCounts(req, res) {
     } catch (err) {
         console.error('[getSidebarCounts]', err);
         return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+/**
+ * Generates and sends WhatsApp OTP for user registration activation.
+ * POST /api/auth/send-registration-otp
+ */
+export async function sendRegistrationOTP(req, res) {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ error: 'Parameter email wajib diisi.' });
+    }
+
+    try {
+        // Find pending user
+        const userRes = await pool.query(
+            `SELECT id, name, phone_number, status FROM "user" 
+             WHERE email = $1 AND role = 'customer' LIMIT 1`,
+            [email]
+        );
+
+        if (userRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Pengguna tidak ditemukan.' });
+        }
+
+        const user = userRes.rows[0];
+        if (user.status !== 'PENDING') {
+            return res.status(400).json({ error: 'Akun Anda sudah aktif atau tidak berstatus pending.' });
+        }
+
+        if (!user.phone_number) {
+            return res.status(400).json({ error: 'Nomor WhatsApp tidak terdaftar di akun ini.' });
+        }
+
+        const cleanedPhone = normalizePhone(user.phone_number);
+        const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+        const identifier = `registration_otp:${email}`;
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins expiry
+
+        // Delete previous OTP tokens for this user
+        await pool.query(
+            `DELETE FROM verification WHERE identifier = $1`,
+            [identifier]
+        );
+
+        // Save OTP to verification table
+        const id = crypto.randomUUID();
+        await pool.query(
+            `INSERT INTO verification (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+            [id, identifier, otp, expiresAt]
+        );
+
+        // Send OTP via WhatsApp
+        const message = `Halo *${user.name}*,\n\nBerikut adalah kode OTP untuk melakukan verifikasi akun Anda di *Rumah Cantik Irma*:\n\n🔑 Kode OTP: *${otp}*\n\nKode ini berlaku selama *10 menit*. Mohon untuk tidak membagikan kode ini kepada siapapun demi keamanan akun Anda.`;
+        
+        try {
+            await sendWaMessage(cleanedPhone, message);
+        } catch (waErr) {
+            console.error('[sendRegistrationOTP] Failed to send WA message:', waErr.message);
+            // We still proceed, but return warning in log
+        }
+
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[sendRegistrationOTP]', err);
+        return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+}
+
+/**
+ * Verifies OTP code and activates the customer account.
+ * POST /api/auth/verify-registration-otp
+ */
+export async function verifyRegistrationOTP(req, res) {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+        return res.status(400).json({ error: 'Email dan kode OTP wajib diisi.' });
+    }
+
+    try {
+        const identifier = `registration_otp:${email}`;
+
+        const verificationRes = await pool.query(
+            `SELECT value, "expiresAt" FROM verification WHERE identifier = $1 LIMIT 1`,
+            [identifier]
+        );
+
+        if (verificationRes.rows.length === 0 || verificationRes.rows[0].value !== otp) {
+            return res.status(400).json({ error: 'Kode OTP salah atau tidak valid.' });
+        }
+
+        const expiry = new Date(verificationRes.rows[0].expiresAt);
+        if (expiry < new Date()) {
+            await pool.query(`DELETE FROM verification WHERE identifier = $1`, [identifier]);
+            return res.status(400).json({ error: 'Kode OTP telah kedaluwarsa. Silakan kirim ulang OTP.' });
+        }
+
+        // Activate user
+        const updateRes = await pool.query(
+            `UPDATE "user"
+             SET status = 'ACTIVE', "emailVerified" = true, "updatedAt" = NOW()
+             WHERE email = $1 AND status = 'PENDING'
+             RETURNING id, name`,
+            [email]
+        );
+
+        if (updateRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Pengguna tidak ditemukan atau sudah aktif.' });
+        }
+
+        // Delete verification record
+        await pool.query(`DELETE FROM verification WHERE identifier = $1`, [identifier]);
+
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[verifyRegistrationOTP]', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+/**
+ * Creates a new user directly by Admin with ACTIVE status.
+ * POST /api/admin/customers/create
+ */
+export async function adminCreateCustomer(req, res) {
+    const { name, email, phone_number, hashedPassword } = req.body;
+
+    if (!name || !email || !hashedPassword) {
+        return res.status(400).json({ error: 'Nama, email, dan password wajib diisi.' });
+    }
+
+    try {
+        // Check if email already registered
+        const existingUser = await pool.query(
+            `SELECT id FROM "user" WHERE email = $1 LIMIT 1`,
+            [email]
+        );
+
+        if (existingUser.rows.length > 0) {
+            return res.status(409).json({ error: 'Email sudah terdaftar.' });
+        }
+
+        // Check if phone number already registered
+        if (phone_number) {
+            const normalizedPhoneVal = normalizePhone(phone_number);
+            const existingPhone = await pool.query(
+                `SELECT id FROM "user" 
+                 WHERE phone_number IS NOT NULL 
+                   AND CASE 
+                     WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '0%' 
+                       THEN '62' || SUBSTRING(regexp_replace(phone_number, '\\D', '', 'g') FROM 2)
+                     WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '8%' 
+                       THEN '62' || regexp_replace(phone_number, '\\D', '', 'g')
+                     ELSE regexp_replace(phone_number, '\\D', '', 'g')
+                   END = $1 
+                 LIMIT 1`,
+                [normalizedPhoneVal]
+            );
+
+            if (existingPhone.rows.length > 0) {
+                return res.status(409).json({ error: 'Nomor WhatsApp sudah terdaftar.' });
+            }
+        }
+
+        const userId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const now = new Date();
+
+        // Insert user with ACTIVE status directly
+        await pool.query(
+            `INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt", role, phone_number, status)
+             VALUES ($1, $2, $3, true, $4, $4, 'customer', $5, 'ACTIVE')`,
+            [userId, name, email, now, phone_number || null]
+        );
+
+        // Insert credential account record
+        await pool.query(
+            `INSERT INTO account (id, "userId", "accountId", "providerId", password, "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, 'credential', $4, $5, $5)`,
+            [accountId, userId, email, hashedPassword, now]
+        );
+
+        return res.status(201).json({ success: true, userId });
+    } catch (err) {
+        console.error('[adminCreateCustomer]', err);
+        return res.status(500).json({ error: err.message || 'Internal Server Error' });
     }
 }

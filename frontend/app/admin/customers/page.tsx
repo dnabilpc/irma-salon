@@ -8,6 +8,7 @@ import {
   fetchRejectedRegistrations,
   approveRegistration,
   rejectRegistration,
+  adminCreateCustomer,
   type PendingRegistration,
   type ActiveCustomer,
 } from "@/actions/authActions";
@@ -47,9 +48,52 @@ export default function CustomersPage() {
   const [loadingTab,  setLoadingTab]   = useState<Tab | null>(null);
   const [toast,       setToast]        = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
+  // Direct Create Customer States
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newName, setNewName]                     = useState("");
+  const [newEmail, setNewEmail]                   = useState("");
+  const [newPhone, setNewPhone]                   = useState("");
+  const [newPassword, setNewPassword]             = useState("");
+  const [newConfirmPassword, setNewConfirmPassword] = useState("");
+  const [modalLoading, setModalLoading]           = useState(false);
+  const [modalError, setModalError]               = useState("");
+
   function showToast(msg: string, type: "success" | "error") {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
+  }
+
+  async function handleCreateCustomer(e: React.FormEvent) {
+    e.preventDefault();
+    setModalError("");
+
+    if (newPassword !== newConfirmPassword) {
+      setModalError("Password dan konfirmasi password tidak cocok.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setModalError("Password minimal 8 karakter.");
+      return;
+    }
+
+    setModalLoading(true);
+    const res = await adminCreateCustomer(newName, newEmail, newPhone, newPassword);
+    setModalLoading(false);
+
+    if (res.success) {
+      showToast("Pelanggan baru berhasil dibuat!", "success");
+      setIsCreateModalOpen(false);
+      // Reset form
+      setNewName("");
+      setNewEmail("");
+      setNewPhone("");
+      setNewPassword("");
+      setNewConfirmPassword("");
+      // Reload active customers tab
+      loadTab(activeTab);
+    } else {
+      setModalError(res.error || "Gagal membuat pelanggan baru.");
+    }
   }
 
   const loadTab = useCallback(async (tab: Tab) => {
@@ -165,21 +209,45 @@ export default function CustomersPage() {
       )}
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.5rem", fontWeight: 700, color: "#7A2848", marginBottom: "4px" }}>
             Manajemen Pelanggan
           </h1>
           <p style={{ fontSize: "14px", color: "#B06080" }}>Kelola akun pelanggan dan persetujuan pendaftaran baru</p>
         </div>
-        <button
-          className="btn-action-gold"
-          onClick={() => loadTab(activeTab)}
-          disabled={loadingTab !== null}
-          style={{ display: "flex", alignItems: "center", gap: "6px" }}
-        >
-          🔄 Refresh
-        </button>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            style={{
+              background: "#6B3A2A",
+              color: "white",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "6px",
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: "0.85rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "background 0.2s"
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "#C9922A"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "#6B3A2A"}
+          >
+            👤 + Tambah Pelanggan
+          </button>
+          <button
+            className="btn-action-gold"
+            onClick={() => loadTab(activeTab)}
+            disabled={loadingTab !== null}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            🔄 Refresh
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -423,6 +491,166 @@ export default function CustomersPage() {
           }
         }
       `}</style>
+      {/* Create Customer Modal */}
+      {isCreateModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "28px",
+              borderRadius: "8px",
+              width: "100%",
+              maxWidth: "460px",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+              position: "relative",
+              margin: "20px"
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: "1.3rem",
+                fontWeight: 700,
+                color: "#6B3A2A",
+                marginBottom: "20px",
+                borderBottom: "1px solid #EDD8CC",
+                paddingBottom: "10px",
+              }}
+            >
+              Tambah Pelanggan Baru
+            </h2>
+
+            {modalError && (
+              <div
+                style={{
+                  background: "rgba(192,80,96,0.07)",
+                  border: "1px solid rgba(192,80,96,0.2)",
+                  color: "#C05060",
+                  padding: "10px 14px",
+                  fontSize: "0.8rem",
+                  borderRadius: "6px",
+                  marginBottom: "16px",
+                  fontFamily: "'DM Sans', sans-serif"
+                }}
+              >
+                {modalError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCustomer} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", display: "block", marginBottom: "4px" }}>NAMA LENGKAP</label>
+                <input
+                  type="text"
+                  required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Nama Lengkap Pelanggan"
+                  style={{ width: "100%", padding: "10px", border: "1px solid #EDD8CC", borderRadius: "6px", fontSize: "0.85rem", outline: "none" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", display: "block", marginBottom: "4px" }}>EMAIL</label>
+                <input
+                  type="email"
+                  required
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="email@contoh.com"
+                  style={{ width: "100%", padding: "10px", border: "1px solid #EDD8CC", borderRadius: "6px", fontSize: "0.85rem", outline: "none" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", display: "block", marginBottom: "4px" }}>NOMOR WHATSAPP</label>
+                <input
+                  type="tel"
+                  required
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="08xxxxxxxxxx"
+                  style={{ width: "100%", padding: "10px", border: "1px solid #EDD8CC", borderRadius: "6px", fontSize: "0.85rem", outline: "none" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", display: "block", marginBottom: "4px" }}>PASSWORD</label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimal 8 karakter"
+                  style={{ width: "100%", padding: "10px", border: "1px solid #EDD8CC", borderRadius: "6px", fontSize: "0.85rem", outline: "none" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", display: "block", marginBottom: "4px" }}>KONFIRMASI PASSWORD</label>
+                <input
+                  type="password"
+                  required
+                  value={newConfirmPassword}
+                  onChange={(e) => setNewConfirmPassword(e.target.value)}
+                  placeholder="Ulangi password"
+                  style={{ width: "100%", padding: "10px", border: "1px solid #EDD8CC", borderRadius: "6px", fontSize: "0.85rem", outline: "none" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  disabled={modalLoading}
+                  style={{
+                    background: "none",
+                    border: "1px solid #EDD8CC",
+                    color: "#8B6A5A",
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    fontSize: "0.82rem",
+                    cursor: "pointer",
+                    fontFamily: "'DM Sans', sans-serif"
+                  }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={modalLoading}
+                  style={{
+                    background: modalLoading ? "#B8896A" : "#6B3A2A",
+                    color: "white",
+                    border: "none",
+                    padding: "8px 20px",
+                    borderRadius: "6px",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    cursor: modalLoading ? "not-allowed" : "pointer",
+                    fontFamily: "'DM Sans', sans-serif"
+                  }}
+                >
+                  {modalLoading ? "Menyimpan..." : "Simpan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

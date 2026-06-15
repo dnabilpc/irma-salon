@@ -65,6 +65,78 @@ export async function registerCustomer(
 }
 
 /**
+ * Server Action: Triggers sending a registration OTP via WhatsApp.
+ */
+export async function sendRegistrationOTP(email: string): Promise<ActionResult> {
+  try {
+    const response = await backendFetch("/api/auth/send-registration-otp", {
+      method: "POST",
+      body: { email },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || "Gagal mengirim OTP." };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("[sendRegistrationOTP] Error:", err);
+    return { success: false, error: "Terjadi kesalahan sistem. Silakan coba lagi." };
+  }
+}
+
+/**
+ * Server Action: Verifies the registration OTP and activates the account.
+ */
+export async function verifyRegistrationOTP(email: string, otp: string): Promise<ActionResult> {
+  try {
+    const response = await backendFetch("/api/auth/verify-registration-otp", {
+      method: "POST",
+      body: { email, otp },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || "Gagal memverifikasi OTP." };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("[verifyRegistrationOTP] Error:", err);
+    return { success: false, error: "Terjadi kesalahan sistem. Silakan coba lagi." };
+  }
+}
+
+/**
+ * Server Action: Creates a new customer account directly by Admin (status ACTIVE).
+ */
+export async function adminCreateCustomer(
+  name: string,
+  email: string,
+  phone_number: string,
+  password: string
+): Promise<ActionResult> {
+  if (!name || !email || !password) {
+    return { success: false, error: "Nama, email, dan password wajib diisi." };
+  }
+  if (password.length < 8) {
+    return { success: false, error: "Password minimal 8 karakter." };
+  }
+  try {
+    const hashedPassword = await hashPassword(password);
+    const response = await backendFetch("/api/admin/customers/create", {
+      method: "POST",
+      body: { name, email, phone_number, hashedPassword },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || "Gagal membuat pelanggan baru." };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("[adminCreateCustomer] Error:", err);
+    return { success: false, error: "Terjadi kesalahan sistem. Silakan coba lagi." };
+  }
+}
+
+/**
  * Server Action: fetch all PENDING registrations (admin only)
  */
 export async function fetchPendingRegistrations(): Promise<{
