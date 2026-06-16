@@ -48,7 +48,7 @@ export interface AppUser {
 
 // ── Admin / Dashboard ──
 
-export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
+export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled" | "rejected";
 export type PaymentStatus = "paid" | "pending" | "refunded";
 export type RentalStatus  = "dipinjam" | "dikembalikan" | "terlambat";
 export type NotifType     = "booking" | "payment" | "review" | "return";

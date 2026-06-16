@@ -47,6 +47,7 @@ export default async function AdminLayout({
 
         {/* Footer */}
         <footer
+          className="admin-footer"
           style={{
             borderTop: "1px solid #F0E0E6",
             padding: "12px 28px",

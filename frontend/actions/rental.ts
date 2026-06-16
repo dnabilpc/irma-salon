@@ -41,7 +41,16 @@ export async function getRentalsForAdmin(filters?: {
   search?: string;
   page?: number;
   limit?: number;
-}): Promise<ActionResult<{ rows: RentalRow[]; total: number }>> {
+}): Promise<ActionResult<{
+  rows: RentalRow[];
+  total: number;
+  stats?: {
+    total: number;
+    ongoing: number;
+    terlambat: number;
+    revenue: number;
+  };
+}>> {
   try {
     const status = filters?.status ?? "ALL";
     const search = filters?.search ?? "";

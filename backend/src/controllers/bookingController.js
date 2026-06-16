@@ -659,7 +659,29 @@ export async function getBookingsForAdmin(req, res) {
             [...params, limit, offset]
         );
 
-        res.json({ rows: result.rows, total });
+        // Calculate global stats
+        const statsRes = await pool.query(`
+            SELECT 
+                COUNT(*)::int AS total,
+                COUNT(CASE WHEN status = 'pending' THEN 1 END)::int AS pending,
+                COUNT(CASE WHEN status = 'confirmed' THEN 1 END)::int AS confirmed
+            FROM bookings
+        `);
+        
+        const revenueRes = await pool.query(`
+            SELECT COALESCE(SUM(total_amount), 0)::numeric AS revenue
+            FROM transactions
+            WHERE booking_id IS NOT NULL AND status = 'lunas'
+        `);
+
+        const stats = {
+            total: statsRes.rows[0].total,
+            pending: statsRes.rows[0].pending,
+            diterima: statsRes.rows[0].confirmed,
+            revenue: parseFloat(revenueRes.rows[0].revenue) || 0
+        };
+
+        res.json({ rows: result.rows, total, stats });
     } catch (err) {
         console.error("[getBookingsForAdmin]", err);
         res.status(500).json({ error: "Gagal memuat data booking." });

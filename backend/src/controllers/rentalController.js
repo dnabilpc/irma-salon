@@ -272,7 +272,29 @@ export async function getRentalsForAdmin(req, res) {
             [...params, limit, offset]
         );
 
-        res.json({ rows: result.rows, total });
+        // Calculate global stats
+        const statsRes = await pool.query(`
+            SELECT 
+                COUNT(*)::int AS total,
+                COUNT(CASE WHEN rental_status = 'ongoing' THEN 1 END)::int AS ongoing,
+                COUNT(CASE WHEN rental_status = 'terlambat' THEN 1 END)::int AS terlambat
+            FROM rentals
+        `);
+        
+        const revenueRes = await pool.query(`
+            SELECT COALESCE(SUM(total_amount), 0)::numeric AS revenue
+            FROM transactions
+            WHERE rental_id IS NOT NULL AND status = 'lunas'
+        `);
+
+        const stats = {
+            total: statsRes.rows[0].total,
+            ongoing: statsRes.rows[0].ongoing,
+            terlambat: statsRes.rows[0].terlambat,
+            revenue: parseFloat(revenueRes.rows[0].revenue) || 0
+        };
+
+        res.json({ rows: result.rows, total, stats });
     } catch (err) {
         console.error("[getRentalsForAdmin]", err);
         res.status(500).json({ error: "Gagal memuat data sewa." });

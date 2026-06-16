@@ -2,10 +2,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { NavItemConfig } from "@/types";
 import { fetchSidebarCounts } from "@/actions/admin";
+import { signOut } from "@/lib/auth-client";
 
 interface AdminSidebarProps {
   userName: string;
@@ -27,7 +28,19 @@ const NAV_ITEMS: NavItemConfig[] = [
 export default function AdminSidebar({ userName, userRole, userImage }: AdminSidebarProps) {
   const [expanded, setExpanded] = useState<boolean>(true);
   const pathname = usePathname();
+  const router = useRouter();
   const [counts, setCounts] = useState({ bookings: 0, rentals: 0, customers: 0, payments: 0 });
+  const [loggingOut, setLoggingOut] = useState<boolean>(false);
+
+  async function handleSignOut() {
+    setLoggingOut(true);
+    await signOut({
+      fetchOptions: {
+        onSuccess: () => router.push("/login"),
+        onError:   () => setLoggingOut(false),
+      },
+    });
+  }
 
   // Load and refresh counts on route changes or periodically
   useEffect(() => {
@@ -259,6 +272,49 @@ export default function AdminSidebar({ userName, userRole, userImage }: AdminSid
           );
         })}
       </nav>
+
+      {/* Tombol Keluar */}
+      <div style={{ padding: "0 10px 10px" }}>
+        <button
+          onClick={handleSignOut}
+          disabled={loggingOut}
+          title={!expanded ? "Keluar" : undefined}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: expanded ? "10px 16px" : "10px",
+            background: "rgba(217,64,96,0.08)",
+            border: "1px solid rgba(217,64,96,0.25)",
+            color: "#D94060",
+            borderRadius: "8px",
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: "14px",
+            fontWeight: 600,
+            cursor: loggingOut ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+            justifyContent: expanded ? "flex-start" : "center",
+            whiteSpace: "nowrap",
+            opacity: loggingOut ? 0.6 : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (!loggingOut) e.currentTarget.style.background = "rgba(217,64,96,0.15)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(217,64,96,0.08)";
+          }}
+        >
+          <span style={{ flexShrink: 0, width: "20px", height: "20px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>
+            🚪
+          </span>
+          {expanded && (
+            <span style={{ flex: 1, textAlign: "left" }}>
+              {loggingOut ? "Keluar..." : "Keluar"}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Footer */}
       <div

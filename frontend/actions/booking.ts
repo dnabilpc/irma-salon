@@ -161,7 +161,16 @@ export async function getBookingsForAdmin(filters?: {
   search?: string;
   page?: number;
   limit?: number;
-}): Promise<ActionResult<{ rows: BookingRow[]; total: number }>> {
+}): Promise<ActionResult<{
+  rows: BookingRow[];
+  total: number;
+  stats?: {
+    total: number;
+    pending: number;
+    diterima: number;
+    revenue: number;
+  };
+}>> {
   try {
     const status = filters?.status ?? "ALL";
     const search = filters?.search ?? "";

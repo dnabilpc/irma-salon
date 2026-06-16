@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "@/lib/auth-client";
 import NotifPanel from "@/components/layout/admin/NotifPanel";
 import { getAdminNotifications } from "@/actions/notification";
 
@@ -38,7 +37,6 @@ export default function AdminTopbar({ userName, userRole, userImage }: AdminTopb
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
   const [showNotif, setShowNotif]     = useState<boolean>(false);
-  const [loggingOut, setLoggingOut]   = useState<boolean>(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const pageInfo = PAGE_TITLES[pathname] ?? { title: "Admin", sub: "" };
@@ -83,15 +81,7 @@ export default function AdminTopbar({ userName, userRole, userImage }: AdminTopb
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showNotif]);
 
-  async function handleSignOut() {
-    setLoggingOut(true);
-    await signOut({
-      fetchOptions: {
-        onSuccess: () => router.push("/login"),
-        onError:   () => setLoggingOut(false),
-      },
-    });
-  }
+
 
   return (
     <header
@@ -245,10 +235,10 @@ export default function AdminTopbar({ userName, userRole, userImage }: AdminTopb
         </div>
 
         {/* Divider */}
-        <div style={{ width: "1px", height: "28px", background: "#E8C0D0" }} />
+        <div className="admin-topbar-divider" style={{ width: "1px", height: "28px", background: "#E8C0D0" }} />
 
-        {/* User info + logout */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        {/* User info */}
+        <div className="admin-topbar-profile" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div
             style={{
               width: "34px",
@@ -294,32 +284,6 @@ export default function AdminTopbar({ userName, userRole, userImage }: AdminTopb
               {userRole}
             </div>
           </div>
-
-          <button
-            onClick={handleSignOut}
-            disabled={loggingOut}
-            style={{
-              background: "rgba(217,64,96,0.08)",
-              border: "1px solid rgba(217,64,96,0.25)",
-              color: "#D94060",
-              cursor: loggingOut ? "not-allowed" : "pointer",
-              padding: "6px 14px",
-              borderRadius: "8px",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "13px",
-              fontWeight: 600,
-              transition: "all 0.2s",
-              opacity: loggingOut ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (!loggingOut) e.currentTarget.style.background = "rgba(217,64,96,0.15)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(217,64,96,0.08)";
-            }}
-          >
-            {loggingOut ? "Keluar..." : "Keluar"}
-          </button>
         </div>
       </div>
     </header>

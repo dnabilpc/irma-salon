@@ -232,13 +232,12 @@ export default function AdminRentalsClient() {
 
   const totalPages = Math.ceil(total / LIMIT);
 
-  // Stats dari data yang di-fetch
-  const stats = {
-    total,
-    ongoing:   rentals.filter((r) => r.rental_status === "ongoing").length,
-    terlambat: rentals.filter((r) => r.rental_status === "terlambat").length,
-    revenue:   rentals.filter((r) => r.rental_status === "done").reduce((s, r) => s + r.amount_to_be_paid, 0),
-  };
+  const [stats, setStats] = useState({
+    total: 0,
+    ongoing: 0,
+    terlambat: 0,
+    revenue: 0,
+  });
 
   const showToast = useCallback((msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -256,6 +255,9 @@ export default function AdminRentalsClient() {
       if (result.success && result.data) {
         setRentals(result.data.rows);
         setTotal(result.data.total);
+        if (result.data.stats) {
+          setStats(result.data.stats);
+        }
       }
     } catch {
       showToast("Gagal memuat data.", false);
@@ -289,6 +291,7 @@ export default function AdminRentalsClient() {
           status === "cancelled" ? "Sewa dibatalkan." : "Status diperbarui.",
           status !== "cancelled"
         );
+        fetchData();
       } else {
         showToast(result.error ?? "Gagal mengubah status.", false);
       }

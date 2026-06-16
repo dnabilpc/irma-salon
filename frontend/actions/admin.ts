@@ -116,7 +116,7 @@ export interface DashboardStats {
     service: string;
     date: string;
     time: string;
-    status: "pending" | "confirmed" | "completed" | "cancelled";
+    status: "pending" | "confirmed" | "completed" | "cancelled" | "rejected";
     payment: "paid" | "pending" | "refunded";
     amount: number;
   }[];

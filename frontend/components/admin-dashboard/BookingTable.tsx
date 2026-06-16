@@ -14,6 +14,7 @@ const FILTER_OPTIONS: { key: FilterOption; label: string }[] = [
   { key: "confirmed", label: "Confirmed" },
   { key: "completed", label: "Selesai"   },
   { key: "cancelled", label: "Batal"     },
+  { key: "rejected",  label: "Ditolak"   },
 ];
 
 const COL = "76px 1fr 130px 72px 72px 96px 96px 88px";

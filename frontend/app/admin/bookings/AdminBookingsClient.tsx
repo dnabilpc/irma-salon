@@ -515,15 +515,12 @@ export default function AdminBookingsClient() {
 
   const totalPages = Math.ceil(total / LIMIT);
 
-  // Stats dihitung dari data yang sudah di-fetch
-  const stats = {
-    total: total,
-    pending: bookings.filter((b) => b.status === "pending").length,
-    diterima: bookings.filter((b) => b.status === "confirmed").length,
-    revenue: bookings
-      .filter((b) => b.status === "confirmed")
-      .reduce((s, b) => s + b.total_amount, 0),
-  };
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    diterima: 0,
+    revenue: 0,
+  });
 
   const showToast = useCallback((msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -542,6 +539,9 @@ export default function AdminBookingsClient() {
       if (result.success && result.data) {
         setBookings(result.data.rows);
         setTotal(result.data.total);
+        if (result.data.stats) {
+          setStats(result.data.stats);
+        }
       }
     } catch {
       showToast("Gagal memuat data.", false);
@@ -574,6 +574,7 @@ export default function AdminBookingsClient() {
             : "Status booking diperbarui.",
           status === "confirmed",
         );
+        fetchData();
       } else {
         showToast(result.error ?? "Gagal mengubah status.", false);
       }

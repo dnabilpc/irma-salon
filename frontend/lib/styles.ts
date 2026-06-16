@@ -136,6 +136,7 @@ export const ADMIN_STYLES = `
     color: var(--text-main);
     font-family: 'DM Sans', sans-serif;
     font-size: 15px;
+    overflow-x: hidden;
   }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -303,6 +304,8 @@ export const ADMIN_STYLES = `
     flex-direction: column;
     min-height: 100vh;
     transition: margin-left 0.3s ease;
+    min-width: 0;
+    overflow-x: hidden;
   }
 
   body.sidebar-collapsed .admin-content-wrapper {
@@ -361,7 +364,8 @@ export const ADMIN_STYLES = `
     .admin-stats-grid { grid-template-columns: 1fr !important; }
     .admin-hamburger-btn { display: block !important; }
     .admin-sidebar-toggle-btn { display: none !important; }
-    .admin-topbar-sub, .admin-topbar-date, .admin-topbar-clock { display: none !important; }
+    .admin-topbar-sub, .admin-topbar-date, .admin-topbar-clock, .admin-topbar-profile, .admin-topbar-divider { display: none !important; }
     .weekly-chart-summary { grid-template-columns: 1fr !important; gap: 12px !important; text-align: center; }
+    .admin-footer { flex-direction: column !important; gap: 8px; text-align: center; padding: 12px 16px !important; }
   }
 `;

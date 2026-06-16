@@ -1,6 +1,6 @@
 // lib/utils.ts
 
-import type { BookingStatus, PaymentStatus, RentalStatus } from "@/types";
+import type { BookingStatus, PaymentStatus } from "@/types";
 
 export function formatRupiah(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -18,8 +18,9 @@ export function getBookingStatusStyle(
     confirmed: { bg: "rgba(90,158,122,0.12)",   color: "#3D7A5A", label: "Confirmed" },
     completed: { bg: "rgba(196,120,138,0.12)",  color: "#9A4060", label: "Selesai"   },
     cancelled: { bg: "rgba(150,120,110,0.12)",  color: "#7A5C50", label: "Batal"     },
+    rejected:  { bg: "rgba(192,80,96,0.12)",    color: "#C05060", label: "Ditolak"   },
   };
-  return map[status];
+  return map[status] || { bg: "rgba(100,100,100,0.1)", color: "#666", label: status || "Unknown" };
 }
 
 export function getPaymentStyle(
@@ -30,7 +31,7 @@ export function getPaymentStyle(
     pending:  { bg: "rgba(201,146,42,0.12)", color: "#A07010",  label: "Belum Bayar" },
     refunded: { bg: "rgba(196,120,138,0.12)", color: "#9A4060", label: "Refund"      },
   };
-  return map[status];
+  return map[status] || { bg: "rgba(100,100,100,0.1)", color: "#666", label: status || "Unknown" };
 }
 
 export function getRentalStyle(
