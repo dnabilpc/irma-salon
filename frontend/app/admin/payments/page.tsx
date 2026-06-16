@@ -87,7 +87,12 @@ export default function PaymentsPage() {
           </h1>
           <p style={{ fontSize: "14px", color: "#B06080" }}>Pantau semua transaksi pembayaran</p>
         </div>
-        <button className="btn-action-gold" onClick={() => window.print()}>↓ Cetak Laporan</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button className="btn-action" onClick={() => loadPayments()} disabled={loading}>
+            🔄 Refresh
+          </button>
+          <button className="btn-action-gold" onClick={() => window.print()}>↓ Cetak Laporan</button>
+        </div>
       </div>
 
       {/* Stats */}

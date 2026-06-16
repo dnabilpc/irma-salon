@@ -57,7 +57,7 @@ export default async function AdminLayout({
           }}
         >
           <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.6rem", color: "#B09080" }}>
-            Salon Rumah Cantik Irma — Admin v1.0
+            Irma Wedding Salon — Admin v1.0
           </span>
           <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.6rem", color: "#C4788A" }}>
             Tugas Akhir · Telkom University Surabaya · 2026

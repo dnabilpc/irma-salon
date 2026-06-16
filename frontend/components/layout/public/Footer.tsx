@@ -4,19 +4,71 @@ import { FOOTER_COLUMNS } from "@/constants/data";
 import type { FooterColumn } from "@/types";
 import Link from "next/link";
 
+interface SalonSettings {
+  salon_name: string;
+  salon_whatsapp: string;
+  salon_instagram: string;
+  salon_facebook: string;
+  salon_tiktok: string;
+  salon_address: string;
+  salon_open_description: string;
+}
+
 export default function Footer() {
-  const [salonOpenHours, setSalonOpenHours] = useState<string>("Senin – Sabtu (09.00 – 18.00 WIB)");
+  const [settings, setSettings] = useState<SalonSettings>({
+    salon_name: "Rumah Cantik Irma",
+    salon_whatsapp: "085174481660",
+    salon_instagram: "https://instagram.com",
+    salon_facebook: "",
+    salon_tiktok: "https://tiktok.com",
+    salon_address: "Graha Suko Indah B-1, Sukodono, Sidoarjo, Jawa Timur.",
+    salon_open_description: "Senin – Sabtu (09.00 – 18.00 WIB)",
+  });
 
   useEffect(() => {
     fetch("/api/settings")
       .then((res) => res.json())
-      .then((data) => {
-        if (data && data.salon_open_description) {
-          setSalonOpenHours(data.salon_open_description);
+      .then((data: Partial<SalonSettings>) => {
+        if (data) {
+          setSettings((prev) => ({
+            ...prev,
+            ...data
+          }));
         }
       })
-      .catch((err) => console.error("Error loading footer operational hours:", err));
+      .catch((err) => console.error("Error loading footer settings:", err));
   }, []);
+
+  // Format social links dynamically
+  const socialLinks = [];
+  if (settings.salon_instagram) {
+    const url = settings.salon_instagram.startsWith("http")
+      ? settings.salon_instagram
+      : `https://instagram.com/${settings.salon_instagram}`;
+    socialLinks.push({ platform: "Instagram", href: url });
+  }
+  if (settings.salon_whatsapp) {
+    let cleanPhone = settings.salon_whatsapp.replace(/\D/g, "");
+    if (cleanPhone.startsWith("0")) {
+      cleanPhone = "62" + cleanPhone.substring(1);
+    } else if (cleanPhone.startsWith("8")) {
+      cleanPhone = "62" + cleanPhone;
+    }
+    socialLinks.push({ platform: "WhatsApp", href: `https://wa.me/${cleanPhone}` });
+  }
+  if (settings.salon_tiktok) {
+    const url = settings.salon_tiktok.startsWith("http")
+      ? settings.salon_tiktok
+      : `https://tiktok.com/@${settings.salon_tiktok.replace("@", "")}`;
+    socialLinks.push({ platform: "TikTok", href: url });
+  }
+  if (settings.salon_facebook) {
+    const url = settings.salon_facebook.startsWith("http")
+      ? settings.salon_facebook
+      : `https://facebook.com/${settings.salon_facebook}`;
+    socialLinks.push({ platform: "Facebook", href: url });
+  }
+
   return (
     <footer
       style={{
@@ -48,7 +100,7 @@ export default function Footer() {
               marginBottom: "4px",
             }}
           >
-            Irma Wedding Salon
+            {settings.salon_name}
           </div>
           <div
             style={{
@@ -69,12 +121,10 @@ export default function Footer() {
               fontWeight: 300,
             }}
           >
-            Graha Suko Indah B-1, Kecamatan Sukodono,
-            <br />
-            Kabupaten Sidoarjo, Jawa Timur.
+            {settings.salon_address}
           </p>
           <p style={{ fontSize: "0.875rem", marginTop: "12px" }}>
-            📱 085174481660
+            📱 {settings.salon_whatsapp}
           </p>
           <p
             style={{
@@ -87,16 +137,12 @@ export default function Footer() {
             }}
           >
             🏪 Jam Operasional:<br />
-            {salonOpenHours}
+            {settings.salon_open_description}
           </p>
 
           {/* Social media */}
           <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
-            {[
-              { platform: "Instagram", href: "https://instagram.com" },
-              { platform: "WhatsApp", href: "https://wa.me/6285174481660" },
-              { platform: "TikTok", href: "https://tiktok.com" },
-            ].map(({ platform, href }) => (
+            {socialLinks.map(({ platform, href }) => (
               <a
                 key={platform}
                 href={href}

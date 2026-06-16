@@ -220,7 +220,7 @@ export default function CustomersPage() {
           <button
             onClick={() => setIsCreateModalOpen(true)}
             style={{
-              background: "#6B3A2A",
+              background: "#C4788A",
               color: "white",
               border: "none",
               padding: "8px 16px",
@@ -234,13 +234,13 @@ export default function CustomersPage() {
               gap: "6px",
               transition: "background 0.2s"
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#C9922A"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "#6B3A2A"}
+            onMouseEnter={(e) => e.currentTarget.style.background = "#A85070"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "#C4788A"}
           >
             👤 + Tambah Pelanggan
           </button>
           <button
-            className="btn-action-gold"
+            className="btn-action"
             onClick={() => loadTab(activeTab)}
             disabled={loadingTab !== null}
             style={{ display: "flex", alignItems: "center", gap: "6px" }}

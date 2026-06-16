@@ -99,7 +99,7 @@ export default function VirtualTryOnSection() {
           </Link>
         </div>
 
-        {/* ── Kanan: AR mockup ── */}
+        {/* ── Kanan: AI mockup ── */}
         <div
           style={{
             flex: 1,
@@ -117,7 +117,7 @@ export default function VirtualTryOnSection() {
   );
 }
 
-// ── Sub-komponen: AR mockup (private, hanya dipakai di file ini) ──
+// ── Sub-komponen: AI mockup (private, hanya dipakai di file ini) ──
 
 interface ARMockupProps {
   selectedOutfit: number;

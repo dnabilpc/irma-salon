@@ -60,7 +60,7 @@ export async function forgotPasswordOTP(req, res) {
         );
 
         // Send OTP via WhatsApp
-        const message = `Halo *${user.name}*,\n\nBerikut adalah kode OTP untuk melakukan reset password akun Anda di *Rumah Cantik Irma*:\n\n🔑 Kode OTP: *${otp}*\n\nKode ini berlaku selama *10 menit*. Mohon untuk tidak membagikan kode ini kepada siapapun demi keamanan akun Anda.`;
+        const message = `Halo *${user.name}*,\n\nBerikut adalah kode OTP untuk melakukan reset password akun Anda di *Irma Wedding Salon*:\n\n🔑 Kode OTP: *${otp}*\n\nKode ini berlaku selama *10 menit*. Mohon untuk tidak membagikan kode ini kepada siapapun demi keamanan akun Anda.`;
         
         await sendWaMessage(cleaned, message);
         

@@ -641,25 +641,9 @@ export default function AdminBookingsClient() {
         </div>
         <button
           onClick={() => { setLoading(true); fetchData(); }}
-          style={{
-            background: "rgba(196,120,138,0.08)",
-            border: "1.5px solid rgba(196,120,138,0.3)",
-            color: "#C4788A",
-            padding: "9px 18px",
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: "0.78rem",
-            fontWeight: 600,
-            cursor: "pointer",
-            borderRadius: "10px",
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "rgba(196,120,138,0.15)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "rgba(196,120,138,0.08)")
-          }>
-          ↺ Refresh
+          className="btn-action"
+        >
+          🔄 Refresh
         </button>
       </div>
 

@@ -65,7 +65,7 @@ async function triggerRentalCreationNotification(
         const amountRupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount);
 
         if (customer.phone_number) {
-            const customerMsg = `Halo *${customer.name}*,\n\nTerima kasih! Pemesanan sewa baju Anda di *Rumah Cantik Irma* telah berhasil dibuat dan berstatus *PENDING*:\n\n` +
+            const customerMsg = `Halo *${customer.name}*,\n\nTerima kasih! Pemesanan sewa baju Anda di *Irma Wedding Salon* telah berhasil dibuat dan berstatus *PENDING*:\n\n` +
                 `👗 *Baju Sewa:* ${outfitName}\n` +
                 `📅 *Tanggal Mulai:* ${formattedStart}\n` +
                 `📅 *Batas Pengembalian:* ${formattedEnd}\n` +
@@ -140,11 +140,11 @@ async function triggerRentalStatusNotification(rentalId, status) {
         } else if (status === "done") {
             message = `Halo *${row.customer_name}*,\n\nTransaksi sewa baju Anda: *${row.outfit_name}* telah *SELESAI*:\n\n` +
                 `📅 *Batas Kembali:* ${formattedEnd}\n\n` +
-                `Baju sewa telah kami terima kembali dengan baik. Terima kasih telah menyewa di Rumah Cantik Irma! ✨`;
+                `Baju sewa telah kami terima kembali dengan baik. Terima kasih telah menyewa di Irma Wedding Salon! ✨`;
         } else if (status === "terlambat") {
             message = `Halo *${row.customer_name}*,\n\nStatus sewa baju Anda: *${row.outfit_name}* saat ini terdeteksi *TERLAMBAT*:\n\n` +
                 `📅 *Batas Pengembalian:* ${formattedEnd}\n\n` +
-                `Mohon segera mengembalikan baju sewa tersebut ke Rumah Cantik Irma untuk menghindari denda yang terus bertambah. Terima kasih.`;
+                `Mohon segera mengembalikan baju sewa tersebut ke Irma Wedding Salon untuk menghindari denda yang terus bertambah. Terima kasih.`;
         } else if (status === "cancelled") {
             message = `Halo *${row.customer_name}*,\n\nTransaksi sewa baju Anda: *${row.outfit_name}* untuk tanggal *${formattedStart}* telah *DIBATALKAN*. Terima kasih.`;
         }

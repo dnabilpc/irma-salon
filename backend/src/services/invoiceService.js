@@ -104,7 +104,7 @@ export function generateInvoiceHtml(transaction, items) {
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Invoice Rumah Cantik Irma</title>
+    <title>Invoice Irma Wedding Salon</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
         body {
@@ -234,7 +234,7 @@ export function generateInvoiceHtml(transaction, items) {
     <div class="invoice-card">
         <div class="stamp">LUNAS</div>
         <div class="header">
-            <h1>Rumah Cantik Irma</h1>
+            <h1>Irma Wedding Salon</h1>
             <p class="subtitle">Wedding Salon & Sewa Baju</p>
             <div class="contact-info">
                 Graha Suko Indah B-1, Sukodono, Sidoarjo<br>
@@ -282,7 +282,7 @@ export function generateInvoiceHtml(transaction, items) {
             </div>
         </div>
         <div class="footer">
-            Terima kasih atas kunjungan Anda di Rumah Cantik Irma! ✨
+            Terima kasih atas kunjungan Anda di Irma Wedding Salon! ✨
         </div>
     </div>
 </body>
@@ -343,7 +343,7 @@ export async function generateInvoiceImageBuffer(transaction, items) {
  */
 export function generateInvoiceText(transaction, items) {
     const itemsText = items.map(item => `- ${item.name} (${formatRupiah(item.price)})`).join('\n');
-    return `*INVOICE RUMAH CANTIK IRMA*
+    return `*INVOICE IRMA WEDDING SALON*
 Wedding Salon & Sewa Baju
 -----------------------------------
 No. Invoice: INV/2026/${transaction.id}
@@ -358,5 +358,5 @@ ${itemsText}
 Subtotal: ${formatRupiah(transaction.subtotal)}
 *TOTAL LUNAS:* ${formatRupiah(transaction.total_amount)}
 -----------------------------------
-Terima kasih atas kunjungan Anda di Rumah Cantik Irma! ✨`;
+Terima kasih atas kunjungan Anda di Irma Wedding Salon! ✨`;
 }

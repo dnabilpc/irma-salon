@@ -89,7 +89,7 @@ export async function confirmPayment(req, res) {
 
                 const caption = `Halo *${transaction.customer_name}*,\n\n` +
                     `Pembayaran Anda untuk invoice *INV/2026/${transaction.id}* sebesar *${formatRupiah(transaction.total_amount)}* telah *BERHASIL* dikonfirmasi oleh Admin.\n\n` +
-                    `Berikut kami lampirkan bukti pembayaran resmi Anda. Terima kasih telah mempercayai Rumah Cantik Irma! ✨`;
+                    `Berikut kami lampirkan bukti pembayaran resmi Anda. Terima kasih telah mempercayai Irma Wedding Salon! ✨`;
 
                 try {
                     // Try generating JPEG image using Puppeteer screenshot
@@ -195,7 +195,7 @@ export async function uploadPaymentProof(req, res) {
         // Format local date and time (Jakarta)
         const dateStr = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
 
-        const caption = `Halo Admin Rumah Cantik Irma,\n\n` +
+        const caption = `Halo Admin Irma Wedding Salon,\n\n` +
             `Pelanggan telah mengirimkan bukti pembayaran QRIS Statis:\n\n` +
             `• *Nama Pelanggan*: ${transaction.customer_name}\n` +
             `• *No. WhatsApp*: ${transaction.customer_phone || '—'}\n` +

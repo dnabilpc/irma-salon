@@ -65,7 +65,7 @@ export default function HeroSection() {
         }}>
         {/* ── Kiri: teks ── */}
         <div className="animate-hero" style={{ flex: 1 }}>
-          {/* Badge AR */}
+          {/* Badge AI */}
           <div
             style={{
               display: "inline-flex",

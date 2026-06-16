@@ -102,7 +102,7 @@ export async function registerCustomer(req, res) {
             );
 
             // Send OTP via WhatsApp
-            const message = `Halo *${name}*,\n\nBerikut adalah kode OTP untuk melakukan verifikasi akun Anda di *Rumah Cantik Irma*:\n\n🔑 Kode OTP: *${otp}*\n\nKode ini berlaku selama *10 menit*. Mohon untuk tidak membagikan kode ini kepada siapapun demi keamanan akun Anda.`;
+            const message = `Halo *${name}*,\n\nBerikut adalah kode OTP untuk melakukan verifikasi akun Anda di *Irma Wedding Salon*:\n\n🔑 Kode OTP: *${otp}*\n\nKode ini berlaku selama *10 menit*. Mohon untuk tidak membagikan kode ini kepada siapapun demi keamanan akun Anda.`;
             
             try {
                 await sendWaMessage(cleanedPhone, message);
@@ -210,7 +210,7 @@ export async function approveRegistration(req, res) {
             const phone = normalizePhone(user.phone_number);
             const message =
                 `Halo *${user.name}*! 🎉\n\n` +
-                `Pendaftaran akun Anda di *Rumah Cantik Irma* telah *disetujui*.\n\n` +
+                `Pendaftaran akun Anda di *Irma Wedding Salon* telah *disetujui*.\n\n` +
                 `Sekarang Anda dapat login menggunakan email yang terdaftar dan mulai menikmati layanan kami.\n\n` +
                 `Terima kasih telah mendaftar! ✨`;
             try {
@@ -350,7 +350,7 @@ export async function sendRegistrationOTP(req, res) {
         );
 
         // Send OTP via WhatsApp
-        const message = `Halo *${user.name}*,\n\nBerikut adalah kode OTP untuk melakukan verifikasi akun Anda di *Rumah Cantik Irma*:\n\n🔑 Kode OTP: *${otp}*\n\nKode ini berlaku selama *10 menit*. Mohon untuk tidak membagikan kode ini kepada siapapun demi keamanan akun Anda.`;
+        const message = `Halo *${user.name}*,\n\nBerikut adalah kode OTP untuk melakukan verifikasi akun Anda di *Irma Wedding Salon*:\n\n🔑 Kode OTP: *${otp}*\n\nKode ini berlaku selama *10 menit*. Mohon untuk tidak membagikan kode ini kepada siapapun demi keamanan akun Anda.`;
         
         try {
             await sendWaMessage(cleanedPhone, message);

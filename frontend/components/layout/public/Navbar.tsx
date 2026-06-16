@@ -17,6 +17,7 @@ export default function Navbar() {
   const [scrolled,    setScrolled]    = useState<boolean>(false);
   const [loggingOut,  setLoggingOut]  = useState<boolean>(false);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -24,12 +25,28 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Tutup dropdown saat klik di luar
+  // Tutup dropdown/mobile menu saat klik di luar
   useEffect(() => {
-    const handleClickOutside = () => setShowDropdown(false);
-    if (showDropdown) document.addEventListener("click", handleClickOutside);
+    const handleClickOutside = () => {
+      setShowDropdown(false);
+      setShowMobileMenu(false);
+    };
+    if (showDropdown || showMobileMenu) {
+      document.addEventListener("click", handleClickOutside);
+    }
     return () => document.removeEventListener("click", handleClickOutside);
-  }, [showDropdown]);
+  }, [showDropdown, showMobileMenu]);
+
+  // Tutup mobile menu saat di-resize ke ukuran desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setShowMobileMenu(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function handleSignOut() {
     setLoggingOut(true);
@@ -50,9 +67,9 @@ export default function Navbar() {
         position: "fixed",
         top: 0, left: 0, right: 0,
         zIndex: 100,
-        background: scrolled ? "rgba(253,248,243,0.96)" : "transparent",
-        backdropFilter: scrolled ? "blur(12px)" : "none",
-        borderBottom: scrolled ? "1px solid #EDD8CC" : "none",
+        background: scrolled || showMobileMenu ? "rgba(253,248,243,0.98)" : "transparent",
+        backdropFilter: scrolled || showMobileMenu ? "blur(12px)" : "none",
+        borderBottom: scrolled || showMobileMenu ? "1px solid #EDD8CC" : "none",
         transition: "all 0.3s ease",
         padding: "0 5%",
         display: "flex",
@@ -62,7 +79,7 @@ export default function Navbar() {
       }}
     >
       {/* ── Logo ── */}
-      <Link href="/" style={{ textDecoration: "none" }}>
+      <Link href="/" style={{ textDecoration: "none" }} onClick={() => setShowMobileMenu(false)}>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span
             style={{
@@ -305,21 +322,210 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* ── Mobile: hamburger placeholder ── */}
+      {/* ── Mobile: hamburger button ── */}
       <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowMobileMenu((prev) => !prev);
+        }}
         style={{
           display: "none",
           background: "none",
           border: "none",
           cursor: "pointer",
-          fontSize: "1.4rem",
+          fontSize: "1.6rem",
           color: "#6B3A2A",
+          padding: "4px 8px",
         }}
         className="nav-mobile-btn"
         aria-label="Menu"
       >
-        ☰
+        {showMobileMenu ? "✕" : "☰"}
       </button>
+
+      {/* ── Mobile Dropdown Menu ── */}
+      {showMobileMenu && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            top: "72px",
+            left: 0,
+            right: 0,
+            background: "rgba(253, 248, 243, 0.98)",
+            backdropFilter: "blur(12px)",
+            borderBottom: "1px solid #EDD8CC",
+            boxShadow: "0 10px 30px rgba(107, 58, 42, 0.12)",
+            display: "flex",
+            flexDirection: "column",
+            padding: "16px 24px 24px 24px",
+            gap: "12px",
+            zIndex: 99,
+          }}
+        >
+          {/* User info if logged in */}
+          {user && (
+            <div
+              style={{
+                paddingBottom: "12px",
+                borderBottom: "1px solid #EDD8CC",
+                marginBottom: "8px",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  color: "#2C1A0E",
+                }}
+              >
+                {user.name}
+              </div>
+              <div
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "0.78rem",
+                  color: "#8B6A5A",
+                }}
+              >
+                {user.email}
+              </div>
+            </div>
+          )}
+
+          {/* Links requested by the user */}
+          {[
+            ...(user
+              ? [
+                  isAdmin
+                    ? { label: "Admin Dashboard", href: "/admin/dashboard", icon: "▦" }
+                    : { label: "Dashboard Saya", href: "/dashboard", icon: "🏠" },
+                ]
+              : [
+                  { label: "Dashboard Saya", href: "/dashboard", icon: "🏠" }
+                ]),
+            { label: "Booking Layanan", href: "/booking", icon: "📅" },
+            { label: "Sewa Baju", href: "/rent", icon: "👗" },
+            { label: "Virtual Try-On", href: "/virtual-try-on", icon: "✨" },
+          ].map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              style={{ textDecoration: "none" }}
+              onClick={() => setShowMobileMenu(false)}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  background: "#FDF8F3",
+                  border: "1px solid #F5EDE5",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "0.9rem",
+                  fontWeight: 500,
+                  color: "#2C1A0E",
+                  transition: "all 0.2s",
+                }}
+              >
+                <span style={{ fontSize: "1.15rem" }}>{item.icon}</span>
+                {item.label}
+              </div>
+            </Link>
+          ))}
+
+          {/* Public Nav items */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              marginTop: "8px",
+              paddingTop: "12px",
+              borderTop: "1px solid #EDD8CC",
+            }}
+          >
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "0.88rem",
+                  color: "#6B3A2A",
+                  textDecoration: "none",
+                  padding: "8px 16px",
+                }}
+                onClick={() => setShowMobileMenu(false)}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Auth section */}
+          {user ? (
+            <button
+              onClick={() => {
+                setShowMobileMenu(false);
+                handleSignOut();
+              }}
+              disabled={loggingOut}
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "0.9rem",
+                fontWeight: 500,
+                color: "#fff",
+                background: "#DC5050",
+                border: "none",
+                borderRadius: "8px",
+                cursor: loggingOut ? "not-allowed" : "pointer",
+                opacity: loggingOut ? 0.6 : 1,
+              }}
+            >
+              <span>🚪</span>
+              {loggingOut ? "Keluar..." : "Keluar"}
+            </button>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                marginTop: "12px",
+                paddingTop: "12px",
+                borderTop: "1px solid #EDD8CC",
+              }}
+            >
+              <Link href="/login" style={{ flex: 1 }} onClick={() => setShowMobileMenu(false)}>
+                <button
+                  className="btn-outline"
+                  style={{ width: "100%", padding: "10px", fontSize: "0.85rem" }}
+                >
+                  Masuk
+                </button>
+              </Link>
+              <Link href="/register" style={{ flex: 1 }} onClick={() => setShowMobileMenu(false)}>
+                <button
+                  className="btn-primary"
+                  style={{ width: "100%", padding: "10px", fontSize: "0.85rem" }}
+                >
+                  Daftar
+                </button>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

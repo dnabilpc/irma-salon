@@ -93,6 +93,7 @@ export const PUBLIC_STYLES = `
     .stats-row     { flex-wrap: wrap !important; }
     .footer-grid   { flex-direction: column !important; gap: 40px !important; }
     .nav-desktop   { display: none !important; }
+    .nav-mobile-btn { display: block !important; }
     .vto-section   { flex-direction: column !important; }
     .dashboard-grid { grid-template-columns: 1fr !important; }
     .profile-header { flex-direction: column !important; text-align: center !important; gap: 20px !important; }

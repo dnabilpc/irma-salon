@@ -52,7 +52,7 @@ async function sendBookingNotifications(bookingId, customer, datetimeStr, servic
 
     // 1. Send to Customer
     if (customer.phone_number) {
-        const customerMsg = `Halo *${customer.name}*,\n\nBooking Anda di *Rumah Cantik Irma* telah berhasil dibuat dan berstatus *PENDING*:\n\n` +
+        const customerMsg = `Halo *${customer.name}*,\n\nBooking Anda di *Irma Wedding Salon* telah berhasil dibuat dan berstatus *PENDING*:\n\n` +
             `📅 *Jadwal:* ${timeStr} WIB\n` +
             `💇‍♀️ *Layanan:* ${servicesList}\n\n` +
             `Kami akan mengirimkan notifikasi WhatsApp baru setelah booking Anda disetujui oleh Admin. Terima kasih! ✨`;
@@ -117,12 +117,12 @@ async function triggerBookingStatusNotification(bookingId, status, reason) {
 
         let message = "";
         if (status === "confirmed") {
-            message = `Halo *${row.customer_name}*,\n\nKabar baik! Booking Anda di *Rumah Cantik Irma* telah *DISETUJUI* oleh Admin:\n\n` +
+            message = `Halo *${row.customer_name}*,\n\nKabar baik! Booking Anda di *Irma Wedding Salon* telah *DISETUJUI* oleh Admin:\n\n` +
                 `📅 *Jadwal:* ${timeStr} WIB\n` +
                 `💇‍♀️ *Layanan:* ${row.services}\n\n` +
-                `Silakan datang ke Rumah Cantik Irma sesuai dengan jadwal di atas. Sampai jumpa! ✨`;
+                `Silakan datang ke Irma Wedding Salon sesuai dengan jadwal di atas. Sampai jumpa! ✨`;
         } else if (status === "rejected") {
-            message = `Halo *${row.customer_name}*,\n\nMohon maaf, booking Anda di *Rumah Cantik Irma* untuk jadwal *${timeStr} WIB* (layanan: ${row.services}) telah *DITOLAK* oleh Admin.\n\n` +
+            message = `Halo *${row.customer_name}*,\n\nMohon maaf, booking Anda di *Irma Wedding Salon* untuk jadwal *${timeStr} WIB* (layanan: ${row.services}) telah *DITOLAK* oleh Admin.\n\n` +
                 `💬 *Alasan Penolakan:* ${reason || "-"}\n\n` +
                 `Silakan membuat booking kembali untuk jadwal atau hari yang lain. Terima kasih.`;
         }
@@ -172,7 +172,7 @@ async function triggerBookingCancelNotification(bookingId) {
 
         // 1. Notify Customer
         if (row.customer_phone) {
-            const customerMsg = `Halo *${row.customer_name}*,\n\nBooking Anda di *Rumah Cantik Irma* untuk jadwal *${timeStr} WIB* (layanan: ${row.services}) telah berhasil *DIBATALKAN*. Terima kasih.`;
+            const customerMsg = `Halo *${row.customer_name}*,\n\nBooking Anda di *Irma Wedding Salon* untuk jadwal *${timeStr} WIB* (layanan: ${row.services}) telah berhasil *DIBATALKAN*. Terima kasih.`;
             await sendWaMessage(row.customer_phone, customerMsg);
         }
 
@@ -816,22 +816,22 @@ export async function triggerRemindersTest(req, res) {
             const results = {};
 
             if (!type || type === '1d') {
-                const message = `[TEST-1D] Halo *${row.customer_name}*, kami ingin mengingatkan bahwa Anda memiliki jadwal booking perawatan di *Rumah Cantik Irma* untuk besok:\n\n` +
+                const message = `[TEST-1D] Halo *${row.customer_name}*, kami ingin mengingatkan bahwa Anda memiliki jadwal booking perawatan di *Irma Wedding Salon* untuk besok:\n\n` +
                     `📅 *Tanggal:* ${formattedDate}\n` +
                     `⏰ *Waktu:* ${row.booking_time} WIB\n` +
                     `💇‍♀️ *Layanan:* ${row.services}\n\n` +
-                    `Mohon datang tepat waktu ya. Sampai jumpa di Rumah Cantik Irma! ✨`;
+                    `Mohon datang tepat waktu ya. Sampai jumpa di Irma Wedding Salon! ✨`;
                 await sendWaMessage(row.customer_phone, message);
                 await pool.query('UPDATE bookings SET reminder_1d_sent = TRUE WHERE id = $1', [row.id]);
                 results['1d'] = 'Sent successfully';
             }
 
             if (!type || type === '3h') {
-                const message = `[TEST-3H] Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal booking perawatan Anda di *Rumah Cantik Irma* akan dimulai dalam 3 jam lagi:\n\n` +
+                const message = `[TEST-3H] Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal booking perawatan Anda di *Irma Wedding Salon* akan dimulai dalam 3 jam lagi:\n\n` +
                     `📅 *Tanggal:* ${formattedDate}\n` +
                     `⏰ *Waktu:* ${row.booking_time} WIB\n` +
                     `💇‍♀️ *Layanan:* ${row.services}\n\n` +
-                    `Mohon datang tepat waktu ya. Sampai jumpa di Rumah Cantik Irma! ✨`;
+                    `Mohon datang tepat waktu ya. Sampai jumpa di Irma Wedding Salon! ✨`;
                 await sendWaMessage(row.customer_phone, message);
                 await pool.query('UPDATE bookings SET reminder_3h_sent = TRUE WHERE id = $1', [row.id]);
                 results['3h'] = 'Sent successfully';

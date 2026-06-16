@@ -98,7 +98,7 @@ async function triggerClosingTimeAnnouncements(startDateStr, endDateStr, reason)
         const formattedTime = bDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
         const timeStr = `${formattedDate} pukul ${formattedTime} WIB`;
 
-        const msg = `Halo *${b.name}*,\n\nKami ingin menginfokan bahwa *Rumah Cantik Irma* akan tutup pada *${dateRangeDisplay}* karena *${reason}*.\n\n` +
+        const msg = `Halo *${b.name}*,\n\nKami ingin menginfokan bahwa *Irma Wedding Salon* akan tutup pada *${dateRangeDisplay}* karena *${reason}*.\n\n` +
             `Jadwal *Booking* Anda pada *${timeStr}* terkena penyesuaian.\n\n` +
             `Silakan hubungi kami di nomor ini untuk melakukan reschedule. Mohon maaf atas ketidaknyamanannya. Terima kasih. ✨`;
 
@@ -153,7 +153,7 @@ async function triggerClosingTimeAnnouncements(startDateStr, endDateStr, reason)
             eventText = `Jadwal *Pengembalian* baju sewa Anda (tanggal *${displayReturn}*)`;
         }
 
-        const msg = `Halo *${r.name}*,\n\nKami ingin menginfokan bahwa *Rumah Cantik Irma* akan tutup pada *${dateRangeDisplay}* karena *${reason}*.\n\n` +
+        const msg = `Halo *${r.name}*,\n\nKami ingin menginfokan bahwa *Irma Wedding Salon* akan tutup pada *${dateRangeDisplay}* karena *${reason}*.\n\n` +
             `${eventText} terkena penyesuaian.\n\n` +
             `Silakan hubungi kami di nomor ini untuk koordinasi penyesuaian jadwal sewa Anda. Mohon maaf atas ketidaknyamanannya. Terima kasih. ✨`;
 

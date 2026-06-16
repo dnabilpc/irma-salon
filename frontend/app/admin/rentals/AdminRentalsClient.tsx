@@ -329,11 +329,9 @@ export default function AdminRentalsClient() {
         </div>
         <button
           onClick={() => { setLoading(true); fetchData(); }}
-          style={{ background: "rgba(196,120,138,0.08)", border: "1.5px solid rgba(196,120,138,0.3)", color: "#C4728E", padding: "9px 18px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", borderRadius: "10px", transition: "all 0.2s" }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.15)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.08)")}
+          className="btn-action"
         >
-          ↺ Refresh
+          🔄 Refresh
         </button>
       </div>
 

@@ -112,11 +112,11 @@ export async function sendBookingReminders() {
 
         for (const row of result.rows) {
             const formattedDate = formatDateIndo(row.booking_datetime);
-            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa Anda memiliki jadwal booking perawatan di *Rumah Cantik Irma* untuk besok:\n\n` +
+            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa Anda memiliki jadwal booking perawatan di *Irma Wedding Salon* untuk besok:\n\n` +
                 `📅 *Tanggal:* ${formattedDate}\n` +
                 `⏰ *Waktu:* ${row.booking_time} WIB\n` +
                 `💇‍♀️ *Layanan:* ${row.services}\n\n` +
-                `Mohon datang tepat waktu ya. Sampai jumpa di Rumah Cantik Irma! ✨`;
+                `Mohon datang tepat waktu ya. Sampai jumpa di Irma Wedding Salon! ✨`;
             
             try {
                 await sendWaMessage(row.customer_phone, message);
@@ -161,11 +161,11 @@ export async function sendBooking3HourReminders() {
 
         for (const row of result.rows) {
             const formattedDate = formatDateIndo(row.booking_datetime);
-            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal booking perawatan Anda di *Rumah Cantik Irma* akan dimulai dalam 3 jam lagi:\n\n` +
+            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal booking perawatan Anda di *Irma Wedding Salon* akan dimulai dalam 3 jam lagi:\n\n` +
                 `📅 *Tanggal:* ${formattedDate}\n` +
                 `⏰ *Waktu:* ${row.booking_time} WIB\n` +
                 `💇‍♀️ *Layanan:* ${row.services}\n\n` +
-                `Mohon datang tepat waktu ya. Sampai jumpa di Rumah Cantik Irma! ✨`;
+                `Mohon datang tepat waktu ya. Sampai jumpa di Irma Wedding Salon! ✨`;
             
             try {
                 await sendWaMessage(row.customer_phone, message);
@@ -205,10 +205,10 @@ export async function sendPickupReminders() {
 
         for (const row of result.rows) {
             const formattedDate = formatDateIndo(row.start_date);
-            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal pengambilan baju sewa Anda di *Rumah Cantik Irma* adalah besok:\n\n` +
+            const message = `Halo *${row.customer_name}*, kami ingin mengingatkan bahwa jadwal pengambilan baju sewa Anda di *Irma Wedding Salon* adalah besok:\n\n` +
                 `👗 *Baju Sewa:* ${row.outfit_name}\n` +
                 `📅 *Tanggal Ambil:* ${formattedDate}\n\n` +
-                `Silakan datang ke Rumah Cantik Irma untuk mengambil baju sewa tersebut. Terima kasih! 💖`;
+                `Silakan datang ke Irma Wedding Salon untuk mengambil baju sewa tersebut. Terima kasih! 💖`;
             
             try {
                 await sendWaMessage(row.customer_phone, message);
@@ -292,7 +292,7 @@ export async function sendOverdueWarnings() {
                 `👗 *Baju Sewa:* ${row.outfit_name}\n` +
                 `📅 *Batas Kembali:* ${formattedDate}\n` +
                 `⏳ *Keterlambatan:* ${row.late_days} hari\n\n` +
-                `Mohon untuk segera mengembalikan baju sewa tersebut ke *Rumah Cantik Irma* untuk menghentikan akumulasi denda keterlambatan. Terima kasih.`;
+                `Mohon untuk segera mengembalikan baju sewa tersebut ke *Irma Wedding Salon* untuk menghentikan akumulasi denda keterlambatan. Terima kasih.`;
             
             try {
                 await sendWaMessage(row.customer_phone, message);
