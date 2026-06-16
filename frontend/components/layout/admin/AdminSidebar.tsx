@@ -14,14 +14,14 @@ interface AdminSidebarProps {
 }
 
 const NAV_ITEMS: NavItemConfig[] = [
-  { icon: "▦",  label: "Dashboard",     id: "dashboard"           },
-  { icon: "", label: "Katalog Jasa Salon", id: "services-catalogue" },
-  { icon: "", label: "Katalog Pakaian Sewaan", id: "clothes-catalogue" },
-  { icon: "📅", label: "Booking Salon", id: "bookings"            },
-  { icon: "👗", label: "Sewa Baju",     id: "rentals"             },
-  { icon: "👤", label: "Pelanggan",     id: "customers"           },
-  { icon: "💳", label: "Pembayaran",    id: "payments"            },
-  { icon: "⚙️", label: "Pengaturan",    id: "settings"            },
+  { icon: "/admin/icons/dashboard.svg",  label: "Dashboard",     id: "dashboard"           },
+  { icon: "/admin/icons/services.svg",   label: "Katalog Jasa Salon", id: "services-catalogue" },
+  { icon: "/admin/icons/clothes.svg",    label: "Katalog Pakaian Sewaan", id: "clothes-catalogue" },
+  { icon: "/admin/icons/bookings.svg",   label: "Booking Salon", id: "bookings"            },
+  { icon: "/admin/icons/rentals.svg",    label: "Sewa Baju",     id: "rentals"             },
+  { icon: "/admin/icons/customers.svg",  label: "Pelanggan",     id: "customers"           },
+  { icon: "/admin/icons/payments.svg",   label: "Pembayaran",    id: "payments"            },
+  { icon: "/admin/icons/settings.svg",   label: "Pengaturan",    id: "settings"            },
 ];
 
 export default function AdminSidebar({ userName, userRole, userImage }: AdminSidebarProps) {
@@ -221,8 +221,19 @@ export default function AdminSidebar({ userName, userRole, userImage }: AdminSid
                 }
               }}
             >
-              <span style={{ fontSize: "1rem", flexShrink: 0, width: "20px", textAlign: "center" as const }}>
-                {item.icon}
+              <span style={{ flexShrink: 0, width: "20px", height: "20px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.icon}
+                  alt={item.label}
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    objectFit: "contain",
+                    opacity: isActive ? 1 : 0.75,
+                    transition: "opacity 0.2s"
+                  }}
+                />
               </span>
               {expanded && (
                 <>

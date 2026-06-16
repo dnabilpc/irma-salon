@@ -323,15 +323,16 @@ export default function CustomersPage() {
               {pending.length === 0 ? "Tidak ada pendaftaran yang menunggu persetujuan 🎉" : "Tidak ada hasil yang cocok"}
             </div>
           ) : (
-            <div>
-              {/* Table header */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 220px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                <span>Pendaftar</span>
-                <span>No. WhatsApp</span>
-                <span>Tgl Daftar</span>
-                <span>Aksi</span>
-              </div>
-              {filteredPending.map((reg) => (
+            <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
+              <div style={{ minWidth: "680px" }}>
+                {/* Table header */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 220px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  <span>Pendaftar</span>
+                  <span>No. WhatsApp</span>
+                  <span>Tgl Daftar</span>
+                  <span>Aksi</span>
+                </div>
+                {filteredPending.map((reg) => (
                 <div
                   key={reg.id}
                   style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 220px", padding: "14px 16px", borderBottom: "1px solid #F0D9E0", alignItems: "center" }}
@@ -397,6 +398,7 @@ export default function CustomersPage() {
                 </div>
               ))}
             </div>
+          </div>
           )}
         </div>
       )}
@@ -410,36 +412,40 @@ export default function CustomersPage() {
             </span>
           </div>
 
-          {/* Header kolom */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 80px 80px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            <span>Pelanggan</span>
-            <span>No. WhatsApp</span>
-            <span>Bergabung</span>
-            <span>Booking</span>
-            <span>Sewa</span>
-          </div>
-
-          {loadingTab === "aktif" ? <Spinner /> : filteredCustomers.length === 0 ? (
-            <div style={{ padding: "48px", textAlign: "center", color: "#B08090", fontSize: "14px" }}>
-              {customers.length === 0 ? "Belum ada pelanggan aktif" : "Tidak ada hasil yang cocok"}
-            </div>
-          ) : (
-            filteredCustomers.map((c) => (
-              <div
-                key={c.id}
-                style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 80px 80px", padding: "14px 16px", borderBottom: "1px solid #F0D9E0", alignItems: "center" }}
-              >
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: 600, color: "#3A1A28" }}>{c.name}</div>
-                  <div style={{ fontSize: "12px", color: "#B08090" }}>{c.email}</div>
-                </div>
-                <span style={{ fontSize: "12px", color: "#8A4060", fontFamily: "'DM Mono', monospace" }}>{c.phone_number ?? "—"}</span>
-                <span style={{ fontSize: "13px", color: "#8A4060" }}>{formatDate(c.createdAt)}</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C4728E", fontWeight: 600 }}>{c.total_booking}x</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{c.total_sewa}x</span>
+          <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
+            <div style={{ minWidth: "680px" }}>
+              {/* Header kolom */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 80px 80px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span>Pelanggan</span>
+                <span>No. WhatsApp</span>
+                <span>Bergabung</span>
+                <span>Booking</span>
+                <span>Sewa</span>
               </div>
-            ))
-          )}
+
+              {loadingTab === "aktif" ? <Spinner /> : filteredCustomers.length === 0 ? (
+                <div style={{ padding: "48px", textAlign: "center", color: "#B08090", fontSize: "14px" }}>
+                  {customers.length === 0 ? "Belum ada pelanggan aktif" : "Tidak ada hasil yang cocok"}
+                </div>
+              ) : (
+                filteredCustomers.map((c) => (
+                  <div
+                    key={c.id}
+                    style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 80px 80px", padding: "14px 16px", borderBottom: "1px solid #F0D9E0", alignItems: "center" }}
+                  >
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#3A1A28" }}>{c.name}</div>
+                      <div style={{ fontSize: "12px", color: "#B08090" }}>{c.email}</div>
+                    </div>
+                    <span style={{ fontSize: "12px", color: "#8A4060", fontFamily: "'DM Mono', monospace" }}>{c.phone_number ?? "—"}</span>
+                    <span style={{ fontSize: "13px", color: "#8A4060" }}>{formatDate(c.createdAt)}</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C4728E", fontWeight: 600 }}>{c.total_booking}x</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{c.total_sewa}x</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -452,45 +458,39 @@ export default function CustomersPage() {
             </span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 110px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            <span>Pendaftar</span>
-            <span>No. WhatsApp</span>
-            <span>Tgl Daftar</span>
-            <span>Tgl Ditolak</span>
-          </div>
-
-          {loadingTab === "ditolak" ? <Spinner /> : filteredRejected.length === 0 ? (
-            <div style={{ padding: "48px", textAlign: "center", color: "#B08090", fontSize: "14px" }}>
-              Tidak ada pendaftaran yang ditolak
-            </div>
-          ) : (
-            filteredRejected.map((reg) => (
-              <div
-                key={reg.id}
-                style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 110px", padding: "14px 16px", borderBottom: "1px solid #F0D9E0", alignItems: "center" }}
-              >
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: 600, color: "#3A1A28" }}>{reg.name}</div>
-                  <div style={{ fontSize: "12px", color: "#B08090" }}>{reg.email}</div>
-                </div>
-                <span style={{ fontSize: "12px", color: "#8A4060", fontFamily: "'DM Mono', monospace" }}>{reg.phone_number ?? "—"}</span>
-                <span style={{ fontSize: "12px", color: "#8A4060" }}>{formatDate(reg.createdAt)}</span>
-                <span style={{ fontSize: "12px", color: "#C05060" }}>{formatDate(reg.createdAt)}</span>
+          <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
+            <div style={{ minWidth: "680px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 110px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span>Pendaftar</span>
+                <span>No. WhatsApp</span>
+                <span>Tgl Daftar</span>
+                <span>Tgl Ditolak</span>
               </div>
-            ))
-          )}
+
+              {loadingTab === "ditolak" ? <Spinner /> : filteredRejected.length === 0 ? (
+                <div style={{ padding: "48px", textAlign: "center", color: "#B08090", fontSize: "14px" }}>
+                  Tidak ada pendaftaran yang ditolak
+                </div>
+              ) : (
+                filteredRejected.map((reg) => (
+                  <div
+                    key={reg.id}
+                    style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 110px", padding: "14px 16px", borderBottom: "1px solid #F0D9E0", alignItems: "center" }}
+                  >
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#3A1A28" }}>{reg.name}</div>
+                      <div style={{ fontSize: "12px", color: "#B08090" }}>{reg.email}</div>
+                    </div>
+                    <span style={{ fontSize: "12px", color: "#8A4060", fontFamily: "'DM Mono', monospace" }}>{reg.phone_number ?? "—"}</span>
+                    <span style={{ fontSize: "12px", color: "#8A4060" }}>{formatDate(reg.createdAt)}</span>
+                    <span style={{ fontSize: "12px", color: "#C05060" }}>{formatDate(reg.createdAt)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Responsive styles */}
-      <style>{`
-        @media (max-width: 768px) {
-          .admin-card div[style*="gridTemplateColumns"] {
-            grid-template-columns: 1fr !important;
-            gap: 4px;
-          }
-        }
-      `}</style>
       {/* Create Customer Modal */}
       {isCreateModalOpen && (
         <div

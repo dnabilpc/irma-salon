@@ -361,6 +361,6 @@ export const ADMIN_STYLES = `
     .admin-stats-grid { grid-template-columns: 1fr !important; }
     .admin-hamburger-btn { display: block !important; }
     .admin-sidebar-toggle-btn { display: none !important; }
-    .admin-topbar-sub, .admin-topbar-date { display: none !important; }
+    .admin-topbar-sub, .admin-topbar-date, .admin-topbar-clock { display: none !important; }
   }
 `;

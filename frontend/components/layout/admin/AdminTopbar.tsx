@@ -179,6 +179,7 @@ export default function AdminTopbar({ userName, userRole, userImage }: AdminTopb
 
         {/* Jam */}
         <div
+          className="admin-topbar-clock"
           style={{
             background: "rgba(255,255,255,0.7)",
             border: "1px solid #E8C0D0",

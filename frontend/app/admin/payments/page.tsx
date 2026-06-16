@@ -157,92 +157,96 @@ export default function PaymentsPage() {
           </span>
         </div>
 
-        <div className="table-row" style={{ gridTemplateColumns: COL, background: "#FDF8F5", fontSize: "12px", color: "#B08090", letterSpacing: "0.06em", textTransform: "uppercase" as const, fontWeight: 600 }}>
-          <span>ID</span>
-          <span>Pelanggan</span>
-          <span>Tipe</span>
-          <span>Metode</span>
-          <span>Status</span>
-          <span>Tanggal</span>
-          <span>Jam</span>
-          <span>Jumlah</span>
-          <span>Aksi</span>
-        </div>
+        <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
+          <div style={{ minWidth: "900px" }}>
+            <div className="table-row" style={{ gridTemplateColumns: COL, background: "#FDF8F5", fontSize: "12px", color: "#B08090", letterSpacing: "0.06em", textTransform: "uppercase" as const, fontWeight: 600 }}>
+              <span>ID</span>
+              <span>Pelanggan</span>
+              <span>Tipe</span>
+              <span>Metode</span>
+              <span>Status</span>
+              <span>Tanggal</span>
+              <span>Jam</span>
+              <span>Jumlah</span>
+              <span>Aksi</span>
+            </div>
 
-        {loading ? (
-          <div style={{ padding: "48px", textAlign: "center" as const, color: "#B08090", fontSize: "14px" }}>
-            Memuat data transaksi dari server...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding: "48px", textAlign: "center" as const, color: "#B08090", fontSize: "14px" }}>
-            Tidak ada data untuk filter ini
-          </div>
-        ) : (
-          filtered.map((p) => {
-            const sc = STATUS_CONFIG[p.status] || { label: p.status, bg: "rgba(100,100,100,0.1)", color: "#555" };
-            const tc = TYPE_CONFIG[p.type] || { label: p.type, bg: "rgba(100,100,100,0.1)", color: "#555" };
-            const mc = METHOD_CONFIG[p.method] || { label: p.method, icon: "💳" };
-            return (
-              <div key={p.id} className="table-row" style={{ gridTemplateColumns: COL, cursor: "pointer" }} onClick={() => setSelected(p)}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#B08090" }}>TRX-{p.id}</span>
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28" }}>{p.customer}</div>
-                  <div style={{ fontSize: "12px", color: "#B08090" }}>{p.description}</div>
-                </div>
-                <span style={{ display: "inline-flex", background: tc.bg, color: tc.color, fontSize: "12px", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", whiteSpace: "nowrap" as const, height: "fit-content", width: "fit-content" }}>
-                  {tc.label}
-                </span>
-                <span style={{ fontSize: "13px", color: "#8A4060" }}>{mc.icon} {mc.label}</span>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <span style={{ display: "inline-flex", background: sc.bg, color: sc.color, fontSize: "12px", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", whiteSpace: "nowrap" as const, height: "fit-content", width: "fit-content" }}>
-                    {sc.label}
-                  </span>
-                  {p.payment_proof_sent && p.status === "pending" && (
-                    <span style={{ display: "inline-flex", background: "rgba(0,75,123,0.08)", color: "#004b7b", fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", width: "fit-content", border: "1px dashed rgba(0,75,123,0.3)" }}>
-                      Bukti Dikirim 📱
-                    </span>
-                  )}
-                </div>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.date}</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.payment_time || "—"}</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{formatRupiah(Number(p.amount))}</span>
-                <div onClick={(e) => e.stopPropagation()}>
-                  {p.status === "pending" ? (
-                    <button
-                      onClick={async () => {
-                        setSubmittingRowId(p.id);
-                        const res = await confirmAdminPayment(Number(p.id));
-                        setSubmittingRowId(null);
-                        if (res.success) {
-                          loadPayments();
-                        } else {
-                          alert(res.error || "Gagal memverifikasi pembayaran.");
-                        }
-                      }}
-                      disabled={submittingRowId !== null}
-                      style={{
-                        background: "linear-gradient(135deg, #2A8C5A, #1A7A4A)",
-                        border: "none",
-                        color: "white",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        padding: "5px 10px",
-                        borderRadius: "6px",
-                        cursor: submittingRowId !== null ? "not-allowed" : "pointer",
-                        boxShadow: "0 2px 4px rgba(42, 140, 90, 0.2)",
-                        transition: "all 0.2s"
-                      }}
-                    >
-                      {submittingRowId === p.id ? "..." : "✓ Konfirmasi"}
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: "12px", color: "#B08090" }}>—</span>
-                  )}
-                </div>
+            {loading ? (
+              <div style={{ padding: "48px", textAlign: "center" as const, color: "#B08090", fontSize: "14px" }}>
+                Memuat data transaksi dari server...
               </div>
-            );
-          })
-        )}
+            ) : filtered.length === 0 ? (
+              <div style={{ padding: "48px", textAlign: "center" as const, color: "#B08090", fontSize: "14px" }}>
+                Tidak ada data untuk filter ini
+              </div>
+            ) : (
+              filtered.map((p) => {
+                const sc = STATUS_CONFIG[p.status] || { label: p.status, bg: "rgba(100,100,100,0.1)", color: "#555" };
+                const tc = TYPE_CONFIG[p.type] || { label: p.type, bg: "rgba(100,100,100,0.1)", color: "#555" };
+                const mc = METHOD_CONFIG[p.method] || { label: p.method, icon: "💳" };
+                return (
+                  <div key={p.id} className="table-row" style={{ gridTemplateColumns: COL, cursor: "pointer" }} onClick={() => setSelected(p)}>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#B08090" }}>TRX-{p.id}</span>
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28" }}>{p.customer}</div>
+                      <div style={{ fontSize: "12px", color: "#B08090" }}>{p.description}</div>
+                    </div>
+                    <span style={{ display: "inline-flex", background: tc.bg, color: tc.color, fontSize: "12px", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", whiteSpace: "nowrap" as const, height: "fit-content", width: "fit-content" }}>
+                      {tc.label}
+                    </span>
+                    <span style={{ fontSize: "13px", color: "#8A4060" }}>{mc.icon} {mc.label}</span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <span style={{ display: "inline-flex", background: sc.bg, color: sc.color, fontSize: "12px", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", whiteSpace: "nowrap" as const, height: "fit-content", width: "fit-content" }}>
+                        {sc.label}
+                      </span>
+                      {p.payment_proof_sent && p.status === "pending" && (
+                        <span style={{ display: "inline-flex", background: "rgba(0,75,123,0.08)", color: "#004b7b", fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", width: "fit-content", border: "1px dashed rgba(0,75,123,0.3)" }}>
+                          Bukti Dikirim 📱
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.date}</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.payment_time || "—"}</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{formatRupiah(Number(p.amount))}</span>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      {p.status === "pending" ? (
+                        <button
+                          onClick={async () => {
+                            setSubmittingRowId(p.id);
+                            const res = await confirmAdminPayment(Number(p.id));
+                            setSubmittingRowId(null);
+                            if (res.success) {
+                              loadPayments();
+                            } else {
+                              alert(res.error || "Gagal memverifikasi pembayaran.");
+                            }
+                          }}
+                          disabled={submittingRowId !== null}
+                          style={{
+                            background: "linear-gradient(135deg, #2A8C5A, #1A7A4A)",
+                            border: "none",
+                            color: "white",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            padding: "5px 10px",
+                            borderRadius: "6px",
+                            cursor: submittingRowId !== null ? "not-allowed" : "pointer",
+                            boxShadow: "0 2px 4px rgba(42, 140, 90, 0.2)",
+                            transition: "all 0.2s"
+                          }}
+                        >
+                          {submittingRowId === p.id ? "..." : "✓ Konfirmasi"}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: "12px", color: "#B08090" }}>—</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Modal detail */}
