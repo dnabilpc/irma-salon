@@ -362,5 +362,6 @@ export const ADMIN_STYLES = `
     .admin-hamburger-btn { display: block !important; }
     .admin-sidebar-toggle-btn { display: none !important; }
     .admin-topbar-sub, .admin-topbar-date, .admin-topbar-clock { display: none !important; }
+    .weekly-chart-summary { grid-template-columns: 1fr !important; gap: 12px !important; text-align: center; }
   }
 `;

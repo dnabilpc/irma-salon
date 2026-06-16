@@ -128,6 +128,7 @@ export default function WeeklyChart({ data }: WeeklyChartProps) {
 
       {/* Summary row */}
       <div
+        className="weekly-chart-summary"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
