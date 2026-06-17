@@ -50,6 +50,13 @@ async function runMigrations() {
         `);
         console.log('[Migration] user.vto columns ready.');
 
+        // Add is_price_variable column to salon_services table
+        await pool.query(`
+            ALTER TABLE salon_services
+            ADD COLUMN IF NOT EXISTS is_price_variable BOOLEAN NOT NULL DEFAULT FALSE
+        `);
+        console.log('[Migration] salon_services.is_price_variable column ready.');
+
         // Update payment_method check constraint in transactions table
         await pool.query(`
             ALTER TABLE transactions 

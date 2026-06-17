@@ -197,7 +197,7 @@ async function triggerBookingCancelNotification(bookingId) {
 export async function getSalonServices(req, res) {
     try {
         const result = await pool.query(
-            `SELECT id, service_name, price, hour_duration, image_url
+            `SELECT id, service_name, price, hour_duration, image_url, is_price_variable
              FROM salon_services
              ORDER BY service_name`
         );

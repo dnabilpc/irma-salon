@@ -22,7 +22,7 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const result = await db.query(
-      `SELECT id, service_name, price, hour_duration, image_url
+      `SELECT id, service_name, price, hour_duration, image_url, is_price_variable
        FROM salon_services
        ORDER BY service_name ASC`
     );
@@ -39,17 +39,17 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { service_name, price, hour_duration, image_url } = body;
+    const { service_name, price, hour_duration, image_url, is_price_variable } = body;
 
     if (!service_name || !price || !hour_duration) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
     }
 
     const result = await db.query(
-      `INSERT INTO salon_services (service_name, price, hour_duration, image_url)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO salon_services (service_name, price, hour_duration, image_url, is_price_variable)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [service_name.trim(), price, hour_duration, image_url || null]
+      [service_name.trim(), price, hour_duration, image_url || null, !!is_price_variable]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });

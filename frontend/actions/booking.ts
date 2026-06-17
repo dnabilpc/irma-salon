@@ -37,6 +37,7 @@ export interface SalonService {
   price: number;
   hour_duration: number;
   image_url: string | null;
+  is_price_variable?: boolean;
 }
 
 // ── GET SERVICES ───────────────────────────────────────────────────────────

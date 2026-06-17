@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (isNaN(serviceId)) return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
 
     const body = await req.json();
-    const { service_name, price, hour_duration, image_url } = body;
+    const { service_name, price, hour_duration, image_url, is_price_variable } = body;
 
     if (!service_name || !price || !hour_duration) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -36,10 +36,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     const result = await db.query(
       `UPDATE salon_services
-       SET service_name = $1, price = $2, hour_duration = $3, image_url = $4
-       WHERE id = $5
+       SET service_name = $1, price = $2, hour_duration = $3, image_url = $4, is_price_variable = $5
+       WHERE id = $6
        RETURNING *`,
-      [service_name.trim(), price, hour_duration, image_url || null, serviceId]
+      [service_name.trim(), price, hour_duration, image_url || null, !!is_price_variable, serviceId]
     );
 
     if (!result.rows.length) {

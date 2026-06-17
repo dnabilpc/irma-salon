@@ -16,29 +16,24 @@ describe("Alur AI Virtual Try-On (Mocked API)", () => {
     cy.get('input[placeholder="Minimal 8 karakter"]').type(testPassword);
     cy.get('input[placeholder="Ulangi password"]').type(testPassword);
     cy.get('button[type="submit"]').click();
-    cy.url().should("include", "/pending-approval");
 
-    // 2. Login Admin & Approve Akun Baru
-    const adminEmail = Cypress.env("adminEmail");
-    const adminPassword = Cypress.env("adminPassword");
-    cy.visit("/login");
-    cy.get('input[id="email"]').type(adminEmail);
-    cy.get('input[id="password"]').type(adminPassword);
-    cy.get('button[type="submit"]').click();
-    cy.url().should("include", "/admin/dashboard");
-    
-    cy.visit("/admin/customers");
-    cy.get('.search-input').type(testEmail);
-    cy.contains(testName)
-      .parents('div')
-      .contains("✓ Setujui")
-      .click();
-    cy.contains("Akun berhasil disetujui").should("be.visible");
+    // Pastikan berada di form verifikasi OTP (inline di register page)
+    cy.get('input[placeholder="123456"]').should("be.visible");
 
-    // 3. Clear session/cookies
-    cy.clearAllCookies();
-    cy.clearAllSessionStorage();
-    cy.clearAllLocalStorage();
+    // Ambil kode OTP dari database
+    cy.task("getRegistrationOTP", testEmail).then((otpCode) => {
+      expect(otpCode).to.exist;
+      cy.get('input[placeholder="123456"]').type(otpCode as string);
+      cy.get('button[type="submit"]').click();
+    });
+
+    // Pastikan redirect ke login dengan parameter sukses
+    cy.url().should("include", "/login");
+  });
+
+  after(() => {
+    // Bersihkan user pengujian dari database setelah pengujian selesai
+    cy.task("deleteUser", testEmail);
   });
 
   beforeEach(() => {

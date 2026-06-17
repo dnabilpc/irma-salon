@@ -1,88 +1,122 @@
 // frontend/cypress/e2e/auth.cy.ts
 
-describe("Alur Autentikasi Pengguna & Approval Admin", () => {
+describe("Alur Autentikasi Pengguna & Verifikasi WhatsApp OTP", () => {
   const randomSuffix = Math.floor(Math.random() * 100000);
-  const testName = `Pelanggan Test ${randomSuffix}`;
-  const testEmail = `test.user.${randomSuffix}@irmasalon.com`;
-  const testPhone = `0800000${Math.floor(10000 + Math.random() * 90000)}`;
-  const testPassword = "passwordTest123";
+  
+  // User 1: Direct verification
+  const testName1 = `Pelanggan Test A ${randomSuffix}`;
+  const testEmail1 = `test.user.a.${randomSuffix}@irmasalon.com`;
+  const testPhone1 = `081234${Math.floor(100000 + Math.random() * 900000)}`;
+  const testPassword1 = "passwordTest123";
 
-  // Kita gunakan timeout 15 detik (15000ms) untuk mengantisipasi delay dingin database (cold-start) atau latency jaringan
+  // User 2: Login-based verification
+  const testName2 = `Pelanggan Test B ${randomSuffix}`;
+  const testEmail2 = `test.user.b.${randomSuffix}@irmasalon.com`;
+  const testPhone2 = `081235${Math.floor(100000 + Math.random() * 900000)}`;
+  const testPassword2 = "passwordTest123";
+
   const EXTENDED_TIMEOUT = 15000;
 
-  it("1. Melakukan Registrasi Pelanggan Baru (Status Pending)", () => {
+  after(() => {
+    // Clean up created test users from the database
+    cy.task("deleteUser", testEmail1);
+    cy.task("deleteUser", testEmail2);
+  });
+
+  it("1. Melakukan Registrasi Pelanggan Baru & Verifikasi OTP Sukses secara Langsung", () => {
     cy.visit("/register");
-    cy.get('input[placeholder="Nama lengkapmu"]').type(testName);
-    cy.get('input[placeholder="email@contoh.com"]').type(testEmail);
-    cy.get('input[placeholder="08xxxxxxxxxx"]').type(testPhone);
-    cy.get('input[placeholder="Minimal 8 karakter"]').type(testPassword);
-    cy.get('input[placeholder="Ulangi password"]').type(testPassword);
+    cy.get('input[placeholder="Nama lengkapmu"]').type(testName1);
+    cy.get('input[placeholder="email@contoh.com"]').type(testEmail1);
+    cy.get('input[placeholder="08xxxxxxxxxx"]').type(testPhone1);
+    cy.get('input[placeholder="Minimal 8 karakter"]').type(testPassword1);
+    cy.get('input[placeholder="Ulangi password"]').type(testPassword1);
 
     cy.get('button[type="submit"]').click();
 
-    // Cek jika ada banner error merah di UI pendaftaran sebelum assert timeout
-    cy.get("body").then(($body) => {
-      const errorDivs = $body.find('div[style*="rgba(192,80,96,0.07)"]');
-      if (errorDivs.length > 0) {
-        const errorText = errorDivs.text();
-        throw new Error(`Pendaftaran gagal di UI dengan pesan: "${errorText.trim()}". Harap pastikan Express Backend dan Database PostgreSQL Anda sudah aktif.`);
-      }
+    // Pastikan berada di form verifikasi OTP (inline di register page)
+    cy.get('input[placeholder="123456"]', { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+
+    // Ambil kode OTP dari database
+    cy.task("getRegistrationOTP", testEmail1).then((otpCode) => {
+      expect(otpCode).to.exist;
+      
+      // Masukkan OTP
+      cy.get('input[placeholder="123456"]').type(otpCode as string);
+      cy.get('button[type="submit"]').click();
     });
 
-    // Pastikan redirect ke halaman pending approval dengan timeout yang diperpanjang
-    cy.url({ timeout: EXTENDED_TIMEOUT }).should("include", "/pending-approval");
-    cy.contains("Pendaftaran Berhasil", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-    cy.contains("menunggu verifikasi admin", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-  });
+    // Pastikan redirect ke login dengan parameter sukses
+    cy.url({ timeout: EXTENDED_TIMEOUT }).should("include", "/login");
+    cy.url().should("include", "registered=success");
+    cy.contains("Pendaftaran berhasil!", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
 
-  it("2. Akun Pending Tidak Bisa Login Sebelum Disetujui", () => {
-    cy.visit("/login");
-    cy.get('input[id="email"]').type(testEmail);
-    cy.get('input[id="password"]').type(testPassword);
-    cy.get('button[type="submit"]').click();
-
-    // Menampilkan pesan error pending dengan timeout yang diperpanjang
-    cy.contains("menunggu persetujuan admin", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-  });
-
-  it("3. Admin Login dan Menyetujui Akun Pelanggan Baru", () => {
-    const adminEmail = Cypress.env("adminEmail");
-    const adminPassword = Cypress.env("adminPassword");
-
-    cy.visit("/login");
-    cy.get('input[id="email"]').type(adminEmail);
-    cy.get('input[id="password"]').type(adminPassword);
-    cy.get('button[type="submit"]').click();
-
-    // Masuk ke dashboard admin
-    cy.url({ timeout: EXTENDED_TIMEOUT }).should("include", "/admin/dashboard");
-
-    // Navigasi ke manajemen pelanggan
-    cy.visit("/admin/customers");
-    cy.contains("Manajemen Pelanggan", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-
-    // Cari pendaftar baru berdasarkan email
-    cy.get('.search-input').type(testEmail);
-
-    // Klik tombol Setujui
-    cy.contains(testName, { timeout: EXTENDED_TIMEOUT })
-      .parents('div')
-      .contains("✓ Setujui")
-      .click();
-
-    // Verifikasi pesan sukses
-    cy.contains("Akun berhasil disetujui", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-  });
-
-  it("4. Pelanggan Baru Berhasil Login Setelah Disetujui", () => {
-    cy.visit("/login");
-    cy.get('input[id="email"]').type(testEmail);
-    cy.get('input[id="password"]').type(testPassword);
+    // Login dengan akun yang baru saja diaktifkan
+    cy.get('input[id="email"]').type(testEmail1);
+    cy.get('input[id="password"]').type(testPassword1);
     cy.get('button[type="submit"]').click();
 
     // Masuk ke dashboard pelanggan
     cy.url({ timeout: EXTENDED_TIMEOUT }).should("include", "/dashboard");
     cy.contains("Selamat datang kembali", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-    cy.contains(testName, { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains(testName1, { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+
+    // Logout
+    cy.contains("Keluar").click();
+    cy.url().should("include", "/");
+  });
+
+  it("2. Akun Pending Login Terblokir, lalu Verifikasi OTP via Halaman Login", () => {
+    // 1. Registrasi Akun baru tapi jangan verifikasi OTP langsung
+    cy.visit("/register");
+    cy.get('input[placeholder="Nama lengkapmu"]').type(testName2);
+    cy.get('input[placeholder="email@contoh.com"]').type(testEmail2);
+    cy.get('input[placeholder="08xxxxxxxxxx"]').type(testPhone2);
+    cy.get('input[placeholder="Minimal 8 karakter"]').type(testPassword2);
+    cy.get('input[placeholder="Ulangi password"]').type(testPassword2);
+
+    cy.get('button[type="submit"]').click();
+
+    // Tunggu sampai step OTP muncul, lalu navigasikan ke halaman login
+    // cy.get('input[placeholder="123456"]', { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.visit("/login");
+
+    // Coba login dengan akun yang masih pending (belum diverifikasi)
+    cy.get('input[id="email"]').type(testEmail2);
+    cy.get('input[id="password"]').type(testPassword2);
+    cy.get('button[type="submit"]').click();
+
+    // Pastikan muncul pesan error pending verifikasi dan tombol "Verifikasi Sekarang"
+    cy.contains("Akun Anda belum diverifikasi", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains("Verifikasi Sekarang").should("be.visible");
+
+    // Klik tombol Verifikasi Sekarang
+    cy.contains("Verifikasi Sekarang").click();
+
+    // Pastikan berada di form verifikasi OTP (inline di login page)
+    cy.get('input[placeholder="123456"]', { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+
+    // Ambil kode OTP dari database
+    cy.task("getRegistrationOTP", testEmail2).then((otpCode) => {
+      expect(otpCode).to.exist;
+
+      // Masukkan OTP
+      cy.get('input[placeholder="123456"]').type(otpCode as string);
+      cy.get('button[type="submit"]').click();
+    });
+
+    // Pastikan ada alert berhasil verifikasi
+    cy.on("window:alert", (str) => {
+      expect(str).to.equal("Akun Anda berhasil diverifikasi! Silakan login.");
+    });
+
+    // Login kembali setelah verifikasi
+    cy.get('input[id="email"]').type(testEmail2);
+    cy.get('input[id="password"]').type(testPassword2);
+    cy.get('button[type="submit"]').click();
+
+    // Berhasil masuk ke dashboard
+    cy.url({ timeout: EXTENDED_TIMEOUT }).should("include", "/dashboard");
+    cy.contains("Selamat datang kembali", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains(testName2, { timeout: EXTENDED_TIMEOUT }).should("be.visible");
   });
 });

@@ -151,7 +151,7 @@ function Step1({
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "10px", borderTop: "1px solid #EDD8CC" }}>
                 <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "#6B3A2A" }}>
-                  {formatRupiah(svc.price)}
+                  {svc.is_price_variable ? "Mulai dari " : ""}{formatRupiah(svc.price)}
                 </span>
                 <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#8B6A5A" }}>
                   ⏱ {svc.hour_duration} jam
@@ -362,6 +362,7 @@ function Step4({
   paymentMethod: "qris";
 }) {
   const service = services.find((s) => s.id === form.serviceId);
+  const isVariable = !!service?.is_price_variable;
   const subtotal = service?.price ?? 0;
   const totalAmount = subtotal;
 
@@ -433,7 +434,7 @@ function Step4({
       {/* Total */}
       <div style={{ background: "#6B3A2A", padding: "14px 18px", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
         <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "rgba(255,255,255,0.7)" }}>
-          Estimasi Total
+          {isVariable ? "Estimasi Total (Mulai Dari)" : "Estimasi Total"}
         </span>
         <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.2rem", fontWeight: 700, color: "#F5D49A" }}>
           {formatRupiah(totalAmount)}
@@ -444,6 +445,23 @@ function Step4({
       {error && (
         <div style={{ background: "rgba(192,80,96,0.07)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", padding: "11px 14px", marginBottom: "14px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#C05060" }}>
           ⚠️ {error}
+        </div>
+      )}
+
+      {/* Catatan harga variabel */}
+      {isVariable && (
+        <div style={{ 
+          background: "rgba(201,146,42,0.08)", 
+          border: "1px solid rgba(201,146,42,0.25)", 
+          borderRadius: "8px", 
+          padding: "11px 14px", 
+          marginBottom: "18px", 
+          fontFamily: "'DM Sans', sans-serif", 
+          fontSize: "0.78rem", 
+          color: "#8B6A5A", 
+          lineHeight: 1.6 
+        }}>
+          <strong>Catatan:</strong> Anda memilih layanan dengan harga bervariasi (<strong>{service?.service_name}</strong>). Estimasi total di atas adalah harga minimum. Harga final akan ditentukan di salon setelah konsultasi/layanan selesai.
         </div>
       )}
 

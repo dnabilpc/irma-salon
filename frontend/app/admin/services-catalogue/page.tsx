@@ -11,6 +11,7 @@ interface SalonService {
   price: number;
   hour_duration: number;
   image_url: string | null;
+  is_price_variable: boolean;
 }
 
 type FormMode = "create" | "edit";
@@ -20,6 +21,7 @@ interface ServiceForm {
   price: string;
   hour_duration: string;
   image_url: string;
+  is_price_variable: boolean;
 }
 
 const EMPTY_FORM: ServiceForm = {
@@ -27,6 +29,7 @@ const EMPTY_FORM: ServiceForm = {
   price: "",
   hour_duration: "",
   image_url: "",
+  is_price_variable: false,
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -51,7 +54,7 @@ function ServiceFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  function update(field: keyof ServiceForm, value: string) {
+  function update<K extends keyof ServiceForm>(field: K, value: ServiceForm[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
@@ -140,6 +143,35 @@ function ServiceFormModal({
             label="Foto Jasa Salon"
             aspectRatio="4/3"
           />
+
+          {/* Checkbox Harga Variabel */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+            <input
+              type="checkbox"
+              id="is_price_variable"
+              checked={form.is_price_variable}
+              onChange={(e) => update("is_price_variable", e.target.checked)}
+              style={{
+                width: "16px",
+                height: "16px",
+                accentColor: "#C4788A",
+                cursor: "pointer"
+              }}
+            />
+            <label
+              htmlFor="is_price_variable"
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                color: "#7A5C50",
+                cursor: "pointer",
+                userSelect: "none"
+              }}
+            >
+              Harga Variabel (Tampilkan sebagai "Mulai dari")
+            </label>
+          </div>
         </div>
 
         {/* Footer */}
@@ -244,6 +276,7 @@ export default function ServicesCataloguePage() {
       price: String(s.price),
       hour_duration: String(s.hour_duration),
       image_url: s.image_url ?? "",
+      is_price_variable: !!s.is_price_variable,
     });
     setEditingId(s.id);
     setFormOpen(true);
@@ -255,6 +288,7 @@ export default function ServicesCataloguePage() {
       price: Number(form.price),
       hour_duration: Number(form.hour_duration),
       image_url: form.image_url || null,
+      is_price_variable: !!form.is_price_variable,
     };
 
     const url    = formMode === "create" ? "/api/admin/services" : `/api/admin/services/${editingId}`;
@@ -369,12 +403,19 @@ export default function ServicesCataloguePage() {
 
               {/* Info */}
               <div style={{ padding: "14px 16px" }}>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>
-                  {s.service_name}
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {s.service_name}
+                  </span>
+                  {s.is_price_variable && (
+                    <span style={{ fontSize: "0.6rem", background: "rgba(196,120,138,0.12)", color: "#C4788A", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, flexShrink: 0 }}>
+                      Variabel
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.88rem", fontWeight: 600, color: "#C4788A" }}>
-                    {formatRupiah(s.price)}
+                    {s.is_price_variable ? "Mulai dari " : ""}{formatRupiah(s.price)}
                   </span>
                   <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#B09080", background: "#F5EBF0", padding: "2px 8px", borderRadius: "6px" }}>
                     ⏱ {s.hour_duration} jam
