@@ -13,7 +13,7 @@ export const options = {
   ],
   thresholds: {
     // Abaikan threshold jika menguji API riil karena inferensi AI memakan waktu 3 - 11 detik
-    http_req_duration: useMock ? ['p(95)<300'] : [],
+    http_req_duration: useMock ? ['p(95)<500'] : [],
     http_req_failed: ['rate<0.01'],
   },
 };

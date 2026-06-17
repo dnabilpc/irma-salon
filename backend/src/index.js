@@ -167,13 +167,20 @@ async function runMigrations() {
                     result_image_url TEXT,
                     garment_description TEXT,
                     error_message TEXT,
+                    outfit_name VARCHAR(255),
+                    user_notified BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
             `);
-            console.log('[Migration] vto_tasks table ready.');
+            // Add columns to existing table if they don't exist
+            await pool.query(`
+                ALTER TABLE vto_tasks ADD COLUMN IF NOT EXISTS outfit_name VARCHAR(255);
+                ALTER TABLE vto_tasks ADD COLUMN IF NOT EXISTS user_notified BOOLEAN DEFAULT FALSE;
+            `);
+            console.log('[Migration] vto_tasks table and columns ready.');
         } catch (err) {
-            console.error('[Migration] Failed to create vto_tasks table:', err.message);
+            console.error('[Migration] Failed to create or alter vto_tasks table:', err.message);
         }
     } catch (err) {
         console.error('[Migration] Failed:', err.message);

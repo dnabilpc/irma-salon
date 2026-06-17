@@ -371,27 +371,7 @@ function VtoResult({
         )}
       </div>
 
-      {description && (
-        <div style={{
-          width: "100%",
-          maxWidth: "400px",
-          background: "rgba(255, 255, 255, 0.04)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          borderRadius: "12px",
-          padding: "16px",
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: "0.8rem",
-          color: "rgba(255, 255, 255, 0.7)",
-          lineHeight: 1.6
-        }}>
-          <div style={{ fontWeight: 600, color: "#C9922A", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.7rem" }}>
-            Analisis Pakaian (AI)
-          </div>
-          <div style={{ whiteSpace: "pre-line" }}>
-            {description}
-          </div>
-        </div>
-      )}
+
 
       <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
         <button
@@ -442,13 +422,11 @@ export default function VirtualTryOnPage() {
   const [personPreview, setPersonPreview] = useState<string | null>(null);
   const [selectedOutfit, setSelectedOutfit] = useState<Outfit | null>(null);
 
-  const [processing, setProcessing] = useState(false);
-  const [processingStep, setProcessingStep] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [activeTasks, setActiveTasks] = useState<{ id: number; outfitName: string; status: string }[]>([]);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultDescription, setResultDescription] = useState<string | null>(null);
   const [error, setError] = useState("");
-
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load data
   useEffect(() => {
@@ -464,14 +442,34 @@ export default function VirtualTryOnPage() {
     });
   }, [session]);
 
-  // Cleanup polling interval on unmount
+  // Background polling for active tasks queued on this page instance
   useEffect(() => {
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
-  }, []);
+    if (activeTasks.length === 0) return;
+
+    const interval = setInterval(async () => {
+      const updated = await Promise.all(
+        activeTasks.map(async (task) => {
+          if (task.status === "completed" || task.status === "failed") {
+            return task;
+          }
+          try {
+            const res = await fetch(`/api/vto/status/${task.id}`);
+            if (!res.ok) return task;
+            const data = await res.json();
+            if (data.success && data.task) {
+              return { ...task, status: data.task.status };
+            }
+          } catch (err) {
+            console.error("Error polling background task status:", err);
+          }
+          return task;
+        })
+      );
+      setActiveTasks(updated);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeTasks]);
 
   const filteredOutfits = outfits.filter((o) =>
     filterCat === "all" || String(o.outfit_category_id) === filterCat
@@ -483,31 +481,23 @@ export default function VirtualTryOnPage() {
   }
 
   function resetAll() {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
     setPersonFile(null);
     setPersonPreview(null);
     setSelectedOutfit(null);
     setResultUrl(null);
     setResultDescription(null);
     setError("");
-    setProcessingStep("");
   }
 
   async function handleStartVto() {
     if (!personFile || !selectedOutfit || !selectedOutfit.model_2d_file_link) return;
     if (!vtoStatus?.can_use) return;
 
-    setProcessing(true);
+    setSubmitting(true);
     setError("");
-    setResultUrl(null);
-    setResultDescription(null);
 
     try {
-      // Memvalidasi kuota
-      setProcessingStep("Memvalidasi kuota...");
+      // Validate quota
       const statusRes = await fetch("/api/vto/usage");
       const statusData = await statusRes.json();
 
@@ -519,11 +509,11 @@ export default function VirtualTryOnPage() {
         throw new Error("Kuota Virtual Try-On habis.");
       }
 
-      // Kirim ke backend
-      setProcessingStep("Menyiapkan antrean...");
+      // Send payload
       const formData = new FormData();
       formData.append("person", personFile);
       formData.append("clothesUrl", selectedOutfit.model_2d_file_link);
+      formData.append("outfitName", selectedOutfit.outfit_name);
 
       const response = await fetch("/api/vto/process", {
         method: "POST",
@@ -538,65 +528,28 @@ export default function VirtualTryOnPage() {
 
       const taskId = data.taskId;
 
-      // Start polling
-      setProcessingStep("Dalam antrean...");
+      // Add to active tasks and reset form
+      setActiveTasks((prev) => [
+        ...prev,
+        { id: taskId, outfitName: selectedOutfit.outfit_name, status: "pending" },
+      ]);
 
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+      // Reset inputs
+      setPersonFile(null);
+      setPersonPreview(null);
+      setSelectedOutfit(null);
+
+      // Refresh quota display
+      const refreshQuotaRes = await fetch("/api/vto/usage");
+      const refreshQuotaData = await refreshQuotaRes.json();
+      if (refreshQuotaRes.ok) {
+        setVtoStatus(refreshQuotaData);
       }
-
-      await new Promise<void>((resolve, reject) => {
-        pollIntervalRef.current = setInterval(async () => {
-          try {
-            const pollRes = await fetch(`/api/vto/status/${taskId}`);
-            const pollData = await pollRes.json();
-
-            if (!pollRes.ok) {
-              throw new Error(pollData.error ?? "Gagal mengambil status VTO.");
-            }
-
-            const task = pollData.task;
-            if (!task) {
-              throw new Error("Data task tidak ditemukan.");
-            }
-
-            if (task.status === "pending") {
-              setProcessingStep("Dalam antrean...");
-            } else if (task.status === "processing") {
-              setProcessingStep("AI sedang memproses virtual try-on... (ini memerlukan waktu ~1-2 menit)");
-            } else if (task.status === "completed") {
-              if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-                pollIntervalRef.current = null;
-              }
-              // Refresh quota display
-              const refreshQuotaRes = await fetch("/api/vto/usage");
-              const refreshQuotaData = await refreshQuotaRes.json();
-              if (refreshQuotaRes.ok) {
-                setVtoStatus(refreshQuotaData);
-              }
-              setResultUrl(task.imageUrl);
-              setResultDescription(task.description);
-              setProcessingStep("");
-              setProcessing(false);
-              resolve();
-            } else if (task.status === "failed") {
-              throw new Error(task.error ?? "Proses virtual try-on gagal.");
-            }
-          } catch (pollErr: unknown) {
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-            reject(pollErr);
-          }
-        }, 3000);
-      });
 
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan. Silakan coba lagi.");
-      setProcessingStep("");
-      setProcessing(false);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -651,7 +604,7 @@ export default function VirtualTryOnPage() {
 
   // ── Main UI ──
 
-  const canProceed = !!personFile && !!selectedOutfit && !!vtoStatus?.can_use && !processing;
+  const canProceed = !!personFile && !!selectedOutfit && !!vtoStatus?.can_use && !submitting;
 
   return (
     <div style={{
@@ -816,52 +769,116 @@ export default function VirtualTryOnPage() {
 
         {/* CTA Button */}
         <div style={{ marginTop: "28px", display: "flex", justifyContent: "center" }}>
-          {processing ? (
-            <div style={{ textAlign: "center" }}>
-              <div style={{
-                display: "inline-flex", alignItems: "center", gap: "14px",
-                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: "12px", padding: "16px 28px",
-              }}>
-                <div style={{
-                  width: "20px", height: "20px", borderRadius: "50%",
-                  border: "2px solid rgba(201,146,42,0.3)", borderTopColor: "#C9922A",
-                  animation: "spin 0.8s linear infinite",
-                  flexShrink: 0,
-                }} />
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "rgba(255,255,255,0.7)" }}>
-                  {processingStep}
-                </span>
-              </div>
-              <p style={{ marginTop: "10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", fontFamily: "'DM Sans', sans-serif" }}>
-                Mohon jangan tutup halaman ini
-              </p>
-            </div>
-          ) : (
-            <button
-              onClick={handleStartVto}
-              disabled={!canProceed}
-              style={{
-                background: canProceed ? "linear-gradient(135deg, #6B3A2A, #C9922A)" : "rgba(255,255,255,0.08)",
-                color: canProceed ? "white" : "rgba(255,255,255,0.25)",
-                border: "none",
-                padding: "16px 48px",
-                borderRadius: "10px",
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: "0.9rem",
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                cursor: canProceed ? "pointer" : "not-allowed",
-                transition: "all 0.3s",
-                boxShadow: canProceed ? "0 8px 32px rgba(201,146,42,0.25)" : "none",
-              }}
-              onMouseEnter={(e) => { if (canProceed) e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
-            >
-              {!vtoStatus?.can_use ? "Kuota Habis" : !personFile ? "Upload foto dulu" : !selectedOutfit ? "Pilih baju dulu" : "✨ Mulai Virtual Try-On"}
-            </button>
-          )}
+          <button
+            onClick={handleStartVto}
+            disabled={!canProceed}
+            style={{
+              background: canProceed ? "linear-gradient(135deg, #6B3A2A, #C9922A)" : "rgba(255,255,255,0.08)",
+              color: canProceed ? "white" : "rgba(255,255,255,0.25)",
+              border: "none",
+              padding: "16px 48px",
+              borderRadius: "10px",
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              cursor: canProceed ? "pointer" : "not-allowed",
+              transition: "all 0.3s",
+              boxShadow: canProceed ? "0 8px 32px rgba(201,146,42,0.25)" : "none",
+            }}
+            onMouseEnter={(e) => { if (canProceed) e.currentTarget.style.transform = "translateY(-2px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+          >
+            {submitting ? "Menyiapkan Antrean..." : !vtoStatus?.can_use ? "Kuota Habis" : !personFile ? "Upload foto dulu" : !selectedOutfit ? "Pilih baju dulu" : "✨ Mulai Virtual Try-On"}
+          </button>
         </div>
+
+        {/* Active VTO Tasks Queue Panel */}
+        {activeTasks.length > 0 && (
+          <div style={{
+            marginTop: "32px",
+            background: "rgba(255, 255, 255, 0.05)",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            borderRadius: "12px",
+            padding: "20px 24px",
+            maxWidth: "600px",
+            width: "100%",
+            margin: "32px auto 0",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.2)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "10px" }}>
+              <span style={{ fontSize: "1.1rem" }}>⏳</span>
+              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "0.95rem", fontWeight: 700, color: "white" }}>
+                Antrean Virtual Try-On Aktif
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {activeTasks.map((task) => {
+                let statusText = "Menunggu Antrean...";
+                let statusColor = "rgba(255,255,255,0.5)";
+                let isDone = task.status === "completed";
+                let isFailed = task.status === "failed";
+                let isProcessing = task.status === "processing";
+
+                if (isProcessing) {
+                  statusText = "AI Sedang memproses... (1-2 menit)";
+                  statusColor = "#C9922A";
+                } else if (isDone) {
+                  statusText = "Selesai!";
+                  statusColor = "#5A9E7A";
+                } else if (isFailed) {
+                  statusText = "Gagal";
+                  statusColor = "#C05060";
+                }
+
+                return (
+                  <div key={task.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8rem", fontFamily: "'DM Sans', sans-serif" }}>
+                    <span style={{ color: "rgba(255,255,255,0.8)" }}>
+                      👗 {task.outfitName}
+                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span style={{
+                        color: statusColor,
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}>
+                        {isProcessing && (
+                          <span style={{
+                            width: "6px", height: "6px", borderRadius: "50%", background: "#C9922A",
+                            animation: "pulse 1.2s infinite"
+                          }} />
+                        )}
+                        {statusText}
+                      </span>
+                      {isDone && (
+                        <button
+                          onClick={() => {
+                            fetch(`/api/vto/status/${task.id}/read`, { method: "POST" });
+                            router.push("/dashboard?section=vto");
+                          }}
+                          style={{
+                            background: "#C9922A",
+                            border: "none",
+                            color: "white",
+                            fontSize: "0.7rem",
+                            fontWeight: 600,
+                            padding: "3px 10px",
+                            borderRadius: "4px",
+                            cursor: "pointer"
+                          }}
+                        >
+                          Lihat Hasil
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -879,6 +896,7 @@ export default function VirtualTryOnPage() {
           }
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }

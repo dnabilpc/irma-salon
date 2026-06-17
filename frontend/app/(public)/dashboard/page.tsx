@@ -146,6 +146,9 @@ export default function CustomerDashboard() {
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
+  const [vtoTasks, setVtoTasks] = useState<any[]>([]);
+  const [loadingVto, setLoadingVto] = useState(true);
+  const vtoSectionRef = React.useRef<HTMLDivElement>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -240,6 +243,63 @@ export default function CustomerDashboard() {
       })
       .catch((err) => console.error("Failed to load settings:", err));
   }, []);
+
+  // Load VTO history
+  useEffect(() => {
+    if (!session) return;
+    
+    const fetchVto = () => {
+      fetch("/api/vto/history")
+        .then((res) => {
+          if (!res.ok) throw new Error("Gagal mengambil riwayat VTO");
+          return res.json();
+        })
+        .then((data) => {
+          setVtoTasks(data);
+          setLoadingVto(false);
+        })
+        .catch((err) => {
+          console.error("Error loading VTO history:", err);
+          setLoadingVto(false);
+        });
+    };
+
+    fetchVto();
+  }, [session]);
+
+  // Polling for VTO tasks if pending/processing
+  useEffect(() => {
+    if (!session) return;
+    const hasActiveTasks = vtoTasks.some(
+      (task) => task.status === "pending" || task.status === "processing"
+    );
+    if (!hasActiveTasks) return;
+
+    const interval = setInterval(() => {
+      fetch("/api/vto/history")
+        .then((res) => {
+          if (res.ok) return res.json();
+        })
+        .then((data) => {
+          if (data) setVtoTasks(data);
+        })
+        .catch((err) => console.error("Error polling VTO history:", err));
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [session, vtoTasks]);
+
+  // Scroll to VTO section if param exists
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("section") === "vto") {
+        setTimeout(() => {
+          vtoSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 300);
+      }
+    }
+  }, [loadingVto]);
 
   // Redirect ke login kalau belum login
   useEffect(() => {
@@ -887,6 +947,229 @@ export default function CustomerDashboard() {
             )}
           </div>
         </div>
+
+        {/* ── Riwayat Virtual Try-On ── */}
+        <div
+          ref={vtoSectionRef}
+          style={{
+            background: "white",
+            border: "1px solid #EDD8CC",
+            borderRadius: "12px",
+            padding: "24px 28px",
+            marginBottom: "24px",
+            boxShadow: "0 2px 16px rgba(107,58,42,0.05)",
+          }}
+        >
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: "1.15rem",
+                fontWeight: 700,
+                color: "#6B3A2A",
+                margin: 0,
+              }}
+            >
+              Riwayat Virtual Try-On
+            </h2>
+            <p style={{ fontSize: "0.78rem", color: "#8B6A5A", margin: "2px 0 0 0" }}>
+              Daftar hasil eksperimen coba baju virtual Anda
+            </p>
+          </div>
+
+          {loadingVto ? (
+            <div style={{ textAlign: "center", padding: "24px", color: "#8B6A5A", fontSize: "0.82rem", fontFamily: "'DM Sans', sans-serif" }}>
+              Memuat riwayat Virtual Try-On...
+            </div>
+          ) : vtoTasks.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "32px 24px",
+                background: "#FAF6F4",
+                borderRadius: "8px",
+                fontSize: "0.82rem",
+                color: "#8B6A5A",
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >
+              <span style={{ fontSize: "1.8rem", display: "block", marginBottom: "8px" }}>👗</span>
+              Anda belum pernah melakukan Virtual Try-On.
+              <Link href="/virtual-try-on" style={{ color: "#C9922A", textDecoration: "none", fontWeight: 600, marginLeft: "6px" }}>
+                Coba Sekarang →
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {vtoTasks.map((task) => {
+                const isCompleted = task.status === "completed";
+                const isFailed = task.status === "failed";
+                const isProcessing = task.status === "processing";
+                
+                let statusLabel = "Menunggu Antrean";
+                let statusBg = "rgba(107,58,42,0.08)";
+                let statusColor = "#6B3A2A";
+                
+                if (isProcessing) {
+                  statusLabel = "Diproses AI";
+                  statusBg = "rgba(201,146,42,0.1)";
+                  statusColor = "#A07010";
+                } else if (isCompleted) {
+                  statusLabel = "Selesai";
+                  statusBg = "rgba(42,140,90,0.1)";
+                  statusColor = "#1A7A4A";
+                } else if (isFailed) {
+                  statusLabel = "Gagal";
+                  statusBg = "rgba(217,64,96,0.1)";
+                  statusColor = "#D94060";
+                }
+
+                const dateStr = task.created_at ? new Date(task.created_at).toLocaleDateString("id-ID", {
+                  day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
+                }) : "";
+
+                return (
+                  <div
+                    key={task.id}
+                    style={{
+                      background: "#FAF6F4",
+                      border: "1px solid #EDD8CC",
+                      borderRadius: "10px",
+                      padding: "16px",
+                      display: "flex",
+                      gap: "16px",
+                      alignItems: "stretch",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {/* Left side: input images */}
+                    <div style={{ display: "flex", gap: "8px", flexShrink: 0, alignItems: "center" }}>
+                      {/* Selfie */}
+                      <div style={{ width: "60px", height: "80px", borderRadius: "6px", overflow: "hidden", border: "1px solid #EDD8CC", background: "#F5E6E0", position: "relative" }}>
+                        {task.person_image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={task.person_image_url} alt="Selfie" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem" }}>🤳</div>
+                        )}
+                      </div>
+                      <span style={{ color: "#D2C0B5" }}>+</span>
+                      {/* Clothes */}
+                      <div style={{ width: "60px", height: "80px", borderRadius: "6px", overflow: "hidden", border: "1px solid #EDD8CC", background: "#F5E6E0", position: "relative" }}>
+                        {task.clothes_image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={task.clothes_image_url} alt="Baju" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem" }}>👗</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Middle side: Details & Status */}
+                    <div style={{ flex: 1, minWidth: "200px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "0.72rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>
+                          {dateStr}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "0.72rem",
+                            fontWeight: 600,
+                            padding: "2px 8px",
+                            borderRadius: "12px",
+                            background: statusBg,
+                            color: statusColor,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}
+                        >
+                          {isProcessing && (
+                            <span style={{
+                              width: "5px", height: "5px", borderRadius: "50%", background: "#C9922A",
+                              animation: "pulse 1.2s infinite"
+                            }} />
+                          )}
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "0.95rem", fontWeight: 700, color: "#2C1A0E", margin: "0 0 4px 0" }}>
+                        {task.outfit_name || "Custom Outfit"}
+                      </h3>
+                      {isFailed && task.error_message && (
+                        <p style={{ margin: 0, fontSize: "0.72rem", color: "#D94060", fontFamily: "'DM Sans', sans-serif" }}>
+                          Error: {task.error_message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Right side: VTO Result output or download action */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, marginLeft: "auto" }}>
+                      {isCompleted && task.result_image_url ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <div 
+                            style={{ 
+                              width: "60px", 
+                              height: "80px", 
+                              borderRadius: "6px", 
+                              overflow: "hidden", 
+                              border: "1.5px solid #C9922A", 
+                              boxShadow: "0 4px 12px rgba(201,146,42,0.15)",
+                              position: "relative",
+                              cursor: "pointer"
+                            }}
+                            onClick={() => window.open(task.result_image_url, "_blank")}
+                            title="Klik untuk memperbesar"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={task.result_image_url} alt="Hasil VTO" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          </div>
+                          <button
+                            onClick={() => {
+                              const link = document.createElement("a");
+                              link.href = task.result_image_url;
+                              link.download = `vto-${(task.outfit_name || "outfit").replace(/\s+/g, "-").toLowerCase()}.jpg`;
+                              link.target = "_blank";
+                              link.click();
+                            }}
+                            style={{
+                              background: "#C9922A",
+                              border: "none",
+                              color: "white",
+                              padding: "8px 12px",
+                              borderRadius: "6px",
+                              fontSize: "0.78rem",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              transition: "background 0.2s",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "#6B3A2A")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "#C9922A")}
+                          >
+                            ⬇ Unduh
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "60px", height: "80px", borderRadius: "6px", border: "1px dashed #EDD8CC", background: "rgba(255,255,255,0.4)" }}>
+                          <span style={{ fontSize: "1.2rem", opacity: 0.3 }}>
+                            {isProcessing ? "⏳" : isFailed ? "❌" : "⏱️"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <style>{`
+          @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+        `}</style>
 
         {/* ── Info salon ── */}
         <div

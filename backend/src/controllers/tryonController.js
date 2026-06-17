@@ -220,13 +220,27 @@ async function runReplicateWithRetry(model, options, maxRetries = 5) {
             return await replicate.run(model, options);
         } catch (err) {
             attempts++;
-            const isThrottled = err.status === 429 || 
-                                (err.message && err.message.includes("429")) || 
-                                (err.response && err.response.status === 429);
-            
-            if (isThrottled && attempts < maxRetries) {
-                let retryAfterSec = 5; // default fallback to 5 seconds
-                
+
+            const errMessage = err.message || '';
+            const errStatus = err.status || (err.response && err.response.status);
+
+            // 429 — Rate limited by Replicate
+            const isThrottled = errStatus === 429 ||
+                                errMessage.includes('429');
+
+            // Transient Replicate infrastructure errors (E9243, E-series director errors, 5xx)
+            const isTransient = isThrottled ||
+                                errMessage.includes('E9243') ||
+                                errMessage.includes('unexpected error handling prediction') ||
+                                errMessage.includes('Director:') ||
+                                errStatus === 500 ||
+                                errStatus === 502 ||
+                                errStatus === 503 ||
+                                errStatus === 504;
+
+            if (isTransient && attempts < maxRetries) {
+                let retryAfterSec = isThrottled ? 5 : 10; // infrastructure errors wait a bit longer
+
                 // Try to extract retry_after from response headers or body
                 if (err.headers && typeof err.headers.get === 'function' && err.headers.get('retry-after')) {
                     const parsed = parseInt(err.headers.get('retry-after'), 10);
@@ -235,13 +249,13 @@ async function runReplicateWithRetry(model, options, maxRetries = 5) {
                     const parsed = parseInt(err.headers['retry-after'], 10);
                     if (!isNaN(parsed)) retryAfterSec = parsed;
                 }
-                
+
                 // Parse JSON from error message if available
-                if (err.message) {
+                if (errMessage) {
                     try {
-                        const jsonStart = err.message.indexOf('{');
+                        const jsonStart = errMessage.indexOf('{');
                         if (jsonStart !== -1) {
-                            const jsonStr = err.message.substring(jsonStart);
+                            const jsonStr = errMessage.substring(jsonStart);
                             const parsedErr = JSON.parse(jsonStr);
                             if (parsedErr.retry_after) {
                                 retryAfterSec = parseFloat(parsedErr.retry_after);
@@ -251,9 +265,10 @@ async function runReplicateWithRetry(model, options, maxRetries = 5) {
                         // ignore JSON parse error
                     }
                 }
-                
+
                 const backoffMs = (retryAfterSec * 1000) * Math.pow(1.5, attempts - 1) + Math.random() * 1000;
-                console.warn(`[Replicate API] Rate limited (429) on model ${model}. Retrying in ${Math.round(backoffMs)}ms... (Attempt ${attempts}/${maxRetries})`);
+                const reason = isThrottled ? 'Rate limited (429)' : `Infrastructure error (${errMessage.slice(0, 60)})`;
+                console.warn(`[Replicate API] ${reason} on model ${model}. Retrying in ${Math.round(backoffMs)}ms... (Attempt ${attempts}/${maxRetries})`);
                 await delay(backoffMs);
             } else {
                 throw err;
@@ -292,13 +307,17 @@ export const handleVirtualTryOn = async (req, res) => {
         const personFile = req.files['person'][0];
         const clothesFile = req.files['clothes'][0];
 
+        console.log(`[VTO Debug] req.body keys:`, JSON.stringify(req.body));
+        const outfitName = req.body?.outfit_name || req.body?.outfitName || '';
+
+
         // Safe mock mode bypass to prevent Replicate credit drain during performance testing
         if ((req.headers && req.headers['x-mock-request'] === 'true') || process.env.MOCK_TRYON === 'true') {
             const insertMockRes = await pool.query(`
-                INSERT INTO vto_tasks (user_id, person_image_url, clothes_image_url, status, result_image_url, garment_description)
-                VALUES ($1, $2, $3, 'completed', 'https://example.com/mock-output-image.jpg', 'MOCK: GARMENT TYPE: dress\nCOLOR: red\nDETAILS: lace trim')
+                INSERT INTO vto_tasks (user_id, person_image_url, clothes_image_url, status, result_image_url, garment_description, outfit_name)
+                VALUES ($1, $2, $3, 'completed', 'https://example.com/mock-output-image.jpg', 'MOCK: GARMENT TYPE: dress\nCOLOR: red\nDETAILS: lace trim', $4)
                 RETURNING id
-            `, [userId, 'https://example.com/mock-person.jpg', 'https://example.com/mock-clothes.jpg']);
+            `, [userId, 'https://example.com/mock-person.jpg', 'https://example.com/mock-clothes.jpg', outfitName]);
             
             // Increment VTO usage directly in mock mode
             await pool.query(`
@@ -311,7 +330,7 @@ export const handleVirtualTryOn = async (req, res) => {
             });
         }
 
-        console.log(`[VTO Queue] Creating task for user ${userId}: Person (${personFile.originalname}), Clothes (${clothesFile.originalname})`);
+        console.log(`[VTO Queue] Creating task for user ${userId}: Person (${personFile.originalname}), Clothes (${clothesFile.originalname}), Outfit (${outfitName})`);
 
         // Convert person buffer to Base64 and upload to Supabase Storage
         const personBase64 = bufferToDataUri(personFile.buffer, personFile.originalname);
@@ -331,10 +350,10 @@ export const handleVirtualTryOn = async (req, res) => {
 
         // 3. Create 'pending' task in database
         const insertRes = await pool.query(`
-            INSERT INTO vto_tasks (user_id, person_image_url, clothes_image_url, status)
-            VALUES ($1, $2, $3, 'pending')
+            INSERT INTO vto_tasks (user_id, person_image_url, clothes_image_url, status, outfit_name)
+            VALUES ($1, $2, $3, 'pending', $4)
             RETURNING id
-        `, [userId, personUrl, clothesUrl]);
+        `, [userId, personUrl, clothesUrl, outfitName]);
 
         const taskId = insertRes.rows[0].id;
         console.log(`[VTO Queue] Task ID #${taskId} queued successfully.`);
@@ -393,7 +412,14 @@ export const getVtoTaskStatus = async (req, res) => {
     }
 };
 
+let isWorkerBusy = false;
+
 export async function processNextVtoTask() {
+    if (isWorkerBusy) {
+        return; // Only process one task at a time
+    }
+
+    let task = null;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -408,102 +434,187 @@ export async function processNextVtoTask() {
             FOR UPDATE SKIP LOCKED
         `);
         
-        if (selectRes.rows.length === 0) {
-            await client.query('COMMIT');
-            return; // No pending tasks
+        if (selectRes.rows.length > 0) {
+            task = selectRes.rows[0];
+            
+            // Update task status to processing immediately within transaction
+            await client.query(`
+                UPDATE vto_tasks 
+                SET status = 'processing', updated_at = NOW() 
+                WHERE id = $1
+            `, [task.id]);
         }
         
-        const task = selectRes.rows[0];
-        
-        // Update task status to processing
-        await client.query(`
-            UPDATE vto_tasks 
-            SET status = 'processing', updated_at = NOW() 
-            WHERE id = $1
-        `, [task.id]);
-        
         await client.query('COMMIT');
-        
-        console.log(`[VTO Worker] Processing task ID #${task.id} for user ${task.user_id}...`);
-        
-        // Perform the VTO processing
-        try {
-            // Step 1: Analyze clothes
-            console.log(`[VTO Worker - Task #${task.id}] Step 1: Analisis baju...`);
-            const analysis = await runReplicateWithRetry("google/gemini-2.5-flash", {
-                input: { prompt: ANALYSIS_PROMPT, images: [task.clothes_image_url] }
-            });
-            const garmentDescription = Array.isArray(analysis) ? analysis.join("") : analysis;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[VTO Worker] Transaction error:', err.message);
+    } finally {
+        client.release(); // Release DB connection immediately so other requests can use it
+    }
 
-            // Step 2: Analyze person body map
-            console.log(`[VTO Worker - Task #${task.id}] Step 2: Analyzing person crop map...`);
-            const cropAnalysis = await runReplicateWithRetry("google/gemini-2.5-flash", {
-                input: { prompt: CROP_ANALYSIS_PROMPT, images: [task.person_image_url] }
-            });
-            const bodyCropDescription = Array.isArray(cropAnalysis) ? cropAnalysis.join("") : cropAnalysis;
+    if (!task) {
+        return; // No pending tasks
+    }
 
-            const isHalfBody = bodyCropDescription.toLowerCase().includes("half-body") || 
-                               bodyCropDescription.toLowerCase().includes("upper-body") || 
-                               bodyCropDescription.toLowerCase().includes("legs are not visible") || 
-                               bodyCropDescription.toLowerCase().includes("feet are not visible") || 
-                               bodyCropDescription.toLowerCase().includes("legs: out of frame") || 
-                               bodyCropDescription.toLowerCase().includes("feet: out of frame") || 
-                               bodyCropDescription.toLowerCase().includes("legs and feet are out of frame");
+    isWorkerBusy = true;
+    console.log(`[VTO Worker] Processing task ID #${task.id} for user ${task.user_id}...`);
+    
+    // Perform the VTO processing outside of DB connection
+    try {
+        // Step 1: Analyze clothes
+        console.log(`[VTO Worker - Task #${task.id}] Step 1: Analisis baju...`);
+        const analysis = await runReplicateWithRetry("google/gemini-2.5-flash", {
+            input: { prompt: ANALYSIS_PROMPT, images: [task.clothes_image_url] }
+        });
+        const garmentDescription = Array.isArray(analysis) ? analysis.join("") : analysis;
 
-            // Step 3: Generate try-on
-            const tryonPrompt = buildTryonPrompt(bodyCropDescription, garmentDescription, isHalfBody);
-            const modelName = "openai/gpt-image-2";
-            const inputPayload = {
+        // Step 2: Analyze person body map
+        console.log(`[VTO Worker - Task #${task.id}] Step 2: Analyzing person crop map...`);
+        const cropAnalysis = await runReplicateWithRetry("google/gemini-2.5-flash", {
+            input: { prompt: CROP_ANALYSIS_PROMPT, images: [task.person_image_url] }
+        });
+        const bodyCropDescription = Array.isArray(cropAnalysis) ? cropAnalysis.join("") : cropAnalysis;
+
+        const isHalfBody = bodyCropDescription.toLowerCase().includes("half-body") || 
+                           bodyCropDescription.toLowerCase().includes("upper-body") || 
+                           bodyCropDescription.toLowerCase().includes("legs are not visible") || 
+                           bodyCropDescription.toLowerCase().includes("feet are not visible") || 
+                           bodyCropDescription.toLowerCase().includes("legs: out of frame") || 
+                           bodyCropDescription.toLowerCase().includes("feet: out of frame") || 
+                           bodyCropDescription.toLowerCase().includes("legs and feet are out of frame");
+
+        // Step 3: Generate try-on using dynamic model selection
+        const tryonPrompt = buildTryonPrompt(bodyCropDescription, garmentDescription, isHalfBody);
+        const selectedModel = process.env.VTO_MODEL || 'gemini-flash';
+        let modelName;
+        let inputPayload;
+
+        if (selectedModel === 'gpt-image-2') {
+            modelName = "openai/gpt-image-2";
+            inputPayload = {
                 prompt: tryonPrompt,
                 input_images: [task.person_image_url, task.clothes_image_url],
                 aspect_ratio: "2:3",
                 quality: "low",
                 output_format: "jpeg"
             };
+        } else if (selectedModel === 'gpt-image-1.5') {
+            modelName = "openai/gpt-image-1.5";
+            inputPayload = {
+                prompt: tryonPrompt,
+                input_images: [task.person_image_url, task.clothes_image_url],
+                aspect_ratio: "2:3",
+                quality: "low",
+                input_fidelity: "high",
+                output_format: "jpeg"
+            };
+        } else {
+            modelName = "google/gemini-2.5-flash-image";
+            inputPayload = {
+                prompt: tryonPrompt,
+                image_input: [task.person_image_url, task.clothes_image_url],
+                aspect_ratio: "3:4",
+                output_format: "jpg"
+            };
+        }
 
-            console.log(`[VTO Worker - Task #${task.id}] Step 3: Generating VTO image...`);
-            const output = await runReplicateWithRetry(modelName, { input: inputPayload });
-            const finalImageUrl = Array.isArray(output) ? output[0] : output;
-            
-            // Mark task as completed
-            await pool.query(`
-                UPDATE vto_tasks 
-                SET status = 'completed', 
-                    result_image_url = $1, 
-                    garment_description = $2, 
-                    updated_at = NOW() 
-                WHERE id = $3
-            `, [finalImageUrl, garmentDescription, task.id]);
+        console.log(`[VTO Worker - Task #${task.id}] Step 3: Generating VTO image with model ${modelName}...`);
+        const output = await runReplicateWithRetry(modelName, { input: inputPayload });
+        const finalImageUrl = Array.isArray(output) ? output[0] : output;
+        
+        // Mark task as completed
+        await pool.query(`
+            UPDATE vto_tasks 
+            SET status = 'completed', 
+                result_image_url = $1, 
+                garment_description = $2, 
+                updated_at = NOW() 
+            WHERE id = $3
+        `, [finalImageUrl, garmentDescription, task.id]);
 
-            // Increment VTO usage for user on successful VTO complete
-            await pool.query(`
-                UPDATE "user" SET vto_usage = COALESCE(vto_usage, 0) + 1 WHERE id = $1
-            `, [task.user_id]);
-            
-            console.log(`[VTO Worker] Task ID #${task.id} completed successfully!`);
-            
-        } catch (taskErr) {
-            console.error(`[VTO Worker] Error processing task ID #${task.id}:`, taskErr.message);
-            // Mark task as failed
+        // Increment VTO usage for user on successful VTO complete
+        await pool.query(`
+            UPDATE "user" SET vto_usage = COALESCE(vto_usage, 0) + 1 WHERE id = $1
+        `, [task.user_id]);
+        
+        console.log(`[VTO Worker] Task ID #${task.id} completed successfully!`);
+        
+    } catch (taskErr) {
+        const errMsg = taskErr.message || 'Unknown error';
+        console.error(`[VTO Worker] Error processing task ID #${task.id}:`, errMsg);
+
+        // Determine if this is a transient infrastructure error that should be retried
+        const isTransient =
+            errMsg.includes('E9243') ||
+            errMsg.includes('unexpected error handling prediction') ||
+            errMsg.includes('Director:') ||
+            errMsg.includes('502') ||
+            errMsg.includes('503') ||
+            errMsg.includes('504');
+
+        if (isTransient) {
+            // Fetch current attempt count
+            const attemptRes = await pool.query(
+                `SELECT attempt_count FROM vto_tasks WHERE id = $1`, [task.id]
+            );
+            const currentAttempts = attemptRes.rows[0]?.attempt_count ?? 0;
+            const MAX_TASK_ATTEMPTS = 3;
+
+            if (currentAttempts < MAX_TASK_ATTEMPTS) {
+                // Requeue: reset to 'pending' so the worker picks it up again
+                await pool.query(`
+                    UPDATE vto_tasks 
+                    SET status = 'pending',
+                        attempt_count = attempt_count + 1,
+                        error_message = $1,
+                        updated_at = NOW() 
+                    WHERE id = $2
+                `, [`[Percobaan ${currentAttempts + 1}/${MAX_TASK_ATTEMPTS}] ${errMsg}`, task.id]);
+                console.warn(`[VTO Worker] Task #${task.id} requeued (attempt ${currentAttempts + 1}/${MAX_TASK_ATTEMPTS}) due to transient error: ${errMsg.slice(0, 80)}`);
+            } else {
+                // Max retries exhausted — permanently fail
+                await pool.query(`
+                    UPDATE vto_tasks 
+                    SET status = 'failed', 
+                        error_message = $1, 
+                        updated_at = NOW() 
+                    WHERE id = $2
+                `, [`[Gagal setelah ${MAX_TASK_ATTEMPTS} percobaan] ${errMsg}`, task.id]);
+                console.error(`[VTO Worker] Task #${task.id} permanently failed after ${MAX_TASK_ATTEMPTS} attempts.`);
+            }
+        } else {
+            // Permanent failure (invalid input, auth error, etc.)
             await pool.query(`
                 UPDATE vto_tasks 
                 SET status = 'failed', 
                     error_message = $1, 
                     updated_at = NOW() 
                 WHERE id = $2
-            `, [taskErr.message, task.id]);
+            `, [errMsg, task.id]);
         }
-        
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('[VTO Worker] Transaction error:', err.message);
     } finally {
-        client.release();
+        isWorkerBusy = false;
     }
 }
 
-export function startVtoWorker() {
+export async function startVtoWorker() {
     console.log('[VTO Worker] Starting background queue worker...');
+    
+    // Reset any stuck 'processing' tasks back to 'pending' on startup
+    try {
+        const resetRes = await pool.query(`
+            UPDATE vto_tasks 
+            SET status = 'pending', updated_at = NOW() 
+            WHERE status = 'processing'
+        `);
+        if (resetRes.rowCount > 0) {
+            console.log(`[VTO Worker] Reset ${resetRes.rowCount} stuck 'processing' tasks back to 'pending'.`);
+        }
+    } catch (err) {
+        console.error('[VTO Worker] Failed to reset stuck tasks:', err.message);
+    }
+
     setInterval(async () => {
         try {
             await processNextVtoTask();
@@ -511,4 +622,66 @@ export function startVtoWorker() {
             console.error('[VTO Worker] Error in worker tick:', err);
         }
     }, 10000); // Check every 10 seconds
+}
+
+export async function getUserVtoTasks(req, res) {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized: Hubungkan user session Anda.' });
+        }
+        
+        const result = await pool.query(
+            `SELECT id, status, person_image_url, clothes_image_url, result_image_url, outfit_name, error_message, created_at
+             FROM vto_tasks
+             WHERE user_id = $1
+             ORDER BY created_at DESC`,
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('[getUserVtoTasks] Error:', err);
+        res.status(500).json({ error: 'Gagal memuat riwayat Virtual Try-On.' });
+    }
+}
+
+export async function getUnnotifiedVtoTasks(req, res) {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.json([]); // return empty if not logged in
+        }
+        
+        const result = await pool.query(
+            `SELECT id, status, outfit_name, result_image_url, error_message
+             FROM vto_tasks
+             WHERE user_id = $1 AND user_notified = FALSE AND status IN ('completed', 'failed')`,
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('[getUnnotifiedVtoTasks] Error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+export async function markVtoTaskAsRead(req, res) {
+    try {
+        const userId = req.user?.id;
+        const { id } = req.params;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized: Hubungkan user session Anda.' });
+        }
+        
+        await pool.query(
+            `UPDATE vto_tasks 
+             SET user_notified = TRUE, updated_at = NOW() 
+             WHERE id = $1 AND user_id = $2`,
+            [id, userId]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[markVtoTaskAsRead] Error:', err);
+        res.status(500).json({ error: 'Gagal menandai notifikasi.' });
+    }
 }

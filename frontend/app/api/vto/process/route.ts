@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const personFile = formData.get("person");
     const clothesUrl = formData.get("clothesUrl") as string;
+    const outfitName = (formData.get("outfitName") as string) ?? "";
 
     if (!personFile || !clothesUrl) {
       return NextResponse.json(
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
     const backendFormData = new FormData();
     backendFormData.append("person", personFile as Blob, (personFile as File).name || "person.jpg");
     backendFormData.append("clothes", clothesBlob, "clothes.jpg");
+    // Always include outfitName so multer populates req.body.outfitName in the backend
+    backendFormData.append("outfitName", outfitName);
+
 
     const response = await backendFetch("/api/virtual-tryon", {
       method: "POST",
