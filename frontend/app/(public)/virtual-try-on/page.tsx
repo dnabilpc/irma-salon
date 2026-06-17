@@ -326,10 +326,12 @@ function OutfitCard({
 
 function VtoResult({
   imageUrl,
+  description,
   outfitName,
   onReset,
 }: {
   imageUrl: string;
+  description: string | null;
   outfitName: string;
   onReset: () => void;
 }) {
@@ -368,6 +370,28 @@ function VtoResult({
           </div>
         )}
       </div>
+
+      {description && (
+        <div style={{
+          width: "100%",
+          maxWidth: "400px",
+          background: "rgba(255, 255, 255, 0.04)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          borderRadius: "12px",
+          padding: "16px",
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: "0.8rem",
+          color: "rgba(255, 255, 255, 0.7)",
+          lineHeight: 1.6
+        }}>
+          <div style={{ fontWeight: 600, color: "#C9922A", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.7rem" }}>
+            Analisis Pakaian (AI)
+          </div>
+          <div style={{ whiteSpace: "pre-line" }}>
+            {description}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
         <button
@@ -421,7 +445,10 @@ export default function VirtualTryOnPage() {
   const [processing, setProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState("");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultDescription, setResultDescription] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load data
   useEffect(() => {
@@ -437,6 +464,15 @@ export default function VirtualTryOnPage() {
     });
   }, [session]);
 
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
+
   const filteredOutfits = outfits.filter((o) =>
     filterCat === "all" || String(o.outfit_category_id) === filterCat
   );
@@ -447,10 +483,15 @@ export default function VirtualTryOnPage() {
   }
 
   function resetAll() {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
     setPersonFile(null);
     setPersonPreview(null);
     setSelectedOutfit(null);
     setResultUrl(null);
+    setResultDescription(null);
     setError("");
     setProcessingStep("");
   }
@@ -462,6 +503,7 @@ export default function VirtualTryOnPage() {
     setProcessing(true);
     setError("");
     setResultUrl(null);
+    setResultDescription(null);
 
     try {
       // Memvalidasi kuota
@@ -478,7 +520,7 @@ export default function VirtualTryOnPage() {
       }
 
       // Kirim ke backend
-      setProcessingStep("AI sedang memproses virtual try-on... (ini memerlukan waktu ~1-2 menit)");
+      setProcessingStep("Menyiapkan antrean...");
       const formData = new FormData();
       formData.append("person", personFile);
       formData.append("clothesUrl", selectedOutfit.model_2d_file_link);
@@ -490,34 +532,70 @@ export default function VirtualTryOnPage() {
 
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!response.ok || !data.success || !data.taskId) {
         throw new Error(data.error ?? "Gagal memproses virtual try-on.");
       }
 
-      // Kurangi/increment usage kuota setelah sukses
-      setProcessingStep("Mengupdate kuota...");
-      const usageRes = await fetch("/api/vto/usage", { method: "POST" });
-      const usageData = await usageRes.json();
+      const taskId = data.taskId;
 
-      if (usageRes.ok) {
-        setVtoStatus((prev) =>
-          prev
-            ? {
-                ...prev,
-                usage: usageData.usage,
-                remaining: usageData.remaining,
-                can_use: usageData.remaining > 0,
-              }
-            : prev
-        );
+      // Start polling
+      setProcessingStep("Dalam antrean...");
+
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
       }
 
-      setResultUrl(data.imageUrl);
-      setProcessingStep("");
+      await new Promise<void>((resolve, reject) => {
+        pollIntervalRef.current = setInterval(async () => {
+          try {
+            const pollRes = await fetch(`/api/vto/status/${taskId}`);
+            const pollData = await pollRes.json();
+
+            if (!pollRes.ok) {
+              throw new Error(pollData.error ?? "Gagal mengambil status VTO.");
+            }
+
+            const task = pollData.task;
+            if (!task) {
+              throw new Error("Data task tidak ditemukan.");
+            }
+
+            if (task.status === "pending") {
+              setProcessingStep("Dalam antrean...");
+            } else if (task.status === "processing") {
+              setProcessingStep("AI sedang memproses virtual try-on... (ini memerlukan waktu ~1-2 menit)");
+            } else if (task.status === "completed") {
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
+              // Refresh quota display
+              const refreshQuotaRes = await fetch("/api/vto/usage");
+              const refreshQuotaData = await refreshQuotaRes.json();
+              if (refreshQuotaRes.ok) {
+                setVtoStatus(refreshQuotaData);
+              }
+              setResultUrl(task.imageUrl);
+              setResultDescription(task.description);
+              setProcessingStep("");
+              setProcessing(false);
+              resolve();
+            } else if (task.status === "failed") {
+              throw new Error(task.error ?? "Proses virtual try-on gagal.");
+            }
+          } catch (pollErr: unknown) {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+            reject(pollErr);
+          }
+        }, 3000);
+      });
+
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan. Silakan coba lagi.");
       setProcessingStep("");
-    } finally {
       setProcessing(false);
     }
   }
@@ -566,7 +644,7 @@ export default function VirtualTryOnPage() {
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: "100px 24px 60px",
       }}>
-        <VtoResult imageUrl={resultUrl} outfitName={selectedOutfit.outfit_name} onReset={resetAll} />
+        <VtoResult imageUrl={resultUrl} description={resultDescription} outfitName={selectedOutfit.outfit_name} onReset={resetAll} />
       </div>
     );
   }
@@ -749,6 +827,7 @@ export default function VirtualTryOnPage() {
                   width: "20px", height: "20px", borderRadius: "50%",
                   border: "2px solid rgba(201,146,42,0.3)", borderTopColor: "#C9922A",
                   animation: "spin 0.8s linear infinite",
+                  flexShrink: 0,
                 }} />
                 <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "rgba(255,255,255,0.7)" }}>
                   {processingStep}

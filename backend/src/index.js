@@ -16,6 +16,7 @@ import openingTimeRoutes from './routes/openingTimeRoutes.js';
 import closingTimeRoutes from './routes/closingTimeRoutes.js';
 import { initWhatsapp } from './services/whatsappService.js';
 import { initScheduler } from './services/reminderCron.js';
+import { startVtoWorker } from './controllers/tryonController.js';
 import pool from './services/db.js';
 
 /**
@@ -153,6 +154,27 @@ async function runMigrations() {
         } catch (err) {
             console.error('[Migration] Failed to configure opening_time.id identity:', err.message);
         }
+
+        // Create vto_tasks table
+        try {
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS vto_tasks (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT REFERENCES "user"(id) ON DELETE CASCADE,
+                    person_image_url TEXT NOT NULL,
+                    clothes_image_url TEXT NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    result_image_url TEXT,
+                    garment_description TEXT,
+                    error_message TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            `);
+            console.log('[Migration] vto_tasks table ready.');
+        } catch (err) {
+            console.error('[Migration] Failed to create vto_tasks table:', err.message);
+        }
     } catch (err) {
         console.error('[Migration] Failed:', err.message);
     }
@@ -189,6 +211,7 @@ app.get('/', (req, res) => {
 runMigrations();
 initWhatsapp();
 initScheduler();
+startVtoWorker();
 
 app.listen(PORT, () => {
     console.log(`Backend for Web Irma Salon is running on http://localhost:${PORT}`);
