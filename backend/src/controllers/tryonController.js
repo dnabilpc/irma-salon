@@ -293,41 +293,35 @@ export const handleVirtualTryOn = async (req, res) => {
             return res.status(401).json({ error: 'Unauthorized: Hubungkan user session Anda.' });
         }
 
-        // 1. Check VTO quota
-        const quota = await checkUserVtoQuota(userId);
-        if (!quota.can_use) {
-            return res.status(429).json({ error: 'Kuota Virtual Try-On Anda telah habis.' });
-        }
-
-        // 2. Check files
+        // 2. Check files (done early so we can detect bad requests before quota)
         if (!req.files || !req.files['person'] || !req.files['clothes']) {
             return res.status(400).json({ error: 'Missing required files: person and clothes' });
         }
 
         const personFile = req.files['person'][0];
         const clothesFile = req.files['clothes'][0];
-
-        console.log(`[VTO Debug] req.body keys:`, JSON.stringify(req.body));
         const outfitName = req.body?.outfit_name || req.body?.outfitName || '';
 
-
-        // Safe mock mode bypass to prevent Replicate credit drain during performance testing
+        // Mock mode bypass — must run BEFORE quota check.
+        // Mock requests don't consume Replicate credits and don't increment vto_usage,
+        // so quota checking would incorrectly block load-test traffic.
         if ((req.headers && req.headers['x-mock-request'] === 'true') || process.env.MOCK_TRYON === 'true') {
             const insertMockRes = await pool.query(`
                 INSERT INTO vto_tasks (user_id, person_image_url, clothes_image_url, status, result_image_url, garment_description, outfit_name)
                 VALUES ($1, $2, $3, 'completed', 'https://example.com/mock-output-image.jpg', 'MOCK: GARMENT TYPE: dress\nCOLOR: red\nDETAILS: lace trim', $4)
                 RETURNING id
             `, [userId, 'https://example.com/mock-person.jpg', 'https://example.com/mock-clothes.jpg', outfitName]);
-            
-            // Increment VTO usage directly in mock mode
-            await pool.query(`
-                UPDATE "user" SET vto_usage = COALESCE(vto_usage, 0) + 1 WHERE id = $1
-            `, [userId]);
 
             return res.status(202).json({
                 success: true,
                 taskId: insertMockRes.rows[0].id
             });
+        }
+
+        // 1. Check VTO quota for real requests (not applicable to mock/load-test)
+        const quota = await checkUserVtoQuota(userId);
+        if (!quota.can_use) {
+            return res.status(429).json({ error: 'Kuota Virtual Try-On Anda telah habis.' });
         }
 
         console.log(`[VTO Queue] Creating task for user ${userId}: Person (${personFile.originalname}), Clothes (${clothesFile.originalname}), Outfit (${outfitName})`);
