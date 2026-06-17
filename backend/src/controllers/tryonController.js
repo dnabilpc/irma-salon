@@ -161,6 +161,55 @@ FINAL OUTPUT REQUIREMENTS:
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+async function runReplicateWithRetry(model, options, maxRetries = 5) {
+    let attempts = 0;
+    while (attempts < maxRetries) {
+        try {
+            return await replicate.run(model, options);
+        } catch (err) {
+            attempts++;
+            const isThrottled = err.status === 429 || 
+                                (err.message && err.message.includes("429")) || 
+                                (err.response && err.response.status === 429);
+            
+            if (isThrottled && attempts < maxRetries) {
+                let retryAfterSec = 5; // default fallback to 5 seconds
+                
+                // Try to extract retry_after from response headers or body
+                if (err.headers && typeof err.headers.get === 'function' && err.headers.get('retry-after')) {
+                    const parsed = parseInt(err.headers.get('retry-after'), 10);
+                    if (!isNaN(parsed)) retryAfterSec = parsed;
+                } else if (err.headers && err.headers['retry-after']) {
+                    const parsed = parseInt(err.headers['retry-after'], 10);
+                    if (!isNaN(parsed)) retryAfterSec = parsed;
+                }
+                
+                // Parse JSON from error message if available
+                if (err.message) {
+                    try {
+                        const jsonStart = err.message.indexOf('{');
+                        if (jsonStart !== -1) {
+                            const jsonStr = err.message.substring(jsonStart);
+                            const parsedErr = JSON.parse(jsonStr);
+                            if (parsedErr.retry_after) {
+                                retryAfterSec = parseFloat(parsedErr.retry_after);
+                            }
+                        }
+                    } catch (e) {
+                        // ignore JSON parse error
+                    }
+                }
+                
+                const backoffMs = (retryAfterSec * 1000) * Math.pow(1.5, attempts - 1) + Math.random() * 1000;
+                console.warn(`[Replicate API] Rate limited (429) on model ${model}. Retrying in ${Math.round(backoffMs)}ms... (Attempt ${attempts}/${maxRetries})`);
+                await delay(backoffMs);
+            } else {
+                throw err;
+            }
+        }
+    }
+}
+
 function bufferToDataUri(fileBuffer, originalName) {
     const ext = path.extname(originalName).toLowerCase().replace('.', '');
     const mimeTypes = { 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp' };
@@ -173,7 +222,7 @@ function bufferToDataUri(fileBuffer, originalName) {
 export const handleVirtualTryOn = async (req, res) => {
     try {
         // Safe mock mode bypass to prevent Replicate credit drain during performance testing
-        if (req.headers['x-mock-request'] === 'true' || process.env.MOCK_TRYON === 'true') {
+        if ((req.headers && req.headers['x-mock-request'] === 'true') || process.env.MOCK_TRYON === 'true') {
             return res.status(200).json({
                 success: true,
                 imageUrl: "https://example.com/mock-output-image.jpg",
@@ -196,7 +245,7 @@ export const handleVirtualTryOn = async (req, res) => {
 
         // ── Step 1: Analyze clothes ───────────────────────────────────────
         console.log("Step 1: Analisis baju dengan Gemini 2.5 Flash...");
-        const analysis = await replicate.run("google/gemini-2.5-flash", {
+        const analysis = await runReplicateWithRetry("google/gemini-2.5-flash", {
             input: { prompt: ANALYSIS_PROMPT, images: [clothesUri] }
         });
         const garmentDescription = Array.isArray(analysis) ? analysis.join("") : analysis;
@@ -205,7 +254,7 @@ export const handleVirtualTryOn = async (req, res) => {
 
         // ── Step 2: Analyze person body map ───────────────────────────────
         console.log("\nStep 2: Analyzing person crop map...");
-        const cropAnalysis = await replicate.run("google/gemini-2.5-flash", {
+        const cropAnalysis = await runReplicateWithRetry("google/gemini-2.5-flash", {
             input: { prompt: CROP_ANALYSIS_PROMPT, images: [personUri] }
         });
         const bodyCropDescription = Array.isArray(cropAnalysis) ? cropAnalysis.join("") : cropAnalysis;
@@ -236,7 +285,7 @@ export const handleVirtualTryOn = async (req, res) => {
         };
 
         console.log(`\nStep 3: Generating try-on dengan model ${modelName}...`);
-        const output = await replicate.run(modelName, { input: inputPayload });
+        const output = await runReplicateWithRetry(modelName, { input: inputPayload });
 
         const finalImageUrl = Array.isArray(output) ? output[0] : output;
         console.log(`\nURL hasil: ${finalImageUrl}`);
