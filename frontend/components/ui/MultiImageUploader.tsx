@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { uploadAdminImage } from "@/actions/admin";
+import { compressImage } from "@/lib/utils";
 
 interface MultiImageUploaderProps {
   value: string[]; // Array of image URLs
@@ -72,11 +73,18 @@ export default function MultiImageUploader({
 
     // Process consecutively to prevent rate-limit spikes on serverless functions
     for (const file of validFiles) {
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onloadend = () => resolve(reader.result as string);
-      });
+      let base64 = "";
+      try {
+        base64 = await compressImage(file);
+      } catch (err) {
+        console.error("Compression failed:", err);
+        // Fallback to original file
+        base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onloadend = () => resolve(reader.result as string);
+        });
+      }
 
       const url = await handleUploadSingleBase64(base64);
       if (url) {

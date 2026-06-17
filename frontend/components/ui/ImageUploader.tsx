@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { uploadAdminImage } from "@/actions/admin";
+import { compressImage } from "@/lib/utils";
 
 interface ImageUploaderProps {
   value: string;
@@ -56,20 +57,27 @@ export default function ImageUploader({
     }
   };
 
-  // Convert File object to base64 and upload
-  const handleFile = (file: File) => {
+  // Convert File object to base64, compress and upload
+  const handleFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       setError("File harus berupa gambar (JPG, PNG, WebP).");
       return;
     }
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        processImageUpload(reader.result);
-      }
-    };
+    try {
+      const compressedBase64 = await compressImage(file);
+      processImageUpload(compressedBase64);
+    } catch (err) {
+      console.error("[handleFile] Compression failed:", err);
+      // Fallback to original image if compression fails
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          processImageUpload(reader.result);
+        }
+      };
+    }
   };
 
   // File drop/drag handlers
