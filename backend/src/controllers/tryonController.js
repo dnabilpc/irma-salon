@@ -172,9 +172,19 @@ function bufferToDataUri(fileBuffer, originalName) {
 
 export const handleVirtualTryOn = async (req, res) => {
     try {
+        // Safe mock mode bypass to prevent Replicate credit drain during performance testing
+        if (req.headers['x-mock-request'] === 'true' || process.env.MOCK_TRYON === 'true') {
+            return res.status(200).json({
+                success: true,
+                imageUrl: "https://example.com/mock-output-image.jpg",
+                description: "MOCK: GARMENT TYPE: dress\nCOLOR: red\nDETAILS: lace trim"
+            });
+        }
+
         if (!req.files || !req.files['person'] || !req.files['clothes']) {
             return res.status(400).json({ error: 'Missing required files: person and clothes' });
         }
+
 
         const personFile = req.files['person'][0];
         const clothesFile = req.files['clothes'][0];
