@@ -69,6 +69,12 @@ Provide the description in this exact structure:
 
 GARMENT TYPE: [dress / top / kebaya / gamis / blouse / etc]
 CATEGORY: [upper_body / lower_body / full_body / dress]
+
+HAS HEADWEAR: [yes / no] (specify the type if yes, e.g. police hat, crown, veil, hijab, cap, tiara)
+HAS TOP GARMENT: [yes / no] (specify the type if yes, e.g. shirt, jacket, blouse, kebaya, vest)
+HAS BOTTOM GARMENT: [yes / no] (specify the type if yes, e.g. skirt, pants, trousers)
+IS FULL BODY GARMENT: [yes / no] (yes if it is a single continuous outfit that covers from the shoulders/torso down to the legs/feet, like a dress, gamis, gown, or a complete jumpsuit/suit set)
+
 COLOR: [primary color and any secondary colors or patterns]
 PATTERN: [solid / floral / batik / geometric / embroidered / etc]
 FABRIC: [silk / cotton / chiffon / lace / velvet / etc]
