@@ -100,6 +100,7 @@ Be brutally literal. Do not assume or infer what might be outside the frame. If 
 `;
 
 function buildTryonPrompt(bodyCropDescription, garmentDescription, isHalfBody = false) {
+    const hasHeadwear = /hat|cap|crown|helmet|veil|turban|headwear|tiara|topi|peci|kopiah|jilbab|hijab|suntiang|mahkota|udeng/i.test(garmentDescription);
     return `
 You are performing a photorealistic virtual clothing try-on task.
 
@@ -120,7 +121,7 @@ STRICT PRESERVATION RULES (IMAGE 1):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 The following must remain 100% identical to IMAGE 1:
 - FACE: every feature, skin tone, expression, makeup, and facial structure
-- HAIR: exact color, style, length, volume, and position
+- HAIR: exact color, style, length, volume, and position ${hasHeadwear ? '(unless partially or fully covered/flattened by the headwear, hat, or head accessory from IMAGE 2)' : ''}
 - BODY: exact proportions, build, bone structure, and all exposed skin — the
   person's body shape is FIXED and must never be altered to suit the garment
 - POSE: exact stance, arm/leg/head position — do not alter any limb
@@ -133,6 +134,16 @@ The following must remain 100% identical to IMAGE 1:
 - BACKGROUND: every element behind the person, unchanged
 - FRAMING: same camera angle, zoom level, and composition — do NOT zoom out
 - LIGHTING ON PERSON: same light direction, highlights, and skin shadows
+
+${hasHeadwear ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ HEADWEAR / HAT DETECTED (IMAGE 2)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The outfit in IMAGE 2 includes a headwear, hat, cap, crown, hijab, or head accessory.
+- You are ALLOWED and INSTRUCTED to transfer this headwear/accessory from IMAGE 2 and place it realistically onto the person's head in the output.
+- Fit the headwear to the person's head size, orientation, and angle.
+- Ensure the person's facial features, identity, expression, and makeup from IMAGE 1 remain 100% identical, even as you add the headwear on top.
+` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CORE PRINCIPLE — BODY IS MASTER, GARMENT ADAPTS:
