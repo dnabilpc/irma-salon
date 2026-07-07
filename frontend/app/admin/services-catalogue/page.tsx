@@ -60,8 +60,11 @@ function ServiceFormModal({
 
   async function handleSave() {
     if (!form.service_name.trim()) { setError("Nama layanan wajib diisi."); return; }
-    if (!form.price || isNaN(Number(form.price))) { setError("Harga tidak valid."); return; }
-    if (!form.hour_duration || isNaN(Number(form.hour_duration))) { setError("Durasi tidak valid."); return; }
+    if (form.service_name.trim().length > 100) { setError("Nama layanan tidak boleh lebih dari 100 karakter."); return; }
+    const parsedPrice = Number(form.price);
+    if (isNaN(parsedPrice) || parsedPrice < 0) { setError("Harga tidak boleh negatif."); return; }
+    const parsedDuration = Number(form.hour_duration);
+    if (isNaN(parsedDuration) || parsedDuration <= 0) { setError("Durasi harus berupa angka positif."); return; }
     setSaving(true);
     setError("");
     try {

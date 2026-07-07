@@ -32,19 +32,25 @@ export async function registerCustomer(req, res) {
     try {
         // Check if email already registered
         const existingUser = await pool.query(
-            `SELECT id FROM "user" WHERE email = $1 LIMIT 1`,
+            `SELECT id, status FROM "user" WHERE email = $1 LIMIT 1`,
             [email]
         );
 
         if (existingUser.rows.length > 0) {
-            return res.status(409).json({ error: 'Email sudah terdaftar. Gunakan email lain atau login.' });
+            const oldUser = existingUser.rows[0];
+            if (oldUser.status === 'REJECTED') {
+                await pool.query(`DELETE FROM account WHERE "userId" = $1`, [oldUser.id]);
+                await pool.query(`DELETE FROM "user" WHERE id = $1`, [oldUser.id]);
+            } else {
+                return res.status(409).json({ error: 'Email sudah terdaftar. Gunakan email lain atau login.' });
+            }
         }
 
         // Check if phone number already registered
         if (phone_number) {
             const normalizedPhoneVal = normalizePhone(phone_number);
             const existingPhone = await pool.query(
-                `SELECT id FROM "user" 
+                `SELECT id, status FROM "user" 
                  WHERE phone_number IS NOT NULL 
                    AND CASE 
                      WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '0%' 
@@ -58,7 +64,13 @@ export async function registerCustomer(req, res) {
             );
 
             if (existingPhone.rows.length > 0) {
-                return res.status(409).json({ error: 'Nomor WhatsApp sudah terdaftar pada akun lain.' });
+                const oldPhoneUser = existingPhone.rows[0];
+                if (oldPhoneUser.status === 'REJECTED') {
+                    await pool.query(`DELETE FROM account WHERE "userId" = $1`, [oldPhoneUser.id]);
+                    await pool.query(`DELETE FROM "user" WHERE id = $1`, [oldPhoneUser.id]);
+                } else {
+                    return res.status(409).json({ error: 'Nomor WhatsApp sudah terdaftar pada akun lain.' });
+                }
             }
         }
 

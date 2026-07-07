@@ -323,7 +323,8 @@ export async function getRentalsForCustomer(req, res) {
                r.rental_status,
                r.rental_status                                                 AS status,
                t.id                                                            AS transaction_id,
-               COALESCE(t.payment_method, 'cash')                             AS payment_method
+               COALESCE(t.payment_method, 'cash')                             AS payment_method,
+               COALESCE(t.status, 'pending')                                   AS payment_status
              FROM rentals r
              JOIN "user" u              ON u.id   = r.user_id
              JOIN outfit_catalogues oc  ON oc.id  = r.outfit_catalogues_id
@@ -505,14 +506,28 @@ export async function cancelRental(req, res) {
 
     try {
         const check = await pool.query(
-            `SELECT id, rental_status FROM rentals WHERE id = $1 AND user_id = $2`,
+            `SELECT r.id, r.rental_status, t.status AS payment_status 
+             FROM rentals r
+             LEFT JOIN transactions t ON t.rental_id = r.id
+             WHERE r.id = $1 AND r.user_id = $2`,
             [id, userId]
         );
         if (!check.rows.length) {
             return res.status(404).json({ error: "Data sewa tidak ditemukan." });
         }
-        if (check.rows[0].rental_status !== "pending") {
-            return res.status(400).json({ error: "Hanya sewa berstatus pending yang dapat dibatalkan." });
+        
+        const rental = check.rows[0];
+        const isPending = rental.rental_status === "pending";
+        const isOngoing = rental.rental_status === "ongoing";
+        const isPaid = rental.payment_status === "lunas";
+
+        // Can cancel if: (status is pending) OR (status is ongoing AND payment is not lunas)
+        const canCancel = isPending || (isOngoing && !isPaid);
+
+        if (!canCancel) {
+            return res.status(400).json({ 
+                error: "Penyewaan tidak dapat dibatalkan karena sudah disetujui dan dibayar." 
+            });
         }
 
         await pool.query(

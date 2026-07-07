@@ -309,12 +309,13 @@ export default function AdminRentalsClient() {
       {toast && (
         <div style={{
           position: "fixed", top: "72px", right: "24px", zIndex: 2000,
-          background: toast.ok ? "rgba(42,140,90,0.1)" : "rgba(217,64,96,0.1)",
-          border: `1px solid ${toast.ok ? "rgba(42,140,90,0.3)" : "rgba(217,64,96,0.3)"}`,
-          color: toast.ok ? "#1A7A4A" : "#D94060",
-          padding: "12px 20px", borderRadius: "8px",
-          fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 500,
-          boxShadow: "0 4px 16px rgba(196,114,142,0.15)",
+          background: "white",
+          border: `1.5px solid ${toast.ok ? "#5A9E7A" : "#C05060"}`,
+          color: toast.ok ? "#3D7A5A" : "#C05060",
+          padding: "12px 20px", borderRadius: "10px",
+          fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 600,
+          boxShadow: "0 8px 24px rgba(196,120,138,0.15)",
+          display: "flex", alignItems: "center", gap: "8px"
         }}>
           {toast.ok ? "✓ " : "✕ "}{toast.msg}
         </div>

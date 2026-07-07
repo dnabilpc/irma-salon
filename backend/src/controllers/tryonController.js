@@ -495,40 +495,16 @@ export async function processNextVtoTask() {
                            bodyCropDescription.toLowerCase().includes("feet: out of frame") || 
                            bodyCropDescription.toLowerCase().includes("legs and feet are out of frame");
 
-        // Step 3: Generate try-on using dynamic model selection
+        // Step 3: Generate try-on using fixed model selection (gpt-image-2)
         const tryonPrompt = buildTryonPrompt(bodyCropDescription, garmentDescription, isHalfBody);
-        const selectedModel = process.env.VTO_MODEL || 'gemini-flash';
-        let modelName;
-        let inputPayload;
-
-        if (selectedModel === 'gpt-image-2') {
-            modelName = "openai/gpt-image-2";
-            inputPayload = {
-                prompt: tryonPrompt,
-                input_images: [task.person_image_url, task.clothes_image_url],
-                aspect_ratio: "2:3",
-                quality: "low",
-                output_format: "jpeg"
-            };
-        } else if (selectedModel === 'gpt-image-1.5') {
-            modelName = "openai/gpt-image-1.5";
-            inputPayload = {
-                prompt: tryonPrompt,
-                input_images: [task.person_image_url, task.clothes_image_url],
-                aspect_ratio: "2:3",
-                quality: "low",
-                input_fidelity: "high",
-                output_format: "jpeg"
-            };
-        } else {
-            modelName = "google/gemini-2.5-flash-image";
-            inputPayload = {
-                prompt: tryonPrompt,
-                image_input: [task.person_image_url, task.clothes_image_url],
-                aspect_ratio: "3:4",
-                output_format: "jpg"
-            };
-        }
+        const modelName = "openai/gpt-image-2";
+        const inputPayload = {
+            prompt: tryonPrompt,
+            input_images: [task.person_image_url, task.clothes_image_url],
+            aspect_ratio: "2:3",
+            quality: "low",
+            output_format: "jpeg"
+        };
 
         console.log(`[VTO Worker - Task #${task.id}] Step 3: Generating VTO image with model ${modelName}...`);
         const output = await runReplicateWithRetry(modelName, { input: inputPayload });

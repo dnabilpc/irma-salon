@@ -563,17 +563,37 @@ export async function cancelBooking(req, res) {
 
     try {
         const check = await pool.query(
-            `SELECT id, status FROM bookings WHERE id = $1 AND user_id = $2`,
+            `SELECT b.id, b.status, t.status AS payment_status 
+             FROM bookings b
+             LEFT JOIN transactions t ON t.booking_id = b.id
+             WHERE b.id = $1 AND b.user_id = $2`,
             [id, userId]
         );
         if (!check.rows.length) {
             return res.status(404).json({ error: "Booking tidak ditemukan." });
         }
-        if (check.rows[0].status !== "pending") {
-            return res.status(400).json({ error: "Hanya booking berstatus PENDING yang dapat dibatalkan." });
+
+        const booking = check.rows[0];
+        const isPending = booking.status === "pending";
+        const isConfirmed = booking.status === "confirmed";
+        const isPaid = booking.payment_status === "lunas";
+
+        // Can cancel if: (status is pending) OR (status is confirmed AND payment is not lunas)
+        const canCancel = isPending || (isConfirmed && !isPaid);
+
+        if (!canCancel) {
+            return res.status(400).json({ 
+                error: "Booking tidak dapat dibatalkan karena sudah disetujui dan dibayar." 
+            });
         }
 
-        await pool.query(`UPDATE bookings SET status = 'cancelled' WHERE id = $1`, [id]);
+        await pool.query(
+            `UPDATE bookings 
+             SET status = 'cancelled', 
+                 rejection_reason = 'Dibatalkan oleh pelanggan' 
+             WHERE id = $1`, 
+            [id]
+        );
 
         // Add system notification for Admin
         await pool.query(
@@ -712,14 +732,15 @@ export async function getBookingsForCustomer(req, res) {
                COALESCE(STRING_AGG(ss.service_name, ', '), '-') AS services,
                COALESCE(t.total_amount, 0)        AS total_amount,
                COALESCE(t.payment_method, 'cash') AS payment_method,
-               t.id AS transaction_id
+               t.id AS transaction_id,
+               COALESCE(t.status, 'pending')      AS payment_status
              FROM bookings b
              LEFT JOIN booking_details bd ON bd.booking_id = b.id
              LEFT JOIN salon_services ss  ON ss.id = bd.salon_service_id
              LEFT JOIN transactions t     ON t.booking_id = b.id
              WHERE b.user_id = $1
              GROUP BY b.id, b.booking_datetime, b.status,
-                      t.total_amount, t.payment_method, t.id
+                      t.total_amount, t.payment_method, t.id, t.status
              ORDER BY b.booking_datetime DESC`,
             [userId]
         );

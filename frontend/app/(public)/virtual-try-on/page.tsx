@@ -2,8 +2,8 @@
 
 // app/(public)/virtual-try-on/page.tsx
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { getMyVtoStatus } from "@/actions/vto";
 import type { VtoStatus } from "@/actions/vto";
@@ -409,7 +409,17 @@ function VtoResult({
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function VirtualTryOnPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#0F0C0A", display: "flex", alignItems: "center", justifyContent: "center", color: "#C9922A", fontFamily: "'DM Sans', sans-serif" }}>Memuat Virtual Try-On...</div>}>
+      <VirtualTryOnContent />
+    </Suspense>
+  );
+}
+
+function VirtualTryOnContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const outfitIdParam = searchParams.get("outfitId");
   const { data: session, isPending } = useSession();
 
   const [vtoStatus, setVtoStatus] = useState<VtoStatus | null>(null);
@@ -435,12 +445,20 @@ export default function VirtualTryOnPage() {
       fetch("/api/outfits").then((r) => r.json()),
       getMyVtoStatus(),
     ]).then(([outfitData, vtoData]) => {
-      setOutfits(outfitData.outfits ?? []);
+      const loadedOutfits = outfitData.outfits ?? [];
+      setOutfits(loadedOutfits);
       setCategories(outfitData.categories ?? []);
       if (vtoData.success && vtoData.data) setVtoStatus(vtoData.data);
       setLoadingData(false);
+
+      if (outfitIdParam && loadedOutfits.length > 0) {
+        const matching = loadedOutfits.find((o: Outfit) => String(o.id) === outfitIdParam);
+        if (matching && matching.model_2d_file_link) {
+          setSelectedOutfit(matching);
+        }
+      }
     });
-  }, [session]);
+  }, [session, outfitIdParam]);
 
   // Background polling for active tasks queued on this page instance
   useEffect(() => {

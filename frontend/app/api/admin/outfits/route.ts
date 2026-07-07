@@ -59,6 +59,25 @@ export async function POST(req: NextRequest) {
     if (!outfit_category_id || !outfit_name || !price) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
     }
+    if (outfit_name.trim().length > 50) {
+      return NextResponse.json({ error: "Nama baju tidak boleh lebih dari 50 karakter" }, { status: 400 });
+    }
+    if (description && description.length > 255) {
+      return NextResponse.json({ error: "Deskripsi tidak boleh lebih dari 255 karakter" }, { status: 400 });
+    }
+    if (size && size.length > 10) {
+      return NextResponse.json({ error: "Ukuran tidak boleh lebih dari 10 karakter" }, { status: 400 });
+    }
+    const parsedPrice = Number(price);
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      return NextResponse.json({ error: "Harga harus berupa angka positif" }, { status: 400 });
+    }
+    if (image_url && image_url.length > 2048) {
+      return NextResponse.json({ error: "Tautan gambar terlalu panjang" }, { status: 400 });
+    }
+    if (model_2d_file_link && model_2d_file_link.length > 2048) {
+      return NextResponse.json({ error: "Tautan model VTO terlalu panjang" }, { status: 400 });
+    }
 
     const result = await db.query(
       `INSERT INTO outfit_catalogues

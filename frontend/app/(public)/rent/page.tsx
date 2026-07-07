@@ -47,7 +47,8 @@ function getEndDate(start: string, days: number): string {
 
 // ── Outfit Card with gallery ────────────────────────────────────────────────
 
-function OutfitCard({ outfit, onRentClick }: { outfit: Outfit; onRentClick: () => void }) {
+function OutfitCard({ outfit, onRentClick, onImageClick }: { outfit: Outfit; onRentClick: () => void; onImageClick: (url: string) => void }) {
+  const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [activeImgIdx, setActiveImgIdx] = useState(0);
 
@@ -108,12 +109,14 @@ function OutfitCard({ outfit, onRentClick }: { outfit: Outfit; onRentClick: () =
           <img
             src={allImages[activeImgIdx]}
             alt={`${outfit.outfit_name} - ${activeImgIdx + 1}`}
+            onClick={() => onImageClick(allImages[activeImgIdx])}
             style={{
               width: "100%",
               height: "100%",
               objectFit: "contain",
               transform: hovered ? "scale(1.03)" : "scale(1)",
               transition: "transform 0.5s ease",
+              cursor: "zoom-in",
             }}
             onError={(e) => {
               e.currentTarget.style.display = "none";
@@ -208,24 +211,15 @@ function OutfitCard({ outfit, onRentClick }: { outfit: Outfit; onRentClick: () =
             ))}
           </div>
         )}
-
-        {/* Badge kategori */}
-        <div style={{ position: "absolute", top: "12px", left: "12px", background: "rgba(107,58,42,0.85)", color: "white", fontSize: "0.62rem", fontWeight: 600, padding: "3px 10px", borderRadius: "6px", letterSpacing: "0.06em", fontFamily: "'DM Sans', sans-serif", zIndex: 1 }}>
-          {outfit.category_name}
-        </div>
-
-        {/* Badge VTO */}
-        {outfit.model_2d_file_link && (
-          <div style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(201,146,42,0.9)", color: "white", fontSize: "0.62rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", letterSpacing: "0.06em", zIndex: 1 }}>
-            Try-On AI
-          </div>
-        )}
       </div>
 
       {/* Info */}
       <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "2px" }}>
           {outfit.outfit_name}
+        </div>
+        <div style={{ fontSize: "0.62rem", color: "#C4788A", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "6px" }}>
+          {outfit.category_name}
         </div>
         {outfit.description && (
           <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "#8B6A5A", marginBottom: "10px", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
@@ -254,6 +248,16 @@ function OutfitCard({ outfit, onRentClick }: { outfit: Outfit; onRentClick: () =
         >
           Sewa Baju Ini
         </button>
+        {outfit.model_2d_file_link && (
+          <button
+            onClick={() => router.push(`/virtual-try-on?outfitId=${outfit.id}`)}
+            style={{ width: "100%", background: "transparent", border: "1.5px solid #C9922A", color: "#C9922A", padding: "9px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.06em", cursor: "pointer", borderRadius: "8px", marginTop: "8px", transition: "all 0.2s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(201,146,42,0.1)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            ✨ Virtual Try-On
+          </button>
+        )}
       </div>
     </div>
   );
@@ -558,6 +562,8 @@ export default function SewaBajuPage() {
   const [successRedirectUrl, setSuccessRedirectUrl] = useState<string | null>(null);
   const [successPaymentMethod, setSuccessPaymentMethod] = useState<"cash" | "qris">("cash");
   const [qrisImageError, setQrisImageError] = useState(false);
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [zoomScale, setZoomScale] = useState(1);
 
   useEffect(() => {
     fetch("/api/outfits")
@@ -868,6 +874,7 @@ export default function SewaBajuPage() {
                 key={outfit.id}
                 outfit={outfit}
                 onRentClick={() => setSelectedOutfit(outfit)}
+                onImageClick={(url) => setZoomImageUrl(url)}
               />
             ))}
           </div>
@@ -886,6 +893,151 @@ export default function SewaBajuPage() {
             setSuccessRedirectUrl(redirectUrl || null);
           }}
         />
+      )}
+
+      {/* Zoom Image Modal */}
+      {zoomImageUrl && (
+        <div
+          onClick={() => {
+            setZoomImageUrl(null);
+            setZoomScale(1);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "zoom-out",
+            padding: "20px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              maxHeight: "90vh",
+              maxWidth: "90vw",
+              cursor: "default",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={zoomImageUrl}
+              alt="Preview baju diperbesar"
+              style={{
+                maxHeight: "80vh",
+                maxWidth: "100%",
+                objectFit: "contain",
+                transform: `scale(${zoomScale})`,
+                transition: "transform 0.2s ease",
+                borderRadius: "8px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+                userSelect: "none",
+              }}
+            />
+
+            {/* Floating Controls at bottom center */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "-60px",
+                display: "flex",
+                gap: "12px",
+                background: "rgba(255, 255, 255, 0.12)",
+                backdropFilter: "blur(8px)",
+                padding: "8px 16px",
+                borderRadius: "30px",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+                zIndex: 10000,
+              }}
+            >
+              <button
+                onClick={() => setZoomScale((s) => Math.min(s + 0.25, 4))}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "white",
+                  fontSize: "1.1rem",
+                  cursor: "pointer",
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                title="Perbesar"
+              >
+                ➕
+              </button>
+              <button
+                onClick={() => setZoomScale((s) => Math.max(s - 0.25, 0.5))}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "white",
+                  fontSize: "1.1rem",
+                  cursor: "pointer",
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                title="Perkecil"
+              >
+                ➖
+              </button>
+              <button
+                onClick={() => setZoomScale(1)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "white",
+                  fontSize: "1.1rem",
+                  cursor: "pointer",
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                title="Reset Zoom"
+              >
+                🔄
+              </button>
+              <button
+                onClick={() => {
+                  setZoomImageUrl(null);
+                  setZoomScale(1);
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "white",
+                  fontSize: "1.1rem",
+                  cursor: "pointer",
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                title="Tutup"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

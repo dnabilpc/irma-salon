@@ -30,8 +30,22 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const body = await req.json();
     const { service_name, price, hour_duration, image_url, is_price_variable } = body;
 
-    if (!service_name || !price || !hour_duration) {
+    if (!service_name?.trim() || price === undefined || hour_duration === undefined) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
+    }
+    if (service_name.trim().length > 100) {
+      return NextResponse.json({ error: "Nama layanan tidak boleh lebih dari 100 karakter" }, { status: 400 });
+    }
+    const parsedPrice = Number(price);
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      return NextResponse.json({ error: "Harga tidak boleh negatif" }, { status: 400 });
+    }
+    const parsedDuration = Number(hour_duration);
+    if (isNaN(parsedDuration) || parsedDuration <= 0) {
+      return NextResponse.json({ error: "Durasi harus berupa angka positif" }, { status: 400 });
+    }
+    if (image_url && image_url.length > 2048) {
+      return NextResponse.json({ error: "Tautan gambar terlalu panjang" }, { status: 400 });
     }
 
     const result = await db.query(

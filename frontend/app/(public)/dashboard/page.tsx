@@ -7,6 +7,8 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession, signOut } from "@/lib/auth-client";
+import { cancelBooking } from "@/actions/booking";
+import { cancelRental } from "@/actions/rental";
 
 // ── Kartu aksi cepat ───────────────────────────────────────────────────────
 
@@ -144,16 +146,41 @@ export default function CustomerDashboard() {
   const [salonOpenHours, setSalonOpenHours] = useState("Memuat jam buka...");
   const [bookings, setBookings] = useState<any[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
+  const [rentals, setRentals] = useState<any[]>([]);
+  const [loadingRentals, setLoadingRentals] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const [vtoTasks, setVtoTasks] = useState<any[]>([]);
   const [loadingVto, setLoadingVto] = useState(true);
   const vtoSectionRef = React.useRef<HTMLDivElement>(null);
 
+  const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
+  const [cancellingRentalId, setCancellingRentalId] = useState<number | null>(null);
+  const [confirmingBookingCancelId, setConfirmingBookingCancelId] = useState<number | null>(null);
+  const [confirmingRentalCancelId, setConfirmingRentalCancelId] = useState<number | null>(null);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   useEffect(() => {
+    if (confirmingBookingCancelId !== null) {
+      const timer = setTimeout(() => {
+        setConfirmingBookingCancelId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [confirmingBookingCancelId]);
+
+  useEffect(() => {
+    if (confirmingRentalCancelId !== null) {
+      const timer = setTimeout(() => {
+        setConfirmingRentalCancelId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [confirmingRentalCancelId]);
+
+  const fetchBookings = () => {
     setLoadingBookings(true);
     fetch("/api/bookings")
       .then((res) => {
@@ -170,7 +197,69 @@ export default function CustomerDashboard() {
         console.error("Error loading bookings:", err);
         setLoadingBookings(false);
       });
+  };
+
+  const fetchRentals = () => {
+    setLoadingRentals(true);
+    fetch("/api/rentals")
+      .then((res) => {
+        if (!res.ok) throw new Error("Gagal mengambil data sewa");
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setRentals(data);
+        }
+        setLoadingRentals(false);
+      })
+      .catch((err) => {
+        console.error("Error loading rentals:", err);
+        setLoadingRentals(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchBookings();
+    fetchRentals();
   }, []);
+
+  const handleCancelBooking = async (bookingId: number) => {
+    setCancellingBookingId(bookingId);
+    try {
+      const res = await cancelBooking(bookingId);
+      if (res.success) {
+        alert("Booking berhasil dibatalkan.");
+        fetchBookings();
+      } else {
+        alert(res.error || "Gagal membatalkan booking.");
+      }
+    } catch (err) {
+      console.error("Cancel booking error:", err);
+      alert("Terjadi kesalahan koneksi.");
+    } finally {
+      setCancellingBookingId(null);
+      setConfirmingBookingCancelId(null);
+    }
+  };
+
+  const handleCancelRental = async (rentalId: number) => {
+    setCancellingRentalId(rentalId);
+    try {
+      const res = await cancelRental(rentalId);
+      if (res.success) {
+        alert("Sewa baju berhasil dibatalkan.");
+        fetchRentals();
+      } else {
+        alert(res.error || "Gagal membatalkan sewa baju.");
+      }
+    } catch (err) {
+      console.error("Cancel rental error:", err);
+      alert("Terjadi kesalahan koneksi.");
+    } finally {
+      setCancellingRentalId(null);
+      setConfirmingRentalCancelId(null);
+    }
+  };
 
   const upcomingBookings = bookings.filter((b) => {
     const bookingDate = new Date(b.booking_datetime);
@@ -858,6 +947,9 @@ export default function CustomerDashboard() {
                       const showInvoiceBtn = booking.transaction_id && 
                         booking.status !== "cancelled" && booking.status !== "rejected";
 
+                      const canCancelBooking = booking.status === "pending" || 
+                        (booking.status === "confirmed" && booking.payment_status !== "lunas");
+
                       return (
                         <div
                           key={booking.id}
@@ -899,32 +991,76 @@ export default function CustomerDashboard() {
                             </div>
                           </div>
 
-                           {showInvoiceBtn && (
-                             <button
-                               onClick={() => window.open(`/invoice/${booking.transaction_id}`, "_blank")}
-                               style={{
-                                 background: booking.status === "pending" ? "#C9922A" : "white",
-                                 border: "1px solid #C9922A",
-                                 color: booking.status === "pending" ? "white" : "#C9922A",
-                                 padding: "8px 14px",
-                                 borderRadius: "6px",
-                                 fontSize: "0.78rem",
-                                 fontWeight: 600,
-                                 cursor: "pointer",
-                                 transition: "all 0.2s",
-                               }}
-                               onMouseEnter={(e) => {
-                                 e.currentTarget.style.background = booking.status === "pending" ? "#6B3A2A" : "#C9922A";
-                                 e.currentTarget.style.color = "white";
-                               }}
-                               onMouseLeave={(e) => {
-                                 e.currentTarget.style.background = booking.status === "pending" ? "#C9922A" : "white";
-                                 e.currentTarget.style.color = booking.status === "pending" ? "white" : "#C9922A";
-                               }}
-                             >
-                               {booking.status === "pending" ? "💳 Bayar" : "📄 Cetak Invoice"}
-                             </button>
-                           )}
+                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                             {showInvoiceBtn && (
+                               <button
+                                 onClick={() => window.open(`/invoice/${booking.transaction_id}`, "_blank")}
+                                 style={{
+                                   background: booking.status === "pending" ? "#C9922A" : "white",
+                                   border: "1px solid #C9922A",
+                                   color: booking.status === "pending" ? "white" : "#C9922A",
+                                   padding: "8px 14px",
+                                   borderRadius: "6px",
+                                   fontSize: "0.78rem",
+                                   fontWeight: 600,
+                                   cursor: "pointer",
+                                   transition: "all 0.2s",
+                                 }}
+                                 onMouseEnter={(e) => {
+                                   e.currentTarget.style.background = booking.status === "pending" ? "#6B3A2A" : "#C9922A";
+                                   e.currentTarget.style.color = "white";
+                                 }}
+                                 onMouseLeave={(e) => {
+                                   e.currentTarget.style.background = booking.status === "pending" ? "#C9922A" : "white";
+                                   e.currentTarget.style.color = booking.status === "pending" ? "white" : "#C9922A";
+                                 }}
+                               >
+                                 {booking.status === "pending" ? "💳 Bayar" : "📄 Cetak Invoice"}
+                               </button>
+                             )}
+
+                             {canCancelBooking && (
+                               <button
+                                 onClick={() => {
+                                   if (confirmingBookingCancelId === booking.id) {
+                                     handleCancelBooking(booking.id);
+                                   } else {
+                                     setConfirmingBookingCancelId(booking.id);
+                                   }
+                                 }}
+                                 disabled={cancellingBookingId === booking.id}
+                                 style={{
+                                   background: confirmingBookingCancelId === booking.id ? "#DC5050" : "transparent",
+                                   border: "1px solid #DC5050",
+                                   color: confirmingBookingCancelId === booking.id ? "white" : "#DC5050",
+                                   padding: "8px 14px",
+                                   borderRadius: "6px",
+                                   fontSize: "0.78rem",
+                                   fontWeight: 600,
+                                   cursor: "pointer",
+                                   transition: "all 0.2s",
+                                 }}
+                                 onMouseEnter={(e) => {
+                                   if (confirmingBookingCancelId !== booking.id) {
+                                     e.currentTarget.style.background = "#DC5050";
+                                     e.currentTarget.style.color = "white";
+                                   }
+                                 }}
+                                 onMouseLeave={(e) => {
+                                   if (confirmingBookingCancelId !== booking.id) {
+                                     e.currentTarget.style.background = "transparent";
+                                     e.currentTarget.style.color = "#DC5050";
+                                   }
+                                 }}
+                               >
+                                 {cancellingBookingId === booking.id 
+                                   ? "Memproses..." 
+                                   : confirmingBookingCancelId === booking.id 
+                                     ? "⚠️ Yakin Batal?" 
+                                     : "✕ Batalkan"}
+                               </button>
+                             )}
+                           </div>
                         </div>
                       );
                     })}
@@ -946,6 +1082,219 @@ export default function CustomerDashboard() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── Riwayat Sewa Baju ── */}
+        <div
+          style={{
+            background: "white",
+            border: "1px solid #EDD8CC",
+            borderRadius: "12px",
+            padding: "24px 28px",
+            marginBottom: "24px",
+            boxShadow: "0 2px 16px rgba(107,58,42,0.05)",
+          }}
+        >
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: "1.15rem",
+                fontWeight: 700,
+                color: "#6B3A2A",
+                margin: 0,
+              }}
+            >
+              Riwayat Sewa Baju
+            </h2>
+            <p style={{ fontSize: "0.78rem", color: "#8B6A5A", margin: "2px 0 0 0" }}>
+              Daftar penyewaan busana pesta dan baju pengantin Anda
+            </p>
+          </div>
+
+          {loadingRentals ? (
+            <div style={{ textAlign: "center", padding: "24px", color: "#8B6A5A", fontSize: "0.85rem" }}>
+              Memuat riwayat sewa baju...
+            </div>
+          ) : rentals.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "28px",
+                background: "#FAF6F4",
+                borderRadius: "8px",
+                fontSize: "0.82rem",
+                color: "#8B6A5A",
+                border: "1px dashed #EDD8CC",
+              }}
+            >
+              Anda belum pernah menyewa baju di salon kami.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {rentals.map((rental) => {
+                const sDate = new Date(rental.start_date);
+                const eDate = new Date(rental.end_date);
+                const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" };
+                const sDateStr = sDate.toLocaleDateString("id-ID", options);
+                const eDateStr = eDate.toLocaleDateString("id-ID", options);
+
+                // Status configuration
+                let statusLabel = rental.status;
+                let statusBg = "rgba(100,100,100,0.1)";
+                let statusColor = "#555";
+
+                if (rental.status === "pending") {
+                  statusLabel = "Menunggu";
+                  statusBg = "rgba(201,146,42,0.1)";
+                  statusColor = "#A07010";
+                } else if (rental.status === "ongoing") {
+                  statusLabel = "Sewa Aktif";
+                  statusBg = "rgba(42,140,90,0.1)";
+                  statusColor = "#1A7A4A";
+                } else if (rental.status === "terlambat") {
+                  statusLabel = "Terlambat";
+                  statusBg = "rgba(217,64,96,0.1)";
+                  statusColor = "#D94060";
+                } else if (rental.status === "done") {
+                  statusLabel = "Selesai";
+                  statusBg = "rgba(42,140,90,0.1)";
+                  statusColor = "#1A7A4A";
+                } else if (rental.status === "cancelled") {
+                  statusLabel = "Dibatalkan";
+                  statusBg = "rgba(122,92,80,0.1)";
+                  statusColor = "#7A5C50";
+                }
+
+                // Payment Status configuration
+                let payLabel = "Belum Lunas";
+                let payBg = "rgba(201,146,42,0.1)";
+                let payColor = "#A07010";
+                if (rental.payment_status === "lunas") {
+                  payLabel = "Lunas";
+                  payBg = "rgba(42,140,90,0.1)";
+                  payColor = "#1A7A4A";
+                }
+
+                const canCancelRental = rental.status === "pending" || (rental.status === "ongoing" && rental.payment_status !== "lunas");
+                const showInvoiceBtn = rental.transaction_id && rental.status !== "cancelled";
+
+                return (
+                  <div
+                    key={rental.id}
+                    style={{
+                      background: "#FAF6F4",
+                      border: "1px solid #EDD8CC",
+                      borderRadius: "8px",
+                      padding: "16px 20px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "16px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: "220px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "6px" }}>
+                        <span style={{ fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: "12px", background: statusBg, color: statusColor }}>
+                          {statusLabel}
+                        </span>
+                        <span style={{ fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: "12px", background: payBg, color: payColor }}>
+                          💳 {payLabel}
+                        </span>
+                        <span style={{ fontSize: "0.72rem", color: "#8B6A5A" }}>
+                          #{rental.id}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
+                        {rental.outfit_name}
+                      </div>
+                      <div style={{ fontSize: "0.76rem", color: "#8B6A5A", marginBottom: "2px" }}>
+                        Kategori: <strong style={{ color: "#6B3A2A" }}>{rental.category_name}</strong>
+                      </div>
+                      <div style={{ fontSize: "0.76rem", color: "#8B6A5A", marginBottom: "2px" }}>
+                        Durasi: <strong>{sDateStr} s/d {eDateStr}</strong> ({rental.duration_days} hari)
+                      </div>
+                      <div style={{ fontSize: "0.78rem", color: "#8B6A5A" }}>
+                        Total Biaya: <strong style={{ color: "#6B3A2A" }}>{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(rental.amount_to_be_paid))}</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      {showInvoiceBtn && (
+                        <button
+                          onClick={() => window.open(`/invoice/${rental.transaction_id}`, "_blank")}
+                          style={{
+                            background: rental.payment_status === "pending" ? "#C9922A" : "white",
+                            border: "1px solid #C9922A",
+                            color: rental.payment_status === "pending" ? "white" : "#C9922A",
+                            padding: "8px 14px",
+                            borderRadius: "6px",
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = rental.payment_status === "pending" ? "#6B3A2A" : "#C9922A";
+                            e.currentTarget.style.color = "white";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = rental.payment_status === "pending" ? "#C9922A" : "white";
+                            e.currentTarget.style.color = rental.payment_status === "pending" ? "white" : "#C9922A";
+                          }}
+                        >
+                          {rental.payment_status === "pending" ? "💳 Bayar" : "📄 Cetak Invoice"}
+                        </button>
+                      )}
+
+                      {canCancelRental && (
+                        <button
+                          onClick={() => {
+                            if (confirmingRentalCancelId === rental.id) {
+                              handleCancelRental(rental.id);
+                            } else {
+                              setConfirmingRentalCancelId(rental.id);
+                            }
+                          }}
+                          disabled={cancellingRentalId === rental.id}
+                          style={{
+                            background: confirmingRentalCancelId === rental.id ? "#DC5050" : "transparent",
+                            border: "1px solid #DC5050",
+                            color: confirmingRentalCancelId === rental.id ? "white" : "#DC5050",
+                            padding: "8px 14px",
+                            borderRadius: "6px",
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (confirmingRentalCancelId !== rental.id) {
+                              e.currentTarget.style.background = "#DC5050";
+                              e.currentTarget.style.color = "white";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (confirmingRentalCancelId !== rental.id) {
+                              e.currentTarget.style.background = "transparent";
+                              e.currentTarget.style.color = "#DC5050";
+                            }
+                          }}
+                        >
+                          {cancellingRentalId === rental.id 
+                            ? "Memproses..." 
+                            : confirmingRentalCancelId === rental.id 
+                              ? "⚠️ Yakin Batal?" 
+                              : "✕ Batalkan"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* ── Riwayat Virtual Try-On ── */}

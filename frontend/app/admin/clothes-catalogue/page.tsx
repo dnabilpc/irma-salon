@@ -87,8 +87,12 @@ function OutfitFormModal({
 
   async function handleSave() {
     if (!form.outfit_name.trim()) { setError("Nama baju wajib diisi."); return; }
+    if (form.outfit_name.trim().length > 50) { setError("Nama baju tidak boleh lebih dari 50 karakter."); return; }
     if (!form.outfit_category_id) { setError("Pilih kategori baju."); return; }
-    if (!form.price || isNaN(Number(form.price))) { setError("Harga tidak valid."); return; }
+    const parsedPrice = Number(form.price);
+    if (isNaN(parsedPrice) || parsedPrice <= 0) { setError("Harga harus berupa angka positif."); return; }
+    if (form.description && form.description.length > 255) { setError("Deskripsi tidak boleh lebih dari 255 karakter."); return; }
+    if (form.size && form.size.length > 10) { setError("Ukuran (size) tidak boleh lebih dari 10 karakter."); return; }
     setSaving(true); setError("");
     try { await onSave(form); }
     catch (err: unknown) { setError(err instanceof Error ? err.message : "Gagal menyimpan."); }
@@ -270,6 +274,16 @@ function CategoryFormModal({
 
   async function handleSave() {
     if (!form.category_name.trim()) { setError("Nama kategori wajib diisi."); return; }
+    if (form.category_name.trim().length > 50) { setError("Nama kategori tidak boleh lebih dari 50 karakter."); return; }
+    const nameRegex = /^[a-zA-Z0-9\s\-_]+$/;
+    if (!nameRegex.test(form.category_name.trim())) {
+      setError("Nama kategori hanya boleh mengandung huruf, angka, spasi, tanda hubung (-), atau garis bawah (_).");
+      return;
+    }
+    if (form.description && form.description.length > 255) {
+      setError("Deskripsi tidak boleh lebih dari 255 karakter.");
+      return;
+    }
     setSaving(true); setError("");
     try { await onSave(form); }
     catch (err: unknown) { setError(err instanceof Error ? err.message : "Gagal menyimpan."); }

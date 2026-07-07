@@ -37,16 +37,26 @@ export function initScheduler() {
         
         // 1. Expiration job
         try {
-            const res = await pool.query(`
+            const resBookings = await pool.query(`
                 UPDATE bookings 
                 SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
                 WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'
             `);
-            if (res.rowCount > 0) {
-                console.log(`[Scheduler] Auto-expired ${res.rowCount} pending bookings.`);
+            if (resBookings.rowCount > 0) {
+                console.log(`[Scheduler] Auto-expired ${resBookings.rowCount} pending bookings.`);
+            }
+
+            // Expire pending rentals that are past their start_date
+            const resRentals = await pool.query(`
+                UPDATE rentals
+                SET rental_status = 'cancelled'
+                WHERE rental_status = 'pending' AND start_date < CURRENT_DATE
+            `);
+            if (resRentals.rowCount > 0) {
+                console.log(`[Scheduler] Auto-expired ${resRentals.rowCount} pending rentals.`);
             }
         } catch (err) {
-            console.error('[Scheduler] Error running booking expiration job:', err);
+            console.error('[Scheduler] Error running expiration jobs:', err);
         }
 
         // 2. 3-hour reminders

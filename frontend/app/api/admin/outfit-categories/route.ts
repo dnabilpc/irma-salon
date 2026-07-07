@@ -39,8 +39,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { category_name, description } = body;
 
-    if (!category_name) {
+    if (!category_name?.trim()) {
       return NextResponse.json({ error: "Nama kategori tidak boleh kosong" }, { status: 400 });
+    }
+    if (category_name.trim().length > 50) {
+      return NextResponse.json({ error: "Nama kategori tidak boleh lebih dari 50 karakter" }, { status: 400 });
+    }
+    const nameRegex = /^[a-zA-Z0-9\s\-_]+$/;
+    if (!nameRegex.test(category_name.trim())) {
+      return NextResponse.json({ error: "Nama kategori hanya boleh mengandung huruf, angka, spasi, tanda hubung (-), atau garis bawah (_)" }, { status: 400 });
+    }
+    if (description && description.length > 255) {
+      return NextResponse.json({ error: "Deskripsi tidak boleh lebih dari 255 karakter" }, { status: 400 });
     }
 
     const result = await db.query(

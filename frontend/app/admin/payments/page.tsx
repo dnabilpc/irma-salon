@@ -78,6 +78,52 @@ export default function PaymentsPage() {
 
   return (
     <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+      <style>{`
+        @media print {
+          @page {
+            size: landscape;
+            margin: 10mm;
+          }
+          aside,
+          .admin-sidebar,
+          .sidebar-overlay,
+          header,
+          .admin-footer,
+          .no-print {
+            display: none !important;
+          }
+          .admin-content-wrapper {
+            margin-left: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+          }
+          main {
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+          .table-responsive-container {
+            overflow: visible !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            border: none !important;
+          }
+          .table-responsive-container > div {
+            min-width: 100% !important;
+            width: 100% !important;
+          }
+          .table-row {
+            page-break-inside: avoid !important;
+            background: white !important;
+            border-bottom: 1px solid #E8C0D0 !important;
+            color: black !important;
+          }
+          .admin-card {
+            border: 1px solid #E8C0D0 !important;
+            box-shadow: none !important;
+            background: white !important;
+          }
+        }
+      `}</style>
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -87,7 +133,7 @@ export default function PaymentsPage() {
           </h1>
           <p style={{ fontSize: "14px", color: "#B06080" }}>Pantau semua transaksi pembayaran</p>
         </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <div className="no-print" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <button className="btn-action" onClick={() => loadPayments()} disabled={loading}>
             🔄 Refresh
           </button>
@@ -111,7 +157,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* Filter + Search */}
-      <div className="admin-card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div className="admin-card no-print" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: "12px" }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#B08090", pointerEvents: "none" }}>🔍</span>
           <input className="search-input" placeholder="Cari nama pelanggan atau ID transaksi..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -208,7 +254,7 @@ export default function PaymentsPage() {
                     <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.date}</span>
                     <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.payment_time || "—"}</span>
                     <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{formatRupiah(Number(p.amount))}</span>
-                    <div onClick={(e) => e.stopPropagation()}>
+                    <div className="no-print" onClick={(e) => e.stopPropagation()}>
                       {p.status === "pending" ? (
                         <button
                           onClick={async () => {
@@ -252,6 +298,7 @@ export default function PaymentsPage() {
       {/* Modal detail */}
       {selected && (
         <div
+          className="no-print"
           style={{ position: "fixed", inset: 0, background: "rgba(90,20,40,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
           onClick={() => setSelected(null)}
         >

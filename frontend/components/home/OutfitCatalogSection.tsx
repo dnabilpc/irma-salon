@@ -190,50 +190,6 @@ function OutfitCard({ outfit }: { outfit: Outfit }) {
           </div>
         )}
 
-        {/* Badge Kategori */}
-        <div
-          style={{
-            position: "absolute",
-            top: "14px",
-            left: "14px",
-            background: "rgba(107,58,42,0.88)",
-            backdropFilter: "blur(4px)",
-            color: "white",
-            fontSize: "0.68rem",
-            fontWeight: 600,
-            padding: "4px 12px",
-            borderRadius: "8px",
-            letterSpacing: "0.05em",
-            fontFamily: "'DM Sans', sans-serif",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            zIndex: 1,
-          }}
-        >
-          {outfit.category_name}
-        </div>
-
-        {/* Try-On AI Badge */}
-        {outfit.model_2d_file_link && (
-          <div
-            style={{
-              position: "absolute",
-              top: "14px",
-              right: "14px",
-              background: "rgba(201,146,42,0.95)",
-              backdropFilter: "blur(4px)",
-              color: "white",
-              fontSize: "0.68rem",
-              fontWeight: 700,
-              padding: "4px 10px",
-              borderRadius: "8px",
-              letterSpacing: "0.05em",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              zIndex: 1,
-            }}
-          >
-            Try-On AI
-          </div>
-        )}
       </div>
 
       {/* Info Baju */}
@@ -244,11 +200,24 @@ function OutfitCard({ outfit }: { outfit: Outfit }) {
             fontSize: "1.1rem",
             fontWeight: 700,
             color: "#2C1A0E",
-            marginBottom: "8px",
+            marginBottom: "2px",
           }}
         >
           {outfit.outfit_name}
         </h3>
+        <div
+          style={{
+            fontSize: "0.62rem",
+            color: "#C4788A",
+            fontFamily: "'DM Sans', sans-serif",
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            marginBottom: "10px",
+          }}
+        >
+          {outfit.category_name}
+        </div>
         
         {outfit.description && (
           <p
