@@ -564,6 +564,7 @@ export default function SewaBajuPage() {
   const [qrisImageError, setQrisImageError] = useState(false);
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
+  const [transformOrigin, setTransformOrigin] = useState("center center");
 
   useEffect(() => {
     fetch("/api/outfits")
@@ -901,6 +902,7 @@ export default function SewaBajuPage() {
           onClick={() => {
             setZoomImageUrl(null);
             setZoomScale(1);
+            setTransformOrigin("center center");
           }}
           style={{
             position: "fixed",
@@ -932,15 +934,31 @@ export default function SewaBajuPage() {
             <img
               src={zoomImageUrl}
               alt="Preview baju diperbesar"
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                
+                if (zoomScale === 1) {
+                  setTransformOrigin(`${x}% ${y}%`);
+                  setZoomScale(2.5);
+                } else {
+                  setZoomScale(1);
+                  setTransformOrigin("center center");
+                }
+              }}
               style={{
                 maxHeight: "80vh",
                 maxWidth: "100%",
                 objectFit: "contain",
                 transform: `scale(${zoomScale})`,
-                transition: "transform 0.2s ease",
+                transformOrigin: transformOrigin,
+                transition: "transform 0.25s ease, transform-origin 0.25s ease",
                 borderRadius: "8px",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
                 userSelect: "none",
+                cursor: zoomScale === 1 ? "zoom-in" : "zoom-out",
               }}
             />
 
@@ -997,7 +1015,10 @@ export default function SewaBajuPage() {
                 ➖
               </button>
               <button
-                onClick={() => setZoomScale(1)}
+                onClick={() => {
+                  setZoomScale(1);
+                  setTransformOrigin("center center");
+                }}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -1018,6 +1039,7 @@ export default function SewaBajuPage() {
                 onClick={() => {
                   setZoomImageUrl(null);
                   setZoomScale(1);
+                  setTransformOrigin("center center");
                 }}
                 style={{
                   background: "transparent",
