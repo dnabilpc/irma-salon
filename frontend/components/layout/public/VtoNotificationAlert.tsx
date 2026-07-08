@@ -136,7 +136,19 @@ export default function VtoNotificationAlert() {
         ) : (
           <>
             Virtual Try-On untuk baju <strong>{activeTask.outfit_name || "yang dipilih"}</strong> gagal diproses.{" "}
-            <span style={{ fontSize: "0.75rem", opacity: 0.85 }}>({activeTask.error_message || "Kesalahan server"})</span>
+            <span style={{ fontSize: "0.75rem", opacity: 0.85 }}>
+              {(() => {
+                const raw = activeTask.error_message || "Kesalahan server";
+                const cleaned = raw
+                  .replace(/^Error:\s*/i, '')
+                  .replace(/^Prediction failed:\s*/i, '')
+                  .replace(/\{[\s\S]*?\}/g, '')
+                  .replace(/\\n/g, ' ')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                return `(${cleaned.length > 80 ? cleaned.slice(0, 77) + '...' : cleaned || "Kesalahan server"})`;
+              })()}
+            </span>
           </>
         )}
       </span>

@@ -39,22 +39,9 @@ export default function ImageUploader({
     };
   }, []);
 
-  // Handle image upload process
+  // Handle image upload process (now deferred until save/submit)
   const processImageUpload = async (base64Data: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await uploadAdminImage(base64Data, folder, filenamePrefix);
-      if (res.success && res.data?.imageUrl) {
-        onChange(res.data.imageUrl);
-      } else {
-        setError(res.error ?? "Gagal mengunggah gambar.");
-      }
-    } catch {
-      setError("Terjadi kesalahan koneksi saat mengunggah.");
-    } finally {
-      setLoading(false);
-    }
+    onChange(base64Data);
   };
 
   // Convert File object to base64, compress and upload

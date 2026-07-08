@@ -17,20 +17,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch the clothing image server-side where CORS is bypassed
-    const clothesResponse = await fetch(clothesUrl);
-    if (!clothesResponse.ok) {
-      return NextResponse.json(
-        { error: `Gagal mengunduh gambar baju: ${clothesResponse.statusText}` },
-        { status: 400 }
-      );
-    }
-    const clothesBlob = await clothesResponse.blob();
-
     // Create a new FormData to send to the backend
     const backendFormData = new FormData();
     backendFormData.append("person", personFile as Blob, (personFile as File).name || "person.jpg");
-    backendFormData.append("clothes", clothesBlob, "clothes.jpg");
+    backendFormData.append("clothesUrl", clothesUrl);
     // Always include outfitName so multer populates req.body.outfitName in the backend
     backendFormData.append("outfitName", outfitName);
 

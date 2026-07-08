@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import ImageUploader from "@/components/ui/ImageUploader";
+import { uploadAdminImage } from "@/actions/admin";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,15 @@ function ServiceFormModal({
     setSaving(true);
     setError("");
     try {
-      await onSave(form);
+      let finalImageUrl = form.image_url;
+      if (finalImageUrl && finalImageUrl.startsWith("data:image/")) {
+        const uploadRes = await uploadAdminImage(finalImageUrl, "services", "service-catalog");
+        if (!uploadRes.success || !uploadRes.data?.imageUrl) {
+          throw new Error(uploadRes.error || "Gagal mengunggah foto layanan.");
+        }
+        finalImageUrl = uploadRes.data.imageUrl;
+      }
+      await onSave({ ...form, image_url: finalImageUrl });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan.");
     } finally {

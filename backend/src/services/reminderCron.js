@@ -2,6 +2,7 @@
 import cron from 'node-cron';
 import pool from './db.js';
 import { sendWaMessage, getWhatsappStatus } from './whatsappService.js';
+import { deleteFromSupabaseStorage } from './storageService.js';
 
 export function initScheduler() {
     console.log('[Scheduler] Initializing cron jobs...');
@@ -29,6 +30,58 @@ export function initScheduler() {
     }, {
         scheduled: true,
         timezone: "Asia/Jakarta" // Set timezone to Jakarta
+    });
+
+    // Run daily at midnight to clean up VTO tasks and files older than 30 days
+    cron.schedule('0 0 * * *', async () => {
+        console.log('[Scheduler] Running daily VTO cleanup job...');
+        try {
+            // Find VTO tasks older than 30 days
+            const res = await pool.query(`
+                SELECT id, person_image_url, result_image_url 
+                FROM vto_tasks 
+                WHERE created_at < NOW() - INTERVAL '30 days'
+            `);
+
+            if (res.rows.length > 0) {
+                console.log(`[Scheduler] Found ${res.rows.length} VTO tasks older than 30 days for cleanup.`);
+                
+                const filePathsToDelete = [];
+                const bucketName = process.env.SUPABASE_BUCKET || 'irma-salon';
+                const marker = `/object/public/${bucketName}/`;
+
+                for (const row of res.rows) {
+                    // Extract person_image_url storage path
+                    if (row.person_image_url && row.person_image_url.includes(marker)) {
+                        const path = row.person_image_url.substring(row.person_image_url.indexOf(marker) + marker.length);
+                        filePathsToDelete.push(path);
+                    }
+                    // Extract result_image_url storage path
+                    if (row.result_image_url && row.result_image_url.includes(marker)) {
+                        const path = row.result_image_url.substring(row.result_image_url.indexOf(marker) + marker.length);
+                        filePathsToDelete.push(path);
+                    }
+                }
+
+                // Delete from Supabase Storage
+                if (filePathsToDelete.length > 0) {
+                    console.log(`[Scheduler] Deleting ${filePathsToDelete.length} VTO files from Supabase Storage...`);
+                    await deleteFromSupabaseStorage(filePathsToDelete);
+                }
+
+                // Delete the tasks from database
+                const deleteRes = await pool.query(`
+                    DELETE FROM vto_tasks 
+                    WHERE created_at < NOW() - INTERVAL '30 days'
+                `);
+                console.log(`[Scheduler] Deleted ${deleteRes.rowCount} VTO tasks from database.`);
+            }
+        } catch (err) {
+            console.error('[Scheduler] Error running VTO cleanup job:', err);
+        }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
     });
 
     // Run every hour to check 3-hour reminders and auto-expire pending bookings in the past

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ImageUploader from "@/components/ui/ImageUploader";
 import MultiImageUploader from "@/components/ui/MultiImageUploader";
+import { uploadAdminImage } from "@/actions/admin";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -94,7 +95,52 @@ function OutfitFormModal({
     if (form.description && form.description.length > 255) { setError("Deskripsi tidak boleh lebih dari 255 karakter."); return; }
     if (form.size && form.size.length > 10) { setError("Ukuran (size) tidak boleh lebih dari 10 karakter."); return; }
     setSaving(true); setError("");
-    try { await onSave(form); }
+    try {
+      // 1. Upload main display image if it's base64
+      let finalImageUrl = form.image_url;
+      if (finalImageUrl && finalImageUrl.startsWith("data:image/")) {
+        const uploadRes = await uploadAdminImage(finalImageUrl, "outfits", "outfit-catalog");
+        if (!uploadRes.success || !uploadRes.data?.imageUrl) {
+          throw new Error(uploadRes.error || "Gagal mengunggah foto display.");
+        }
+        finalImageUrl = uploadRes.data.imageUrl;
+      }
+
+      // 2. Upload additional gallery images if any of them are base64
+      let finalAdditionalUrls = form.additional_image_urls || [];
+      if (finalAdditionalUrls.length > 0) {
+        const uploadedAdditional: string[] = [];
+        for (const url of finalAdditionalUrls) {
+          if (url && url.startsWith("data:image/")) {
+            const uploadRes = await uploadAdminImage(url, "outfits", "outfit-gallery");
+            if (!uploadRes.success || !uploadRes.data?.imageUrl) {
+              throw new Error(uploadRes.error || "Gagal mengunggah salah satu foto galeri.");
+            }
+            uploadedAdditional.push(uploadRes.data.imageUrl);
+          } else {
+            uploadedAdditional.push(url);
+          }
+        }
+        finalAdditionalUrls = uploadedAdditional;
+      }
+
+      // 3. Upload VTO image if it's base64
+      let finalModel2dUrl = form.model_2d_file_link;
+      if (finalModel2dUrl && finalModel2dUrl.startsWith("data:image/")) {
+        const uploadRes = await uploadAdminImage(finalModel2dUrl, "vto", "outfit-vto");
+        if (!uploadRes.success || !uploadRes.data?.imageUrl) {
+          throw new Error(uploadRes.error || "Gagal mengunggah foto Virtual Try-On.");
+        }
+        finalModel2dUrl = uploadRes.data.imageUrl;
+      }
+
+      await onSave({
+        ...form,
+        image_url: finalImageUrl,
+        additional_image_urls: finalAdditionalUrls,
+        model_2d_file_link: finalModel2dUrl,
+      });
+    }
     catch (err: unknown) { setError(err instanceof Error ? err.message : "Gagal menyimpan."); }
     finally { setSaving(false); }
   }

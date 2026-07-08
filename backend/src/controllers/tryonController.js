@@ -230,6 +230,54 @@ FINAL OUTPUT REQUIREMENTS:
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Converts raw Replicate/AI API error messages into short, user-friendly messages.
+ * Raw errors often contain JSON blobs, HTTP status codes, and technical details
+ * that should never be shown directly to end users.
+ */
+function sanitizeReplicateError(rawError) {
+    const msg = (rawError instanceof Error ? rawError.message : String(rawError)) || '';
+
+    // 403 / Permission denied
+    if (msg.includes('403') || msg.includes('PERMISSION_DENIED') || msg.includes('Forbidden')) {
+        return 'Layanan AI sedang mengalami gangguan akses. Silakan coba lagi nanti.';
+    }
+    // 429 / Rate limited / Throttled
+    if (msg.includes('429') || msg.includes('rate limit') || msg.includes('throttle') || msg.includes('Too Many Requests')) {
+        return 'Terlalu banyak permintaan ke layanan AI. Silakan tunggu beberapa menit.';
+    }
+    // E9243 / Director / Infrastructure error
+    if (msg.includes('E9243') || msg.includes('Director:') || msg.includes('unexpected error handling prediction')) {
+        return 'Layanan AI mengalami gangguan sementara. Permintaan akan dicoba ulang otomatis.';
+    }
+    // 500 / 502 / 503 / 504 / Server error
+    if (msg.includes('502') || msg.includes('503') || msg.includes('504') || msg.includes('Bad Gateway') || msg.includes('Service Unavailable')) {
+        return 'Server AI tidak tersedia saat ini. Silakan coba lagi nanti.';
+    }
+    if (msg.includes('500') || msg.includes('Internal Server Error')) {
+        return 'Terjadi kesalahan pada server AI. Silakan coba lagi.';
+    }
+    // Timeout
+    if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('timed out')) {
+        return 'Permintaan ke layanan AI habis waktu. Silakan coba lagi.';
+    }
+    // NSFW / Content policy
+    if (msg.includes('NSFW') || msg.includes('nsfw') || msg.includes('content policy') || msg.includes('safety')) {
+        return 'Gambar tidak dapat diproses karena melanggar kebijakan konten.';
+    }
+    // Network error
+    if (msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND') || msg.includes('network')) {
+        return 'Gagal terhubung ke layanan AI. Periksa koneksi server.';
+    }
+    // Prediction failed (generic)
+    if (msg.includes('Prediction failed')) {
+        return 'Proses Virtual Try-On gagal. Silakan coba lagi dengan foto yang berbeda.';
+    }
+    // Fallback: trim to max 120 chars, strip JSON/newlines
+    const cleaned = msg.replace(/\{[\s\S]*?\}/g, '').replace(/\\n/g, ' ').replace(/\s+/g, ' ').trim();
+    return cleaned.length > 120 ? cleaned.slice(0, 117) + '...' : (cleaned || 'Terjadi kesalahan tidak diketahui.');
+}
+
 async function runReplicateWithRetry(model, options, maxRetries = 5) {
     let attempts = 0;
     while (attempts < maxRetries) {
@@ -310,14 +358,16 @@ export const handleVirtualTryOn = async (req, res) => {
             return res.status(401).json({ error: 'Unauthorized: Hubungkan user session Anda.' });
         }
 
+        const clothesUrlParam = req.body?.clothesUrl;
+
         // 2. Check files (done early so we can detect bad requests before quota)
-        if (!req.files || !req.files['person'] || !req.files['clothes']) {
-            return res.status(400).json({ error: 'Missing required files: person and clothes' });
+        if (!req.files || !req.files['person'] || (!req.files['clothes'] && !clothesUrlParam)) {
+            return res.status(400).json({ error: 'Missing required inputs: person selfie and either clothes file or clothesUrl' });
         }
 
         const personFile = req.files['person'][0];
-        const clothesFile = req.files['clothes'][0];
-        const outfitName = req.body?.outfit_name || req.body?.outfitName || '';
+        const clothesFile = req.files['clothes'] ? req.files['clothes'][0] : null;
+        const outfitName = req.body?.outfitName || 'Katalog Baju';
 
         // Mock mode bypass — must run BEFORE quota check.
         // Mock requests don't consume Replicate credits and don't increment vto_usage,
@@ -327,7 +377,7 @@ export const handleVirtualTryOn = async (req, res) => {
                 INSERT INTO vto_tasks (user_id, person_image_url, clothes_image_url, status, result_image_url, garment_description, outfit_name)
                 VALUES ($1, $2, $3, 'completed', 'https://example.com/mock-output-image.jpg', 'MOCK: GARMENT TYPE: dress\nCOLOR: red\nDETAILS: lace trim', $4)
                 RETURNING id
-            `, [userId, 'https://example.com/mock-person.jpg', 'https://example.com/mock-clothes.jpg', outfitName]);
+            `, [userId, 'https://example.com/mock-person.jpg', clothesUrlParam || 'https://example.com/mock-clothes.jpg', outfitName]);
 
             return res.status(202).json({
                 success: true,
@@ -341,7 +391,7 @@ export const handleVirtualTryOn = async (req, res) => {
             return res.status(429).json({ error: 'Kuota Virtual Try-On Anda telah habis.' });
         }
 
-        console.log(`[VTO Queue] Creating task for user ${userId}: Person (${personFile.originalname}), Clothes (${clothesFile.originalname}), Outfit (${outfitName})`);
+        console.log(`[VTO Queue] Creating task for user ${userId}: Person (${personFile.originalname}), Clothes (${clothesFile ? clothesFile.originalname : 'Using Catalog Link'}), Outfit (${outfitName})`);
 
         // Convert person buffer to Base64 and upload to Supabase Storage
         const personBase64 = bufferToDataUri(personFile.buffer, personFile.originalname);
@@ -351,12 +401,19 @@ export const handleVirtualTryOn = async (req, res) => {
             return res.status(500).json({ error: 'Gagal mengunggah foto selfie ke database storage.' });
         }
 
-        // Convert clothes buffer to Base64 and upload to Supabase Storage
-        const clothesBase64 = bufferToDataUri(clothesFile.buffer, clothesFile.originalname);
-        const clothesUrl = await uploadToSupabaseStorage(clothesBase64, 'vto', `clothes-${userId}`);
+        let clothesUrl = clothesUrlParam;
+        if (!clothesUrl && clothesFile) {
+            // Convert clothes buffer to Base64 and upload to Supabase Storage
+            const clothesBase64 = bufferToDataUri(clothesFile.buffer, clothesFile.originalname);
+            clothesUrl = await uploadToSupabaseStorage(clothesBase64, 'vto', `clothes-${userId}`);
+
+            if (!clothesUrl) {
+                return res.status(500).json({ error: 'Gagal mengunggah foto baju ke database storage.' });
+            }
+        }
 
         if (!clothesUrl) {
-            return res.status(500).json({ error: 'Gagal mengunggah foto baju ke database storage.' });
+            return res.status(400).json({ error: 'Gagal menentukan gambar baju yang ingin dicoba.' });
         }
 
         // 3. Create 'pending' task in database
@@ -509,6 +566,29 @@ export async function processNextVtoTask() {
         console.log(`[VTO Worker - Task #${task.id}] Step 3: Generating VTO image with model ${modelName}...`);
         const output = await runReplicateWithRetry(modelName, { input: inputPayload });
         const finalImageUrl = Array.isArray(output) ? output[0] : output;
+
+        // Download output image and upload to Supabase Storage for permanent hosting
+        let supabaseOutputUrl = finalImageUrl;
+        try {
+            console.log(`[VTO Worker - Task #${task.id}] Downloading VTO output from Replicate...`);
+            const imageRes = await fetch(finalImageUrl);
+            if (!imageRes.ok) {
+                throw new Error(`Failed to download output image: ${imageRes.statusText}`);
+            }
+            const imageBuffer = Buffer.from(await imageRes.arrayBuffer());
+            const contentType = imageRes.headers.get("content-type") || "image/jpeg";
+            const resultBase64 = `data:${contentType};base64,${imageBuffer.toString('base64')}`;
+
+            console.log(`[VTO Worker - Task #${task.id}] Uploading VTO output to Supabase Storage...`);
+            const uploadedUrl = await uploadToSupabaseStorage(resultBase64, 'vto', `output-${task.user_id}`);
+            if (uploadedUrl) {
+                supabaseOutputUrl = uploadedUrl;
+            } else {
+                console.warn(`[VTO Worker - Task #${task.id}] Supabase upload returned null. Falling back to Replicate URL.`);
+            }
+        } catch (uploadErr) {
+            console.error(`[VTO Worker - Task #${task.id}] Failed to save output to Supabase:`, uploadErr);
+        }
         
         // Mark task as completed
         await pool.query(`
@@ -518,7 +598,7 @@ export async function processNextVtoTask() {
                 garment_description = $2, 
                 updated_at = NOW() 
             WHERE id = $3
-        `, [finalImageUrl, garmentDescription, task.id]);
+        `, [supabaseOutputUrl, garmentDescription, task.id]);
 
         // Increment VTO usage for user on successful VTO complete
         await pool.query(`
@@ -529,6 +609,8 @@ export async function processNextVtoTask() {
         
     } catch (taskErr) {
         const errMsg = taskErr.message || 'Unknown error';
+        // Sanitize for DB/user display; keep raw for server logs
+        const userErrMsg = sanitizeReplicateError(taskErr);
         console.error(`[VTO Worker] Error processing task ID #${task.id}:`, errMsg);
 
         // Determine if this is a transient infrastructure error that should be retried
@@ -557,7 +639,7 @@ export async function processNextVtoTask() {
                         error_message = $1,
                         updated_at = NOW() 
                     WHERE id = $2
-                `, [`[Percobaan ${currentAttempts + 1}/${MAX_TASK_ATTEMPTS}] ${errMsg}`, task.id]);
+                `, [userErrMsg, task.id]);
                 console.warn(`[VTO Worker] Task #${task.id} requeued (attempt ${currentAttempts + 1}/${MAX_TASK_ATTEMPTS}) due to transient error: ${errMsg.slice(0, 80)}`);
             } else {
                 // Max retries exhausted — permanently fail
@@ -567,7 +649,7 @@ export async function processNextVtoTask() {
                         error_message = $1, 
                         updated_at = NOW() 
                     WHERE id = $2
-                `, [`[Gagal setelah ${MAX_TASK_ATTEMPTS} percobaan] ${errMsg}`, task.id]);
+                `, [`Gagal setelah ${MAX_TASK_ATTEMPTS} percobaan: ${userErrMsg}`, task.id]);
                 console.error(`[VTO Worker] Task #${task.id} permanently failed after ${MAX_TASK_ATTEMPTS} attempts.`);
             }
         } else {
@@ -578,7 +660,7 @@ export async function processNextVtoTask() {
                     error_message = $1, 
                     updated_at = NOW() 
                 WHERE id = $2
-            `, [errMsg, task.id]);
+            `, [userErrMsg, task.id]);
         }
     } finally {
         isWorkerBusy = false;

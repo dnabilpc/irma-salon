@@ -138,6 +138,109 @@ function QuickActionCard({ action }: { action: QuickAction }) {
   );
 }
 
+function VtoResultDisplay({ task }: { task: any }) {
+  const [isExpired, setIsExpired] = useState(false);
+
+  if (isExpired) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div 
+          style={{ 
+            width: "60px", 
+            height: "80px", 
+            borderRadius: "6px", 
+            background: "#FAF4F0",
+            border: "1.5px solid #E5C3B2", 
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "2px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+            padding: "4px"
+          }}
+          title="Tautan gambar dari Replicate telah kedaluwarsa (berlaku 24 jam)"
+        >
+          <span style={{ fontSize: "1.1rem" }}>🕒</span>
+          <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "#A87C66", letterSpacing: "0.02em", textTransform: "uppercase" }}>Expired</span>
+        </div>
+        <button
+          disabled
+          style={{
+            background: "#D3C2BA",
+            border: "none",
+            color: "white",
+            padding: "8px 12px",
+            borderRadius: "6px",
+            fontSize: "0.78rem",
+            fontWeight: 600,
+            cursor: "not-allowed",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px"
+          }}
+        >
+          Expired
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      <div 
+        style={{ 
+          width: "60px", 
+          height: "80px", 
+          borderRadius: "6px", 
+          overflow: "hidden", 
+          border: "1.5px solid #C9922A", 
+          boxShadow: "0 4px 12px rgba(201,146,42,0.15)",
+          position: "relative",
+          cursor: "pointer"
+        }}
+        onClick={() => window.open(task.result_image_url, "_blank")}
+        title="Klik untuk memperbesar"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img 
+          src={task.result_image_url} 
+          alt="Hasil VTO" 
+          onError={() => setIsExpired(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+        />
+      </div>
+      <button
+        onClick={() => {
+          const link = document.createElement("a");
+          link.href = task.result_image_url;
+          link.download = `vto-${(task.outfit_name || "outfit").replace(/\s+/g, "-").toLowerCase()}.jpg`;
+          link.target = "_blank";
+          link.click();
+        }}
+        style={{
+          background: "#C9922A",
+          border: "none",
+          color: "white",
+          padding: "8px 12px",
+          borderRadius: "6px",
+          fontSize: "0.78rem",
+          fontWeight: 600,
+          cursor: "pointer",
+          transition: "background 0.2s",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "4px"
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "#6B3A2A")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "#C9922A")}
+      >
+        ⬇ Unduh
+      </button>
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function CustomerDashboard() {
@@ -1447,7 +1550,17 @@ export default function CustomerDashboard() {
                       </h3>
                       {isFailed && task.error_message && (
                         <p style={{ margin: 0, fontSize: "0.72rem", color: "#D94060", fontFamily: "'DM Sans', sans-serif" }}>
-                          Error: {task.error_message}
+                          {(() => {
+                            // Strip raw technical prefixes (e.g. old DB entries before sanitization was added)
+                            let msg = task.error_message
+                              .replace(/^Error:\s*/i, '')
+                              .replace(/^Prediction failed:\s*/i, '')
+                              .replace(/\{[\s\S]*?\}/g, '')   // strip JSON blobs
+                              .replace(/\\n/g, ' ')
+                              .replace(/\s+/g, ' ')
+                              .trim();
+                            return msg.length > 100 ? msg.slice(0, 97) + '...' : msg || 'Terjadi kesalahan.';
+                          })()}
                         </p>
                       )}
                     </div>
@@ -1455,52 +1568,7 @@ export default function CustomerDashboard() {
                     {/* Right side: VTO Result output or download action */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, marginLeft: "auto" }}>
                       {isCompleted && task.result_image_url ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <div 
-                            style={{ 
-                              width: "60px", 
-                              height: "80px", 
-                              borderRadius: "6px", 
-                              overflow: "hidden", 
-                              border: "1.5px solid #C9922A", 
-                              boxShadow: "0 4px 12px rgba(201,146,42,0.15)",
-                              position: "relative",
-                              cursor: "pointer"
-                            }}
-                            onClick={() => window.open(task.result_image_url, "_blank")}
-                            title="Klik untuk memperbesar"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={task.result_image_url} alt="Hasil VTO" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          </div>
-                          <button
-                            onClick={() => {
-                              const link = document.createElement("a");
-                              link.href = task.result_image_url;
-                              link.download = `vto-${(task.outfit_name || "outfit").replace(/\s+/g, "-").toLowerCase()}.jpg`;
-                              link.target = "_blank";
-                              link.click();
-                            }}
-                            style={{
-                              background: "#C9922A",
-                              border: "none",
-                              color: "white",
-                              padding: "8px 12px",
-                              borderRadius: "6px",
-                              fontSize: "0.78rem",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              transition: "background 0.2s",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px"
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#6B3A2A")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "#C9922A")}
-                          >
-                            ⬇ Unduh
-                          </button>
-                        </div>
+                        <VtoResultDisplay task={task} />
                       ) : (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "60px", height: "80px", borderRadius: "6px", border: "1px dashed #EDD8CC", background: "rgba(255,255,255,0.4)" }}>
                           <span style={{ fontSize: "1.2rem", opacity: 0.3 }}>

@@ -67,11 +67,8 @@ export default function MultiImageUploader({
       return;
     }
 
-    setUploadingCount(validFiles.length);
+    const localUrls: string[] = [];
 
-    const uploadedUrls: string[] = [];
-
-    // Process consecutively to prevent rate-limit spikes on serverless functions
     for (const file of validFiles) {
       let base64 = "";
       try {
@@ -85,18 +82,11 @@ export default function MultiImageUploader({
           reader.onloadend = () => resolve(reader.result as string);
         });
       }
-
-      const url = await handleUploadSingleBase64(base64);
-      if (url) {
-        uploadedUrls.push(url);
-      }
-      setUploadingCount((c) => Math.max(0, c - 1));
+      localUrls.push(base64);
     }
 
-    if (uploadedUrls.length > 0) {
-      onChange([...value, ...uploadedUrls]);
-    } else {
-      setError("Gagal mengunggah gambar-gambar.");
+    if (localUrls.length > 0) {
+      onChange([...value, ...localUrls]);
     }
   };
 
@@ -167,14 +157,7 @@ export default function MultiImageUploader({
         const base64Data = canvas.toDataURL("image/jpeg");
         stopCamera();
         
-        setUploadingCount(1);
-        const url = await handleUploadSingleBase64(base64Data);
-        if (url) {
-          onChange([...value, url]);
-        } else {
-          setError("Gagal mengunggah foto kamera.");
-        }
-        setUploadingCount(0);
+        onChange([...value, base64Data]);
       }
     }
   };

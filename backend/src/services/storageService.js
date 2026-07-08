@@ -62,3 +62,44 @@ export async function uploadToSupabaseStorage(base64Str, folder, filenamePrefix)
         return null;
     }
 }
+
+/**
+ * Deletes files from Supabase Storage.
+ * @param {string[]} filePaths - Array of file paths within the bucket (e.g. ['vto/file.jpg'])
+ * @returns {Promise<boolean>} True if successful, false otherwise
+ */
+export async function deleteFromSupabaseStorage(filePaths) {
+    if (!filePaths || !filePaths.length) return false;
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const bucketName = encodeURIComponent(process.env.SUPABASE_BUCKET || 'irma-salon');
+
+    if (!supabaseUrl || !supabaseKey) {
+        console.error('[Supabase Storage] Missing credentials for deletion.');
+        return false;
+    }
+
+    try {
+        const deleteUrl = `${supabaseUrl}/storage/v1/object/${bucketName}`;
+        const response = await fetch(deleteUrl, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ prefixes: filePaths })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Supabase delete failed: ${response.statusText} (${errText})`);
+        }
+
+        console.log(`[Supabase Storage] Successfully deleted ${filePaths.length} objects.`);
+        return true;
+    } catch (error) {
+        console.error('[Supabase Storage] Delete error:', error);
+        return false;
+    }
+}
