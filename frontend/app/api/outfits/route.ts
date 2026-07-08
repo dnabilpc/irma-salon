@@ -14,6 +14,7 @@ export async function GET() {
                 cat.category_name
          FROM outfit_catalogues oc
          JOIN outfit_categories cat ON cat.id = oc.outfit_category_id
+         WHERE oc.is_active = true
          ORDER BY cat.category_name, oc.outfit_name ASC`
       ),
       db.query(

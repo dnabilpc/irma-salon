@@ -9,6 +9,7 @@ export async function GET() {
     const result = await db.query(
       `SELECT id, service_name, price, hour_duration, image_url
        FROM salon_services
+       WHERE is_active = true
        ORDER BY service_name`
     );
     return NextResponse.json(result.rows);

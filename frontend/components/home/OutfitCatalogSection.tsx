@@ -333,6 +333,7 @@ function OutfitCard({ outfit }: { outfit: Outfit }) {
 export default function OutfitCatalogSection() {
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Carousel states
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -353,6 +354,7 @@ export default function OutfitCatalogSection() {
   useEffect(() => {
     const handleResize = () => {
       const w = window.innerWidth;
+      setIsMobile(w < 768);
       if (w >= 1024) {
         setCardsToShow(4);
       } else if (w >= 768) {
@@ -453,18 +455,39 @@ export default function OutfitCatalogSection() {
           /* Carousel Wrapper */
           <div 
             style={{ position: "relative", marginBottom: "50px", padding: "0 10px" }}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
+            onTouchStart={isMobile ? undefined : handleTouchStart}
+            onTouchMove={isMobile ? undefined : handleTouchMove}
           >
+            {/* Style to hide webkit scrollbars */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              .hide-scrollbar::-webkit-scrollbar {
+                display: none;
+              }
+            `}} />
+
             {/* Viewport Container */}
-            <div style={{ overflow: "hidden", margin: "0 -12px", padding: "10px 0" }}>
+            <div 
+              className="hide-scrollbar"
+              style={{ 
+                overflowX: isMobile ? "auto" : "hidden", 
+                margin: "0 -12px", 
+                padding: "10px 0",
+                scrollSnapType: isMobile ? "x mandatory" : "none",
+                scrollBehavior: "smooth",
+                WebkitOverflowScrolling: "touch",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
               {/* Slider Track */}
               <div
                 style={{
                   display: "flex",
-                  transform: `translateX(-${currentIndex * (100 / cardsToShow)}%)`,
-                  transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-                  width: `calc(100% * ${featuredOutfits.length} / ${cardsToShow})`,
+                  transform: isMobile ? "none" : `translateX(-${currentIndex * (100 / cardsToShow)}%)`,
+                  transition: isMobile ? "none" : "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                  width: isMobile ? "auto" : `calc(100% * ${featuredOutfits.length} / ${cardsToShow})`,
+                  gap: isMobile ? "16px" : "0",
+                  padding: isMobile ? "0 24px" : "0",
                 }}
               >
                 {featuredOutfits.map((outfit) => (
@@ -472,9 +495,11 @@ export default function OutfitCatalogSection() {
                   <div
                     key={outfit.id}
                     style={{
-                      flex: `0 0 calc(100% / ${featuredOutfits.length})`,
-                      padding: "0 12px",
+                      flex: isMobile ? "0 0 78vw" : `0 0 calc(100% / ${featuredOutfits.length})`,
+                      maxWidth: isMobile ? "320px" : "none",
+                      padding: isMobile ? "0" : "0 12px",
                       boxSizing: "border-box",
+                      scrollSnapAlign: isMobile ? "center" : "none",
                     }}
                   >
                     <OutfitCard outfit={outfit} />
@@ -483,8 +508,8 @@ export default function OutfitCatalogSection() {
               </div>
             </div>
 
-            {/* Navigation Arrows (Only show if total outfits exceed visible capacity) */}
-            {featuredOutfits.length > cardsToShow && (
+            {/* Navigation Arrows (Only show on Desktop if total outfits exceed visible capacity) */}
+            {!isMobile && featuredOutfits.length > cardsToShow && (
               <>
                 {/* Prev Button */}
                 <button
@@ -567,7 +592,7 @@ export default function OutfitCatalogSection() {
             )}
 
             {/* Carousel Dots Indicators */}
-            {featuredOutfits.length > cardsToShow && (
+            {!isMobile && featuredOutfits.length > cardsToShow && (
               <div
                 style={{
                   display: "flex",

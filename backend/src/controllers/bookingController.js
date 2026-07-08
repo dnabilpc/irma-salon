@@ -199,6 +199,7 @@ export async function getSalonServices(req, res) {
         const result = await pool.query(
             `SELECT id, service_name, price, hour_duration, image_url, is_price_variable
              FROM salon_services
+             WHERE is_active = true
              ORDER BY service_name`
         );
         res.json(result.rows);

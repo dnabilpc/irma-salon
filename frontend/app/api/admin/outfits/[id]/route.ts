@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (isNaN(outfitId)) return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
 
     const body = await req.json();
-    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link } = body;
+    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, is_active } = body;
 
     if (!outfit_category_id || !outfit_name || !price) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -62,8 +62,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
            size               = $5,
            image_url          = $6,
            additional_image_urls = $7,
-           model_2d_file_link = $8
-       WHERE id = $9
+           model_2d_file_link = $8,
+           is_active          = COALESCE($9, is_active)
+       WHERE id = $10
        RETURNING *`,
       [
         outfit_category_id,
@@ -74,6 +75,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         image_url || null,
         additional_image_urls || [],
         model_2d_file_link || null,
+        is_active === undefined ? null : !!is_active,
         outfitId,
       ]
     );
@@ -107,10 +109,13 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       [outfitId]
     );
     if (parseInt(inUse.rows[0].count) > 0) {
-      return NextResponse.json(
-        { error: "Baju tidak dapat dihapus karena sudah memiliki riwayat sewa." },
-        { status: 409 }
-      );
+      await db.query(`UPDATE outfit_catalogues SET is_active = false WHERE id = $1`, [outfitId]);
+      revalidatePath("/admin/clothes-catalogue");
+      return NextResponse.json({
+        success: true,
+        deactivated: true,
+        message: "Baju dinonaktifkan karena sudah memiliki riwayat sewa."
+      });
     }
 
     await db.query(`DELETE FROM outfit_catalogues WHERE id = $1`, [outfitId]);

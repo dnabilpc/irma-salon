@@ -25,11 +25,11 @@ export async function GET() {
       db.query(
         `SELECT oc.id, oc.outfit_name, oc.description, oc.price, oc.size,
                 oc.image_url, oc.additional_image_urls, oc.model_2d_file_link,
-                oc.outfit_category_id,
+                oc.outfit_category_id, oc.is_active,
                 cat.category_name
          FROM outfit_catalogues oc
          JOIN outfit_categories cat ON cat.id = oc.outfit_category_id
-         ORDER BY cat.category_name, oc.outfit_name ASC`
+         ORDER BY oc.is_active DESC, cat.category_name, oc.outfit_name ASC`
       ),
       db.query(
         `SELECT id, category_name, description

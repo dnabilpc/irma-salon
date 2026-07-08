@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (isNaN(serviceId)) return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
 
     const body = await req.json();
-    const { service_name, price, hour_duration, image_url, is_price_variable } = body;
+    const { service_name, price, hour_duration, image_url, is_price_variable, is_active } = body;
 
     if (!service_name?.trim() || price === undefined || hour_duration === undefined) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -50,10 +50,19 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     const result = await db.query(
       `UPDATE salon_services
-       SET service_name = $1, price = $2, hour_duration = $3, image_url = $4, is_price_variable = $5
-       WHERE id = $6
+       SET service_name = $1, price = $2, hour_duration = $3, image_url = $4, is_price_variable = $5,
+           is_active = COALESCE($6, is_active)
+       WHERE id = $7
        RETURNING *`,
-      [service_name.trim(), price, hour_duration, image_url || null, !!is_price_variable, serviceId]
+      [
+        service_name.trim(),
+        price,
+        hour_duration,
+        image_url || null,
+        !!is_price_variable,
+        is_active === undefined ? null : !!is_active,
+        serviceId
+      ]
     );
 
     if (!result.rows.length) {
@@ -86,10 +95,14 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       [serviceId]
     );
     if (parseInt(inUse.rows[0].count) > 0) {
-      return NextResponse.json(
-        { error: "Layanan tidak dapat dihapus karena sudah memiliki riwayat booking." },
-        { status: 409 }
-      );
+      await db.query(`UPDATE salon_services SET is_active = false WHERE id = $1`, [serviceId]);
+      revalidatePath("/admin/services-catalogue");
+      revalidatePath("/booking");
+      return NextResponse.json({
+        success: true,
+        deactivated: true,
+        message: "Layanan dinonaktifkan karena sudah memiliki riwayat booking."
+      });
     }
 
     await db.query(`DELETE FROM salon_services WHERE id = $1`, [serviceId]);

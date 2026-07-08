@@ -25,6 +25,7 @@ interface Outfit {
   model_2d_file_link: string | null; // digunakan sebagai vto_image_url
   outfit_category_id: number;
   category_name: string;
+  is_active?: boolean;
 }
 
 type FormMode = "create" | "edit";
@@ -580,6 +581,32 @@ export default function ClothesCataloguePage() {
     showToast(catFormMode === "create" ? "Kategori berhasil ditambahkan!" : "Kategori berhasil diperbarui!", true);
   }
 
+  async function handleReactivateOutfit(outfit: Outfit) {
+    try {
+      const res = await fetch(`/api/admin/outfits/${outfit.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outfit_category_id: String(outfit.outfit_category_id),
+          outfit_name: outfit.outfit_name,
+          description: outfit.description || "",
+          price: String(outfit.price),
+          size: outfit.size || "",
+          image_url: outfit.image_url || "",
+          additional_image_urls: outfit.additional_image_urls || [],
+          model_2d_file_link: outfit.model_2d_file_link || "",
+          is_active: true
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Gagal mengaktifkan kembali.");
+      await fetchData();
+      showToast("Baju berhasil diaktifkan kembali!", true);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Gagal mengaktifkan kembali.", false);
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     setDeleteLoading(true);
@@ -592,7 +619,11 @@ export default function ClothesCataloguePage() {
       if (!res.ok) throw new Error(data.error);
       await fetchData();
       setDeleteTarget(null);
-      showToast("Data berhasil dihapus.", true);
+      if (data.deactivated) {
+        showToast("Baju dinonaktifkan karena sudah memiliki riwayat sewa.", true);
+      } else {
+        showToast("Data berhasil dihapus.", true);
+      }
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : "Gagal menghapus.", false);
       setDeleteTarget(null);
@@ -700,9 +731,26 @@ export default function ClothesCataloguePage() {
               {filteredOutfits.map((o) => (
                 <div
                   key={o.id}
-                  style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 4px rgba(196,120,138,0.06)", transition: "all 0.2s" }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(196,120,138,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "#E8C0D0"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(196,120,138,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = "#F0E0E6"; }}
+                  style={{
+                    background: "white",
+                    border: "1px solid #F0E0E6",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    boxShadow: "0 1px 4px rgba(196,120,138,0.06)",
+                    transition: "all 0.2s",
+                    opacity: o.is_active === false ? 0.75 : 1,
+                    filter: o.is_active === false ? "grayscale(30%)" : "none"
+                  }}
+                  onMouseEnter={(e) => {
+                    if (o.is_active !== false) {
+                      (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(196,120,138,0.12)";
+                      (e.currentTarget as HTMLElement).style.borderColor = "#E8C0D0";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(196,120,138,0.06)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "#F0E0E6";
+                  }}
                 >
                   {/* Gambar */}
                   <div style={{ height: "180px", background: "linear-gradient(135deg, #FDF0F4, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
@@ -711,6 +759,12 @@ export default function ClothesCataloguePage() {
                       <img src={o.image_url} alt={o.outfit_name} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     ) : (
                       <span style={{ fontSize: "3rem" }}>👗</span>
+                    )}
+                    {/* Status Badge Non-aktif */}
+                    {o.is_active === false && (
+                      <div style={{ position: "absolute", top: "8px", left: "8px", background: "#8E7A80", color: "white", fontSize: "0.58rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                        Non-aktif
+                      </div>
                     )}
                     {/* Badge VTO */}
                     {o.model_2d_file_link ? (
@@ -756,14 +810,25 @@ export default function ClothesCataloguePage() {
                       >
                         ✏️ Edit
                       </button>
-                      <button
-                        onClick={() => setDeleteTarget({ id: o.id, name: o.outfit_name, type: "outfit" })}
-                        style={{ flex: 1, background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", color: "#C05060", padding: "7px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.12)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.06)")}
-                      >
-                        🗑️ Hapus
-                      </button>
+                      {o.is_active === false ? (
+                        <button
+                          onClick={() => handleReactivateOutfit(o)}
+                          style={{ flex: 1, background: "rgba(90,158,122,0.08)", border: "1px solid rgba(90,158,122,0.25)", color: "#3D7A5A", padding: "7px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(90,158,122,0.15)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(90,158,122,0.08)")}
+                        >
+                          ✓ Aktifkan
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteTarget({ id: o.id, name: o.outfit_name, type: "outfit" })}
+                          style={{ flex: 1, background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", color: "#C05060", padding: "7px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.12)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.06)")}
+                        >
+                          🗑️ Hapus
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -13,6 +13,7 @@ interface SalonService {
   hour_duration: number;
   image_url: string | null;
   is_price_variable: boolean;
+  is_active?: boolean;
 }
 
 type FormMode = "create" | "edit";
@@ -321,6 +322,29 @@ export default function ServicesCataloguePage() {
     showToast(formMode === "create" ? "Layanan berhasil ditambahkan!" : "Layanan berhasil diperbarui!", true);
   }
 
+  async function handleReactivate(service: SalonService) {
+    try {
+      const res = await fetch(`/api/admin/services/${service.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_name: service.service_name,
+          price: String(service.price),
+          hour_duration: String(service.hour_duration),
+          image_url: service.image_url || "",
+          is_price_variable: service.is_price_variable,
+          is_active: true
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setServices((prev) => prev.map((s) => s.id === service.id ? { ...s, is_active: true } : s));
+      showToast("Layanan berhasil diaktifkan kembali!", true);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Gagal mengaktifkan kembali.", false);
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     setDeleteLoading(true);
@@ -328,9 +352,14 @@ export default function ServicesCataloguePage() {
       const res  = await fetch(`/api/admin/services/${deleteTarget.id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      if (data.deactivated) {
+        setServices((prev) => prev.map((s) => s.id === deleteTarget.id ? { ...s, is_active: false } : s));
+        showToast("Layanan dinonaktifkan karena sudah memiliki riwayat booking.", true);
+      } else {
+        setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+        showToast("Layanan berhasil dihapus.", true);
+      }
       setDeleteTarget(null);
-      showToast("Layanan berhasil dihapus.", true);
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : "Gagal menghapus.", false);
       setDeleteTarget(null);
@@ -399,17 +428,39 @@ export default function ServicesCataloguePage() {
           {filtered.map((s) => (
             <div
               key={s.id}
-              style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 4px rgba(196,120,138,0.06)", transition: "all 0.2s" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(196,120,138,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "#E8C0D0"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(196,120,138,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = "#F0E0E6"; }}
+              style={{
+                background: "white",
+                border: "1px solid #F0E0E6",
+                borderRadius: "12px",
+                overflow: "hidden",
+                boxShadow: "0 1px 4px rgba(196,120,138,0.06)",
+                transition: "all 0.2s",
+                opacity: s.is_active === false ? 0.75 : 1,
+                filter: s.is_active === false ? "grayscale(30%)" : "none"
+              }}
+              onMouseEnter={(e) => {
+                if (s.is_active !== false) {
+                  (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(196,120,138,0.12)";
+                  (e.currentTarget as HTMLElement).style.borderColor = "#E8C0D0";
+                }
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(196,120,138,0.06)";
+                (e.currentTarget as HTMLElement).style.borderColor = "#F0E0E6";
+              }}
             >
               {/* Gambar */}
-              <div style={{ height: "160px", background: "linear-gradient(135deg, #FDF0F4, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              <div style={{ height: "160px", background: "linear-gradient(135deg, #FDF0F4, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
                 {s.image_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={s.image_url} alt={s.service_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                 ) : (
                   <span style={{ fontSize: "3rem" }}>✂️</span>
+                )}
+                {s.is_active === false && (
+                  <div style={{ position: "absolute", top: "10px", left: "10px", background: "#8E7A80", color: "white", padding: "4px 8px", borderRadius: "6px", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    Non-aktif
+                  </div>
                 )}
               </div>
 
@@ -444,14 +495,25 @@ export default function ServicesCataloguePage() {
                   >
                     ✏️ Edit
                   </button>
-                  <button
-                    onClick={() => setDeleteTarget(s)}
-                    style={{ flex: 1, background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", color: "#C05060", padding: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.12)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.06)")}
-                  >
-                    🗑️ Hapus
-                  </button>
+                  {s.is_active === false ? (
+                    <button
+                      onClick={() => handleReactivate(s)}
+                      style={{ flex: 1, background: "rgba(90,158,122,0.08)", border: "1px solid rgba(90,158,122,0.25)", color: "#3D7A5A", padding: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(90,158,122,0.15)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(90,158,122,0.08)")}
+                    >
+                      ✓ Aktifkan
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setDeleteTarget(s)}
+                      style={{ flex: 1, background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", color: "#C05060", padding: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.12)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.06)")}
+                    >
+                      🗑️ Hapus
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

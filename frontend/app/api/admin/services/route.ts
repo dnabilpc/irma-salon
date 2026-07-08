@@ -22,9 +22,9 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const result = await db.query(
-      `SELECT id, service_name, price, hour_duration, image_url, is_price_variable
+      `SELECT id, service_name, price, hour_duration, image_url, is_price_variable, is_active
        FROM salon_services
-       ORDER BY service_name ASC`
+       ORDER BY is_active DESC, service_name ASC`
     );
     return NextResponse.json(result.rows);
   } catch (err) {
