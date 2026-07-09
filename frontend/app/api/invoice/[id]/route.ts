@@ -33,6 +33,7 @@ export async function GET(
         t.created_at,
         t.status,
         t.user_id,
+        t.payment_proof_sent,
         u.name AS customer_name,
         u.phone_number AS customer_phone,
         u.email AS customer_email,

@@ -33,8 +33,43 @@ async function getAdminPhone() {
     return null;
 }
 
-export async function autoCompletePastBookings() {
+export async function autoUpdateBookingStates() {
     try {
+        // 1. Auto-expire pending bookings in the past (e.g. 15 minutes past appointment time)
+        await pool.query(`
+            UPDATE bookings 
+            SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
+            WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'
+        `);
+
+        // 2. Auto-expire pending bookings without payment proof after 15 minutes of creation
+        // First update the transaction status to 'gagal'
+        await pool.query(`
+            UPDATE transactions t
+            SET status = 'gagal'
+            FROM bookings b
+            WHERE t.booking_id = b.id
+              AND b.status = 'pending'
+              AND t.status = 'pending'
+              AND t.payment_method != 'cash'
+              AND COALESCE(t.payment_proof_sent, FALSE) = FALSE
+              AND t.created_at < NOW() - INTERVAL '15 minutes'
+        `);
+
+        // Then update the corresponding bookings to 'cancelled'
+        await pool.query(`
+            UPDATE bookings b
+            SET status = 'cancelled', rejection_reason = 'Batas waktu pembayaran 15 menit telah habis'
+            FROM transactions t
+            WHERE t.booking_id = b.id
+              AND b.status = 'pending'
+              AND t.status = 'gagal'
+              AND t.payment_method != 'cash'
+              AND COALESCE(t.payment_proof_sent, FALSE) = FALSE
+              AND t.created_at < NOW() - INTERVAL '15 minutes'
+        `);
+
+        // 3. Auto-complete confirmed bookings that have passed their duration
         await pool.query(`
             UPDATE bookings b
             SET status = 'completed'
@@ -51,7 +86,7 @@ export async function autoCompletePastBookings() {
               AND NOW() >= b.booking_datetime + COALESCE(sub.total_hours, 1) * INTERVAL '1 hour'
         `);
     } catch (err) {
-        console.error("[autoCompletePastBookings] Error:", err);
+        console.error("[autoUpdateBookingStates] Error:", err);
     }
 }
 
@@ -645,15 +680,8 @@ export async function getBookingsForAdmin(req, res) {
     }
 
     try {
-        // Auto-expire pending bookings in the past (e.g. 15 minutes past)
-        await pool.query(
-            `UPDATE bookings 
-             SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
-             WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'`
-        );
-
-        // Auto-complete confirmed bookings that have passed their duration
-        await autoCompletePastBookings();
+        // Apply all auto-cancellations, auto-expirations, and auto-completions
+        await autoUpdateBookingStates();
 
         const status = req.query.status ?? "ALL";
         const search = req.query.search;
@@ -743,15 +771,8 @@ export async function getBookingsForCustomer(req, res) {
     }
 
     try {
-        // Auto-expire pending bookings in the past (e.g. 15 minutes past)
-        await pool.query(
-            `UPDATE bookings 
-             SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
-             WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'`
-        );
-
-        // Auto-complete confirmed bookings that have passed their duration
-        await autoCompletePastBookings();
+        // Apply all auto-cancellations, auto-expirations, and auto-completions
+        await autoUpdateBookingStates();
 
         const result = await pool.query(
             `SELECT

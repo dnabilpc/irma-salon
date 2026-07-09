@@ -1,7 +1,7 @@
 // backend/src/controllers/adminController.js
 import pool from '../services/db.js';
 import { uploadToSupabaseStorage } from '../services/storageService.js';
-import { autoCompletePastBookings } from './bookingController.js';
+import { autoUpdateBookingStates } from './bookingController.js';
 
 function getPercentageChange(current, previous) {
     if (previous === 0) {
@@ -38,7 +38,7 @@ function formatRevenue(val) {
 export async function getDashboardStats(req, res) {
     try {
         // Auto-complete confirmed bookings that have passed their duration
-        await autoCompletePastBookings();
+        await autoUpdateBookingStates();
 
         // 1. Bookings This Month vs Last Month
         const bookingsThisMonthRes = await pool.query(`

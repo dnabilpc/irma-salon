@@ -60,6 +60,37 @@ export default function InvoicePage() {
       });
   }, [id, router]);
 
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!data || !data.transaction) return;
+    const { transaction } = data;
+
+    if (transaction.payment_method !== "qris" || transaction.status !== "pending" || transaction.payment_proof_sent) {
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      const createdAt = new Date(transaction.created_at).getTime();
+      const expiresAt = createdAt + 15 * 60 * 1000;
+      const diff = expiresAt - Date.now();
+      return diff > 0 ? diff : 0;
+    };
+
+    setTimeLeft(calculateTimeLeft());
+
+    const timer = setInterval(() => {
+      const remaining = calculateTimeLeft();
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        window.location.reload();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [data]);
+
   if (loading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#8B6A5A" }}>
@@ -92,6 +123,13 @@ export default function InvoicePage() {
       month: "long",
       year: "numeric",
     });
+  };
+
+  const formatTimeLeft = (ms: number) => {
+    const totalSecs = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
   return (
@@ -164,7 +202,7 @@ export default function InvoicePage() {
           boxSizing: "border-box",
         }}
       >
-        {/* Lunas Stamp */}
+        {/* Status Stamp */}
         {isLunas ? (
           <div
             style={{
@@ -183,6 +221,25 @@ export default function InvoicePage() {
             }}
           >
             LUNAS
+          </div>
+        ) : transaction.status === "gagal" || transaction.status === "cancelled" ? (
+          <div
+            style={{
+              position: "absolute",
+              top: "35px",
+              right: "35px",
+              border: "3px solid #C05060",
+              color: "#C05060",
+              padding: "6px 14px",
+              fontWeight: "bold",
+              fontSize: "1.1rem",
+              textTransform: "uppercase",
+              borderRadius: "8px",
+              transform: "rotate(-10deg)",
+              background: "rgba(192, 80, 96, 0.05)",
+            }}
+          >
+            BATAL
           </div>
         ) : (
           <div
@@ -271,13 +328,65 @@ export default function InvoicePage() {
           </div>
         </div>
 
+        {/* Countdown Timer Banner */}
+        {transaction.payment_method === "qris" && transaction.status === "pending" && !transaction.payment_proof_sent && timeLeft !== null && (
+          <div
+            className="no-print"
+            style={{
+              background: timeLeft > 3 * 60 * 1000 ? "rgba(201, 146, 42, 0.08)" : "rgba(192, 80, 96, 0.08)",
+              border: timeLeft > 3 * 60 * 1000 ? "1px solid rgba(201, 146, 42, 0.25)" : "1px solid rgba(192, 80, 96, 0.25)",
+              borderRadius: "8px",
+              padding: "12px 16px",
+              marginTop: "20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "1.1rem" }}>{timeLeft > 3 * 60 * 1000 ? "⚠️" : "🚨"}</span>
+              <div style={{ fontSize: "0.82rem", color: timeLeft > 3 * 60 * 1000 ? "#B57B18" : "#A63F4B", fontWeight: 500 }}>
+                {timeLeft > 0 ? "Selesaikan pembayaran dalam:" : "Waktu pembayaran habis!"}
+              </div>
+            </div>
+            <div
+              style={{
+                fontFamily: "'DM Mono', monospace",
+                fontSize: "1.15rem",
+                fontWeight: 700,
+                color: timeLeft > 3 * 60 * 1000 ? "#C9922A" : "#C05060",
+              }}
+            >
+              {timeLeft > 0 ? formatTimeLeft(timeLeft) : "00:00"}
+            </div>
+          </div>
+        )}
+
         {/* Payment Proof Upload for QRIS pending */}
         {transaction.payment_method === "qris" && !isLunas && (
-          <div className="no-print">
-            <PaymentProofUpload 
-              transactionId={transaction.id} 
-              initialProofSent={transaction.payment_proof_sent} 
-            />
+          <div className="no-print" style={{ marginTop: "20px" }}>
+            {transaction.status === "gagal" || transaction.status === "cancelled" ? (
+              <div
+                style={{
+                  background: "rgba(192, 80, 96, 0.08)",
+                  border: "1px solid rgba(192, 80, 96, 0.2)",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  textAlign: "center",
+                  color: "#C05060",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                }}
+              >
+                ⚠️ Batas waktu pembayaran 15 menit telah habis. Booking ini telah dibatalkan secara otomatis oleh sistem. Silakan buat booking baru.
+              </div>
+            ) : (
+              <PaymentProofUpload 
+                transactionId={transaction.id} 
+                initialProofSent={transaction.payment_proof_sent} 
+              />
+            )}
           </div>
         )}
 

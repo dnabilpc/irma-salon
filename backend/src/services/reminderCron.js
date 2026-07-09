@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import pool from './db.js';
 import { sendWaMessage, getWhatsappStatus } from './whatsappService.js';
 import { deleteFromSupabaseStorage } from './storageService.js';
+import { autoUpdateBookingStates } from '../controllers/bookingController.js';
 
 export function initScheduler() {
     console.log('[Scheduler] Initializing cron jobs...');
@@ -90,14 +91,8 @@ export function initScheduler() {
         
         // 1. Expiration job
         try {
-            const resBookings = await pool.query(`
-                UPDATE bookings 
-                SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
-                WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'
-            `);
-            if (resBookings.rowCount > 0) {
-                console.log(`[Scheduler] Auto-expired ${resBookings.rowCount} pending bookings.`);
-            }
+            // Call autoUpdateBookingStates to handle booking auto-cancellations, payment timeouts, and auto-completions
+            await autoUpdateBookingStates();
 
             // Expire pending rentals that are past their start_date
             const resRentals = await pool.query(`

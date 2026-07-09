@@ -632,7 +632,7 @@ export default function BookingPage() {
         
         <>
           <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "440px", lineHeight: 1.7, marginBottom: "8px" }}>
-            Booking kamu sudah diterima dan menunggu konfirmasi admin. Silakan lakukan pembayaran via scan QRIS Statis di bawah ini dan tunjukkan bukti transaksi kepada kasir saat kedatangan.
+            Booking kamu sudah diterima dan menunggu konfirmasi admin. Silakan lakukan pembayaran via scan QRIS Statis di bawah ini dan tunjukkan bukti transaksi kepada petugas saat kedatangan.
           </p>
           
           {/* QRIS Card */}
