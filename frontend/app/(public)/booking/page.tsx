@@ -48,16 +48,39 @@ function getMaxDateString() {
 
 const STEPS = ["Layanan", "Jadwal", "Catatan", "Konfirmasi"];
 
-function StepIndicator({ current }: { current: number }) {
+function StepIndicator({
+  current,
+  onChangeStep,
+  isStepClickable,
+}: {
+  current: number;
+  onChangeStep?: (step: number) => void;
+  isStepClickable?: (step: number) => boolean;
+}) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "40px" }}>
       {STEPS.map((label, i) => {
         const done   = i < current;
         const active = i === current;
         const isLast = i === STEPS.length - 1;
+        const clickable = isStepClickable ? isStepClickable(i) : i <= current;
+
         return (
           <div key={i} style={{ display: "flex", alignItems: "center" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+            <div
+              onClick={() => {
+                if (clickable && onChangeStep) {
+                  onChangeStep(i);
+                }
+              }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "6px",
+                cursor: clickable ? "pointer" : "not-allowed",
+              }}
+            >
               <div style={{
                 width: "36px", height: "36px", borderRadius: "50%",
                 background: done ? "#6B3A2A" : active ? "#C9922A" : "transparent",
@@ -65,7 +88,10 @@ function StepIndicator({ current }: { current: number }) {
                 display: "flex", alignItems: "center", justifyContent: "center",
                 color: done || active ? "white" : "#C4A882",
                 fontSize: done ? "0.75rem" : "0.8rem", fontWeight: 600,
-                transition: "all 0.3s", fontFamily: "'DM Sans', sans-serif",
+                transition: "all 0.2s", fontFamily: "'DM Sans', sans-serif",
+                opacity: clickable ? 1 : 0.5,
+                transform: active ? "scale(1.05)" : "scale(1)",
+                boxShadow: active ? "0 4px 10px rgba(201,146,42,0.2)" : "none",
               }}>
                 {done ? "✓" : i + 1}
               </div>
@@ -73,12 +99,13 @@ function StepIndicator({ current }: { current: number }) {
                 fontSize: "0.68rem", fontFamily: "'DM Sans', sans-serif",
                 color: active ? "#6B3A2A" : done ? "#C9922A" : "#C4A882",
                 fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
+                opacity: clickable ? 1 : 0.6,
               }}>
                 {label}
               </span>
             </div>
             {!isLast && (
-              <div style={{ width: "60px", height: "2px", background: done ? "#6B3A2A" : "#EDD8CC", marginBottom: "22px", transition: "background 0.3s" }} />
+              <div style={{ width: "60px", height: "2px", background: done ? "#6B3A2A" : "#EDD8CC", marginBottom: "22px", transition: "background 0.3s", opacity: clickable ? 1 : 0.6 }} />
             )}
           </div>
         );
@@ -755,7 +782,17 @@ export default function BookingPage() {
           </div>
         </div>
 
-        <StepIndicator current={step} />
+        <StepIndicator
+          current={step}
+          onChangeStep={(s) => setStep(s)}
+          isStepClickable={(i) => {
+            if (i === 0) return true;
+            if (i === 1) return form.serviceId !== null;
+            if (i === 2) return form.serviceId !== null && form.date !== "" && form.time !== "";
+            if (i === 3) return form.serviceId !== null && form.date !== "" && form.time !== "";
+            return false;
+          }}
+        />
 
         {/* Card */}
         <div style={{ background: "white", border: "1px solid #EDD8CC", borderRadius: "12px", padding: "32px", boxShadow: "0 4px 24px rgba(107,58,42,0.06)" }}>

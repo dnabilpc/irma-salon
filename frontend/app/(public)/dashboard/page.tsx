@@ -1235,7 +1235,17 @@ export default function CustomerDashboard() {
               Anda belum pernah menyewa baju di salon kami.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div
+              className="dashboard-scroll"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                maxHeight: "440px",
+                overflowY: "auto",
+                paddingRight: "8px",
+              }}
+            >
               {rentals.map((rental) => {
                 const sDate = new Date(rental.start_date);
                 const eDate = new Date(rental.end_date);
@@ -1453,7 +1463,17 @@ export default function CustomerDashboard() {
               </Link>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div
+              className="dashboard-scroll"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+                maxHeight: "440px",
+                overflowY: "auto",
+                paddingRight: "8px",
+              }}
+            >
               {vtoTasks.map((task) => {
                 const isCompleted = task.status === "completed";
                 const isFailed = task.status === "failed";
@@ -1587,6 +1607,21 @@ export default function CustomerDashboard() {
 
         <style>{`
           @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+          .dashboard-scroll::-webkit-scrollbar {
+            width: 6px;
+          }
+          .dashboard-scroll::-webkit-scrollbar-track {
+            background: #FAF6F4;
+            border-radius: 4px;
+          }
+          .dashboard-scroll::-webkit-scrollbar-thumb {
+            background: #EDD8CC;
+            border-radius: 4px;
+            transition: background 0.2s;
+          }
+          .dashboard-scroll::-webkit-scrollbar-thumb:hover {
+            background: #C9922A;
+          }
         `}</style>
 
         {/* ── Info salon ── */}
