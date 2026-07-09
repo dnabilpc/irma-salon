@@ -33,6 +33,28 @@ async function getAdminPhone() {
     return null;
 }
 
+export async function autoCompletePastBookings() {
+    try {
+        await pool.query(`
+            UPDATE bookings b
+            SET status = 'completed'
+            FROM (
+                SELECT b2.id, SUM(ss.hour_duration) AS total_hours
+                FROM bookings b2
+                LEFT JOIN booking_details bd ON bd.booking_id = b2.id
+                LEFT JOIN salon_services ss ON bd.salon_service_id = ss.id
+                WHERE b2.status = 'confirmed'
+                GROUP BY b2.id
+            ) sub
+            WHERE b.id = sub.id
+              AND b.status = 'confirmed'
+              AND NOW() >= b.booking_datetime + COALESCE(sub.total_hours, 1) * INTERVAL '1 hour'
+        `);
+    } catch (err) {
+        console.error("[autoCompletePastBookings] Error:", err);
+    }
+}
+
 // ── WhatsApp Notification Triggers ──────────────────────────────────────────
 
 async function sendBookingNotifications(bookingId, customer, datetimeStr, servicesList) {
@@ -505,7 +527,7 @@ export async function updateBookingStatus(req, res) {
     const { id } = req.params;
     const { status, reason } = req.body;
 
-    const valid = ["pending", "confirmed", "rejected", "cancelled"];
+    const valid = ["pending", "confirmed", "rejected", "cancelled", "completed"];
     if (!valid.includes(status)) {
         return res.status(400).json({ error: "Status tidak valid." });
     }
@@ -630,6 +652,9 @@ export async function getBookingsForAdmin(req, res) {
              WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'`
         );
 
+        // Auto-complete confirmed bookings that have passed their duration
+        await autoCompletePastBookings();
+
         const status = req.query.status ?? "ALL";
         const search = req.query.search;
         const page = parseInt(req.query.page ?? "1", 10);
@@ -724,6 +749,9 @@ export async function getBookingsForCustomer(req, res) {
              SET status = 'cancelled', rejection_reason = 'Booking kedaluwarsa (jadwal telah terlewati)'
              WHERE status = 'pending' AND booking_datetime < NOW() - INTERVAL '15 minutes'`
         );
+
+        // Auto-complete confirmed bookings that have passed their duration
+        await autoCompletePastBookings();
 
         const result = await pool.query(
             `SELECT

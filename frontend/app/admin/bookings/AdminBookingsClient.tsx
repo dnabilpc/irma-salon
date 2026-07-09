@@ -411,25 +411,55 @@ function DetailModal({
             </>
           )}
 
-          {/* Action — DITERIMA: bisa batalkan */}
+          {/* Action — DITERIMA: bisa batalkan atau tandai selesai */}
           {booking.status === "confirmed" && (
-            <button
-              disabled={loading}
-              onClick={() => onStatusChange(booking.id, "cancelled")}
-              style={{
-                background: "rgba(150,120,110,0.08)",
-                border: "1px solid #F0E0E6",
-                color: "#7A5C50",
-                padding: "10px 18px",
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: "0.78rem",
-                fontWeight: 500,
-                cursor: loading ? "not-allowed" : "pointer",
-                borderRadius: "8px",
-                transition: "all 0.2s",
-              }}>
-              Batalkan Booking
-            </button>
+            <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <button
+                disabled={loading}
+                onClick={() => onStatusChange(booking.id, "completed")}
+                style={{
+                  flex: 1,
+                  background: "rgba(42,140,90,0.08)",
+                  border: "1px solid rgba(42,140,90,0.2)",
+                  color: "#1A7A4A",
+                  padding: "10px 18px",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "0.78rem",
+                  fontWeight: 500,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  borderRadius: "8px",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading)
+                    e.currentTarget.style.background = "rgba(42,140,90,0.15)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading)
+                    e.currentTarget.style.background = "rgba(42,140,90,0.08)";
+                }}
+              >
+                ✓ Selesaikan Booking
+              </button>
+              <button
+                disabled={loading}
+                onClick={() => onStatusChange(booking.id, "cancelled")}
+                style={{
+                  background: "rgba(150,120,110,0.08)",
+                  border: "1px solid #F0E0E6",
+                  color: "#7A5C50",
+                  padding: "10px 18px",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "0.78rem",
+                  fontWeight: 500,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  borderRadius: "8px",
+                  transition: "all 0.2s",
+                }}
+              >
+                Batalkan
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -571,8 +601,10 @@ export default function AdminBookingsClient() {
         showToast(
           status === "confirmed"
             ? "Booking berhasil diterima!"
+            : status === "completed"
+            ? "Booking ditandai selesai!"
             : "Status booking diperbarui.",
-          status === "confirmed",
+          status === "confirmed" || status === "completed",
         );
         fetchData();
       } else {
