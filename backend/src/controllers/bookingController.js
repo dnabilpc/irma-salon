@@ -513,12 +513,14 @@ export async function createBooking(req, res) {
             );
             const dbUser = userRes.rows[0];
 
-            await client.query(
+            const txResult = await client.query(
                 `INSERT INTO transactions
                    (user_id, booking_id, subtotal, total_amount, payment_method, status)
-                 VALUES ($1, $2, $3, $4, $5, 'pending')`,
+                 VALUES ($1, $2, $3, $4, $5, 'pending')
+                 RETURNING id`,
                 [userId, bookingId, subtotal, totalAmount, payment_method]
             );
+            const transactionId = txResult.rows[0].id;
 
             // Insert system notification for Admin
             const servicesList = serviceRows.rows.map((s) => s.service_name).join(", ");
@@ -537,6 +539,7 @@ export async function createBooking(req, res) {
 
             res.status(201).json({ 
                 bookingId, 
+                transactionId,
                 token: null, 
                 redirect_url: null 
             });

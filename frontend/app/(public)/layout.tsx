@@ -19,11 +19,11 @@ export default function PublicLayout({
       }}
     >
       <style>{PUBLIC_STYLES}</style>
-      <AnnouncementBanner />
-      <VtoNotificationAlert />
-      <Navbar />
+      <div className="no-print"><AnnouncementBanner /></div>
+      <div className="no-print"><VtoNotificationAlert /></div>
+      <div className="no-print"><Navbar /></div>
       <main>{children}</main>
-      <Footer />
+      <div className="no-print"><Footer /></div>
     </div>
   );
 }

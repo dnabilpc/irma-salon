@@ -11,8 +11,8 @@ export default function HomePage() {
     <>
       <HeroSection />
       <ServicesSection />
-      <VirtualTryOnSection />
       <OutfitCatalogSection />
+      <VirtualTryOnSection />
       <RentalPolicySection />
       <TestimonialSection />
       <CTASection />

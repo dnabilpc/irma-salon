@@ -129,6 +129,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 export const NAV_ITEMS: NavLink[] = [
   {label: "Beranda", href: "/#beranda"},
   {label: "Layanan", href: "/#layanan"},
+  {label: "Katalog Baju", href: "/#katalog"},
   {label: "Virtual Try-On", href: "/#virtual-try-on"},
   {label: "Tentang", href: "/#tentang"},
 ];

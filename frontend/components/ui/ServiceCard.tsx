@@ -67,12 +67,13 @@ export default function ServiceCard({ service }: ServiceCardProps) {
       )}
 
       {/* Image */}
-      <div style={{ fontSize: "2.5rem", marginBottom: "16px" }}>
+      <div style={{ marginBottom: "16px", borderRadius: "8px", overflow: "hidden", aspectRatio: "3/2" }}>
         <Image
           src={service.image}
           alt={service.name}
           width={300}
           height={200}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       </div>
 

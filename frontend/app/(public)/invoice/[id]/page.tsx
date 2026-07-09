@@ -61,6 +61,7 @@ export default function InvoicePage() {
   }, [id, router]);
 
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [qrisImageError, setQrisImageError] = useState(false);
 
   useEffect(() => {
     if (!data || !data.transaction) return;
@@ -134,13 +135,14 @@ export default function InvoicePage() {
 
   return (
     <div
+      className="invoice-wrapper"
       style={{
         background: "#FAF6F4",
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "40px 20px",
+        padding: "112px 20px 40px 20px",
         fontFamily: "'DM Sans', sans-serif",
       }}
     >
@@ -200,8 +202,35 @@ export default function InvoicePage() {
           boxShadow: "0 8px 30px rgba(107, 58, 42, 0.06)",
           position: "relative",
           boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
+        {/* Watermark for unpaid status */}
+        {transaction.status === "pending" && (
+          <div
+            style={{
+              position: "absolute",
+              top: "40%",
+              left: "50%",
+              transform: "translate(-50%, -50%) rotate(-30deg)",
+              fontSize: "4.2rem",
+              fontWeight: 800,
+              color: "rgba(192, 80, 96, 0.09)",
+              border: "6px double rgba(192, 80, 96, 0.09)",
+              padding: "10px 24px",
+              borderRadius: "12px",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              pointerEvents: "none",
+              userSelect: "none",
+              zIndex: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            BELUM LUNAS
+          </div>
+        )}
+
         {/* Status Stamp */}
         {isLunas ? (
           <div
@@ -382,10 +411,73 @@ export default function InvoicePage() {
                 ⚠️ Batas waktu pembayaran 15 menit telah habis. Booking ini telah dibatalkan secara otomatis oleh sistem. Silakan buat booking baru.
               </div>
             ) : (
-              <PaymentProofUpload 
-                transactionId={transaction.id} 
-                initialProofSent={transaction.payment_proof_sent} 
-              />
+              <>
+                {/* QRIS Card */}
+                <div 
+                  style={{ 
+                    background: "white", 
+                    border: "2px solid #EDD8CC", 
+                    borderRadius: "12px", 
+                    padding: "16px", 
+                    margin: "0 auto 20px", 
+                    maxWidth: "280px",
+                    boxShadow: "0 8px 24px rgba(107,58,42,0.08)",
+                    textAlign: "center"
+                  }}
+                >
+                  <div style={{ background: "#004b7b", color: "white", padding: "6px", borderRadius: "6px 6px 0 0", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em" }}>
+                    QRIS
+                  </div>
+                  <div style={{ border: "1px solid #EDD8CC", borderTop: "none", padding: "16px 12px 12px", borderRadius: "0 0 6px 6px" }}>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
+                      RUMAH CANTIK IRMA
+                    </div>
+                    <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
+                      NMID: ID1020304050607
+                    </div>
+                    {!qrisImageError ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img 
+                        src="/qris.png" 
+                        alt="QRIS Rumah Cantik Irma" 
+                        onError={() => setQrisImageError(true)}
+                        style={{ width: "180px", height: "180px", objectFit: "contain", margin: "0 auto 12px", display: "block" }} 
+                      />
+                    ) : (
+                      /* Mock QR Pattern in pure CSS */
+                      <div style={{ 
+                        width: "180px", 
+                        height: "180px", 
+                        background: "radial-gradient(circle, #2C1A0E 10%, transparent 11%), repeating-linear-gradient(45deg, #2C1A0E 0px, #2C1A0E 2px, transparent 2px, transparent 10px)", 
+                        border: "6px solid #2C1A0E", 
+                        borderRadius: "8px",
+                        margin: "0 auto 12px", 
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}>
+                        {/* Position detection patterns (corners) */}
+                        <div style={{ position: "absolute", top: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
+                        <div style={{ position: "absolute", top: "2px", right: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
+                        <div style={{ position: "absolute", bottom: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
+                        {/* Center branding box */}
+                        <div style={{ background: "white", padding: "4px 8px", border: "2px solid #2C1A0E", borderRadius: "4px", fontSize: "0.65rem", fontWeight: 700, color: "#C9922A", zIndex: 5 }}>
+                          IRMA
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontWeight: 500 }}>
+                      Scan dengan E-Wallet atau Mobile Banking
+                    </div>
+                  </div>
+                </div>
+
+                <PaymentProofUpload 
+                  transactionId={transaction.id} 
+                  initialProofSent={transaction.payment_proof_sent} 
+                />
+              </>
             )}
           </div>
         )}
@@ -397,6 +489,9 @@ export default function InvoicePage() {
 
       <style jsx global>{`
         @media print {
+          .invoice-wrapper {
+            padding: 0 !important;
+          }
           .no-print {
             display: none !important;
           }

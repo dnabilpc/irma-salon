@@ -561,9 +561,13 @@ export default function BookingPage() {
       });
 
       if (result.success && result.data) {
-        setBookingId(result.data.bookingId);
-        setRedirectUrl(result.data.redirect_url || null);
-        setSuccess(true);
+        if (result.data.transactionId) {
+          router.push(`/invoice/${result.data.transactionId}`);
+        } else {
+          setBookingId(result.data.bookingId);
+          setRedirectUrl(result.data.redirect_url || null);
+          setSuccess(true);
+        }
       } else {
         setError(result.error ?? "Gagal membuat booking. Silakan coba lagi.");
       }

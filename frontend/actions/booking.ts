@@ -86,7 +86,7 @@ export async function getAvailableSlots(
 
 export async function createBooking(
   input: CreateBookingInput,
-): Promise<ActionResult<{ bookingId: number; token?: string | null; redirect_url?: string | null }>> {
+): Promise<ActionResult<{ bookingId: number; transactionId?: number; token?: string | null; redirect_url?: string | null }>> {
   try {
     const response = await backendFetch("/api/bookings", {
       method: "POST",
