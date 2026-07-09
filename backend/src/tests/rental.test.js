@@ -19,7 +19,7 @@ test('createRental - success (cash)', async () => {
         'SELECT name, phone_number, email FROM "user"': () => ({
             rows: [{ name: 'Test Customer', phone_number: '080000012345', email: 'customer@test.com' }]
         }),
-        'INSERT INTO transactions': () => ({ rows: [] }),
+        'INSERT INTO transactions': () => ({ rows: [{ id: 999 }] }),
         'INSERT INTO notifications': () => ({ rows: [] })
     };
 
@@ -104,7 +104,7 @@ test('createRental - success (qris)', async () => {
         'SELECT name, phone_number, email FROM "user"': () => ({
             rows: [{ name: 'Test Customer', phone_number: '080000012345', email: 'customer@test.com' }]
         }),
-        'INSERT INTO transactions': () => ({ rows: [] }),
+        'INSERT INTO transactions': () => ({ rows: [{ id: 999 }] }),
         'INSERT INTO notifications': () => ({ rows: [] })
     };
 

@@ -20,7 +20,7 @@ test('createBooking - success', async () => {
             rows: [{ name: 'Test Customer', phone_number: '080000012345', email: 'customer@test.com' }]
         }),
         'INSERT INTO booking_details': () => ({ rows: [] }),
-        'INSERT INTO transactions': () => ({ rows: [] }),
+        'INSERT INTO transactions': () => ({ rows: [{ id: 888 }] }),
         'INSERT INTO notifications': () => ({ rows: [] })
     };
 

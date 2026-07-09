@@ -423,12 +423,14 @@ export async function createRental(req, res) {
             const dbUser = userRes.rows[0];
 
             // Insert transaksi
-            await client.query(
+            const txResult = await client.query(
                 `INSERT INTO transactions
                    (user_id, rental_id, subtotal, total_amount, payment_method, status)
-                 VALUES ($1, $2, $3, $4, $5, 'pending')`,
+                 VALUES ($1, $2, $3, $4, $5, 'pending')
+                 RETURNING id`,
                 [userId, rentalId, amount_to_be_paid, totalAmount, payment_method]
             );
+            const transactionId = txResult.rows[0].id;
 
             // Tambahkan notifikasi sistem untuk Admin
             await client.query(
@@ -453,6 +455,7 @@ export async function createRental(req, res) {
 
             res.status(201).json({ 
                 rentalId, 
+                transactionId,
                 token: null, 
                 redirect_url: null 
             });

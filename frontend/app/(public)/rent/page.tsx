@@ -272,7 +272,7 @@ function RentModal({
 }: {
   outfit: Outfit;
   onClose: () => void;
-  onSuccess: (rentalId: number, method: "cash" | "qris", redirectUrl?: string | null) => void;
+  onSuccess: (rentalId: number, method: "cash" | "qris", redirectUrl?: string | null, transactionId?: number) => void;
 }) {
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [startDate, setStartDate]     = useState("");
@@ -307,7 +307,7 @@ function RentModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Gagal membuat pesanan sewa.");
 
-      onSuccess(data.rentalId, paymentMethod, data.redirect_url || null);
+      onSuccess(data.rentalId, paymentMethod, data.redirect_url || null, data.transactionId);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan.");
     } finally {
@@ -887,11 +887,15 @@ export default function SewaBajuPage() {
         <RentModal
           outfit={selectedOutfit}
           onClose={() => setSelectedOutfit(null)}
-          onSuccess={(rentalId, method, redirectUrl) => {
+          onSuccess={(rentalId, method, redirectUrl, transactionId) => {
             setSelectedOutfit(null);
-            setSuccessRentalId(rentalId);
-            setSuccessPaymentMethod(method);
-            setSuccessRedirectUrl(redirectUrl || null);
+            if (transactionId) {
+              router.push(`/invoice/${transactionId}`);
+            } else {
+              setSuccessRentalId(rentalId);
+              setSuccessPaymentMethod(method);
+              setSuccessRedirectUrl(redirectUrl || null);
+            }
           }}
         />
       )}

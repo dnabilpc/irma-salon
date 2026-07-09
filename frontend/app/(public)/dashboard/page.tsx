@@ -310,8 +310,9 @@ export default function CustomerDashboard() {
         return res.json();
       })
       .then((data) => {
-        if (Array.isArray(data)) {
-          setRentals(data);
+        const rows = data.rows ?? data;
+        if (Array.isArray(rows)) {
+          setRentals(rows);
         }
         setLoadingRentals(false);
       })
