@@ -26,6 +26,7 @@ interface Outfit {
   outfit_category_id: number;
   category_name: string;
   is_active?: boolean;
+  stock?: number;
 }
 
 type FormMode = "create" | "edit";
@@ -40,6 +41,7 @@ interface OutfitForm {
   image_url: string;
   additional_image_urls: string[];
   model_2d_file_link: string; // vto_image_url
+  stock: string;
 }
 
 interface CategoryForm {
@@ -56,6 +58,7 @@ const EMPTY_OUTFIT_FORM: OutfitForm = {
   image_url: "",
   additional_image_urls: [],
   model_2d_file_link: "",
+  stock: "1",
 };
 
 const EMPTY_CAT_FORM: CategoryForm = { category_name: "", description: "" };
@@ -95,6 +98,8 @@ function OutfitFormModal({
     if (isNaN(parsedPrice) || parsedPrice <= 0) { setError("Harga harus berupa angka positif."); return; }
     if (form.description && form.description.length > 255) { setError("Deskripsi tidak boleh lebih dari 255 karakter."); return; }
     if (form.size && form.size.length > 10) { setError("Ukuran (size) tidak boleh lebih dari 10 karakter."); return; }
+    const parsedStock = Number(form.stock);
+    if (isNaN(parsedStock) || parsedStock < 0 || !Number.isInteger(parsedStock)) { setError("Stok harus berupa angka bulat positif."); return; }
     setSaving(true); setError("");
     try {
       // 1. Upload main display image if it's base64
@@ -226,7 +231,7 @@ function OutfitFormModal({
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
             <div>
               <label style={labelStyle}>Harga Sewa/Hari (Rp) *</label>
               <input
@@ -245,6 +250,19 @@ function OutfitFormModal({
                 value={form.size}
                 onChange={(e) => update("size", e.target.value)}
                 placeholder="M, L, XL, All Size"
+                style={inputStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Stok *</label>
+              <input
+                type="number"
+                min="0"
+                value={form.stock}
+                onChange={(e) => update("stock", e.target.value)}
+                placeholder="1"
                 style={inputStyle}
                 onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
                 onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
@@ -529,6 +547,7 @@ export default function ClothesCataloguePage() {
       image_url: o.image_url ?? "",
       additional_image_urls: o.additional_image_urls ?? [],
       model_2d_file_link: o.model_2d_file_link ?? "",
+      stock: String(o.stock ?? 1),
     });
     setEditingOutfitId(o.id);
     setOutfitFormOpen(true);
@@ -544,6 +563,7 @@ export default function ClothesCataloguePage() {
       image_url: form.image_url || null,
       additional_image_urls: form.additional_image_urls || [],
       model_2d_file_link: form.model_2d_file_link || null,
+      stock: Number(form.stock),
     };
     const url = outfitFormMode === "create" ? "/api/admin/outfits" : `/api/admin/outfits/${editingOutfitId}`;
     const method = outfitFormMode === "create" ? "POST" : "PUT";
@@ -595,7 +615,8 @@ export default function ClothesCataloguePage() {
           image_url: outfit.image_url || "",
           additional_image_urls: outfit.additional_image_urls || [],
           model_2d_file_link: outfit.model_2d_file_link || "",
-          is_active: true
+          is_active: true,
+          stock: outfit.stock !== undefined ? outfit.stock : 1
         })
       });
       const data = await res.json();
@@ -795,11 +816,16 @@ export default function ClothesCataloguePage() {
                       <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.88rem", fontWeight: 600, color: "#C4788A" }}>
                         {formatRupiah(o.price)}<span style={{ fontSize: "0.6rem", color: "#B09080", fontWeight: 400 }}>/hari</span>
                       </span>
-                      {o.size && (
-                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#B09080", background: "#F5EBF0", padding: "2px 8px", borderRadius: "6px" }}>
-                          {o.size}
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        {o.size && (
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#B09080", background: "#F5EBF0", padding: "2px 8px", borderRadius: "6px" }}>
+                            {o.size}
+                          </span>
+                        )}
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#6B3A2A", background: "#FDF0E8", border: "1px solid #EDD8CC", padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>
+                          Stok: {o.stock ?? 1}
                         </span>
-                      )}
+                      </div>
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button

@@ -390,23 +390,20 @@ export default function OutfitCatalogSection() {
     setCurrentIndex((prev) => Math.min(maxIndex, prev + 1));
   };
 
-  // Touch handlers for swipe support on mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
-    const diffX = touchStartX.current - e.touches[0].clientX;
-
-    // Threshold of 50px for swipe
-    if (diffX > 50) {
+    const diffX = touchStartX.current - e.changedTouches[0].clientX;
+    // Require at least 40px swipe to register — prevents accidental triggers
+    if (diffX > 40) {
       handleNext();
-      touchStartX.current = null;
-    } else if (diffX < -50) {
+    } else if (diffX < -40) {
       handlePrev();
-      touchStartX.current = null;
     }
+    touchStartX.current = null;
   };
 
   return (
@@ -455,8 +452,8 @@ export default function OutfitCatalogSection() {
           /* Carousel Wrapper */
           <div 
             style={{ position: "relative", marginBottom: "50px", padding: "0 10px" }}
-            onTouchStart={isMobile ? undefined : handleTouchStart}
-            onTouchMove={isMobile ? undefined : handleTouchMove}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
           >
             {/* Style to hide webkit scrollbars */}
             <style dangerouslySetInnerHTML={{ __html: `
@@ -465,41 +462,35 @@ export default function OutfitCatalogSection() {
               }
             `}} />
 
-            {/* Viewport Container */}
+            {/* Viewport Container — always uses overflow hidden, controlled by translateX */}
             <div 
               className="hide-scrollbar"
               style={{ 
-                overflowX: isMobile ? "auto" : "hidden", 
+                overflowX: "hidden", 
                 margin: "0 -12px", 
                 padding: "10px 0",
-                scrollSnapType: isMobile ? "x mandatory" : "none",
-                scrollBehavior: "smooth",
-                WebkitOverflowScrolling: "touch",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
               }}
             >
               {/* Slider Track */}
               <div
                 style={{
                   display: "flex",
-                  transform: isMobile ? "none" : `translateX(-${currentIndex * (100 / cardsToShow)}%)`,
-                  transition: isMobile ? "none" : "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-                  width: isMobile ? "auto" : `calc(100% * ${featuredOutfits.length} / ${cardsToShow})`,
-                  gap: isMobile ? "16px" : "0",
-                  padding: isMobile ? "0 24px" : "0",
+                  transform: `translateX(-${currentIndex * (100 / featuredOutfits.length)}%)`,
+                  transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  width: `calc(100% * ${featuredOutfits.length} / ${cardsToShow})`,
+                  gap: "0",
+                  padding: "0",
+                  willChange: "transform",
                 }}
               >
                 {featuredOutfits.map((outfit) => (
-                  /* Outer slide container mapping width dynamically */
+                  /* Each slide takes exactly 1/cardsToShow of the viewport */
                   <div
                     key={outfit.id}
                     style={{
-                      flex: isMobile ? "0 0 78vw" : `0 0 calc(100% / ${featuredOutfits.length})`,
-                      maxWidth: isMobile ? "320px" : "none",
-                      padding: isMobile ? "0" : "0 12px",
+                      flex: `0 0 calc(100% / ${featuredOutfits.length})`,
+                      padding: "0 12px",
                       boxSizing: "border-box",
-                      scrollSnapAlign: isMobile ? "center" : "none",
                     }}
                   >
                     <OutfitCard outfit={outfit} />
@@ -591,8 +582,8 @@ export default function OutfitCatalogSection() {
               </>
             )}
 
-            {/* Carousel Dots Indicators */}
-            {!isMobile && featuredOutfits.length > cardsToShow && (
+            {/* Carousel Dots Indicators — shown on all screen sizes */}
+            {featuredOutfits.length > cardsToShow && (
               <div
                 style={{
                   display: "flex",

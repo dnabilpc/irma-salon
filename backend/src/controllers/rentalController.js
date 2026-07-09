@@ -366,9 +366,20 @@ export async function createRental(req, res) {
     }
 
     try {
+        // Cek tumpang tindih sewa aktif pada tanggal yang diajukan
+        const overlapRes = await pool.query(
+            `SELECT COUNT(*) FROM rentals
+             WHERE outfit_catalogues_id = $1
+               AND rental_status NOT IN ('cancelled')
+               AND start_date <= $2::date + $3 * INTERVAL '1 day'
+               AND start_date + duration_days * INTERVAL '1 day' >= $2::date`,
+            [outfit_catalogues_id, start_date, duration_days]
+        );
+        const overlappingCount = parseInt(overlapRes.rows[0].count, 10);
+
         // Ambil data baju
         const outfitResult = await pool.query(
-            `SELECT id, outfit_name, price FROM outfit_catalogues WHERE id = $1`,
+            `SELECT id, outfit_name, price, stock FROM outfit_catalogues WHERE id = $1`,
             [outfit_catalogues_id]
         );
         if (!outfitResult.rows.length) {
@@ -376,6 +387,14 @@ export async function createRental(req, res) {
         }
 
         const outfit = outfitResult.rows[0];
+        const stock = outfit.stock !== null ? parseInt(outfit.stock, 10) : 1;
+
+        if (overlappingCount >= stock) {
+            return res.status(400).json({
+                error: `Stok baju tidak tersedia untuk tanggal tersebut karena sudah penuh disewa. (Stok: ${stock}, Tersewa: ${overlappingCount})`
+            });
+        }
+
         const pricePerDay = parseFloat(outfit.price);
         const amount_to_be_paid = pricePerDay * duration_days;
 

@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 export async function GET() {
   try {
     const result = await db.query(
-      `SELECT id, service_name, price, hour_duration, image_url
+      `SELECT id, service_name, price, hour_duration, image_url, is_price_variable
        FROM salon_services
        WHERE is_active = true
        ORDER BY service_name`

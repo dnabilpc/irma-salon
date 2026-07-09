@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (isNaN(outfitId)) return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
 
     const body = await req.json();
-    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, is_active } = body;
+    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, is_active, stock } = body;
 
     if (!outfit_category_id || !outfit_name || !price) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -52,6 +52,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (model_2d_file_link && model_2d_file_link.length > 2048) {
       return NextResponse.json({ error: "Tautan model VTO terlalu panjang" }, { status: 400 });
     }
+    const parsedStock = stock !== undefined ? Number(stock) : undefined;
+    if (parsedStock !== undefined && (isNaN(parsedStock) || parsedStock < 0 || !Number.isInteger(parsedStock))) {
+      return NextResponse.json({ error: "Stok harus berupa angka bulat positif" }, { status: 400 });
+    }
 
     const result = await db.query(
       `UPDATE outfit_catalogues
@@ -63,8 +67,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
            image_url          = $6,
            additional_image_urls = $7,
            model_2d_file_link = $8,
-           is_active          = COALESCE($9, is_active)
-       WHERE id = $10
+           is_active          = COALESCE($9, is_active),
+           stock              = COALESCE($10, stock)
+       WHERE id = $11
        RETURNING *`,
       [
         outfit_category_id,
@@ -76,6 +81,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         additional_image_urls || [],
         model_2d_file_link || null,
         is_active === undefined ? null : !!is_active,
+        parsedStock === undefined ? null : parsedStock,
         outfitId,
       ]
     );

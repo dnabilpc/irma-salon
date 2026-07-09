@@ -113,48 +113,44 @@ export async function getDashboardStats(req, res) {
         const custThisMonth = custThisMonthRes.rows[0].count;
         const custLastMonth = custLastMonthRes.rows[0].count;
 
-        // 5. Weekly Chart (Last 7 Days)
+        // 5. Weekly Chart (Current Month Daily Activity - Booking & Sewa counts)
         const weeklyRes = await pool.query(`
-            WITH last_7_days AS (
-                SELECT generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, '1 day')::date AS day_date
+            WITH current_month_days AS (
+                SELECT generate_series(
+                    DATE_TRUNC('month', CURRENT_DATE)::date,
+                    (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')::date,
+                    '1 day'::interval
+                )::date AS day_date
             ),
             daily_bookings AS (
-                SELECT booking_datetime::date AS day_date, COUNT(*) AS count
+                SELECT booking_datetime::date AS day_date, COUNT(*)::int AS count
                 FROM bookings
-                WHERE booking_datetime::date >= CURRENT_DATE - INTERVAL '6 days'
+                WHERE booking_datetime::date >= DATE_TRUNC('month', CURRENT_DATE)
+                  AND booking_datetime::date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
                 GROUP BY day_date
             ),
-            daily_revenue AS (
-                SELECT 
-                    COALESCE(b.booking_datetime::date, r.start_date) AS day_date,
-                    SUM(t.total_amount) AS revenue
-                FROM transactions t
-                LEFT JOIN bookings b ON t.booking_id = b.id
-                LEFT JOIN rentals r ON t.rental_id = r.id
-                WHERE t.status = 'lunas'
-                  AND COALESCE(b.booking_datetime::date, r.start_date) >= CURRENT_DATE - INTERVAL '6 days'
+            daily_rentals AS (
+                SELECT start_date::date AS day_date, COUNT(*)::int AS count
+                FROM rentals
+                WHERE start_date::date >= DATE_TRUNC('month', CURRENT_DATE)
+                  AND start_date::date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
                 GROUP BY day_date
             )
             SELECT 
-                TO_CHAR(d.day_date, 'Dy') AS day_name,
+                TO_CHAR(d.day_date, 'DD') AS day_label,
                 d.day_date::text AS date,
                 COALESCE(b.count, 0)::int AS bookings,
-                COALESCE(r.revenue, 0)::numeric AS revenue
-            FROM last_7_days d
+                COALESCE(r.count, 0)::int AS rentals
+            FROM current_month_days d
             LEFT JOIN daily_bookings b ON d.day_date = b.day_date
-            LEFT JOIN daily_revenue r ON d.day_date = r.day_date
+            LEFT JOIN daily_rentals r ON d.day_date = r.day_date
             ORDER BY d.day_date ASC
         `);
 
-        // Map English day abbreviations to Indonesian
-        const dayMap = {
-            'Mon': 'Sen', 'Tue': 'Sel', 'Wed': 'Rab',
-            'Thu': 'Kam', 'Fri': 'Jum', 'Sat': 'Sab', 'Sun': 'Min'
-        };
         const weeklyChart = weeklyRes.rows.map(row => ({
-            day: dayMap[row.day_name] || row.day_name,
+            day: row.day_label,
             bookings: row.bookings,
-            revenue: parseFloat(row.revenue) || 0
+            rentals: row.rentals
         }));
 
         // 6. Today's Schedule

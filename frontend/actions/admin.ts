@@ -97,7 +97,7 @@ export interface DashboardStats {
   weeklyChart: {
     day: string;
     bookings: number;
-    revenue: number;
+    rentals: number;
   }[];
   todaySchedule: {
     time: string;
