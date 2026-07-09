@@ -47,6 +47,27 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Body harus berupa object { key: value }" }, { status: 400 });
     }
 
+    // Validate VTO settings if present in request body
+    if (body.vto_limit_default !== undefined) {
+      if (!/^\d+$/.test(body.vto_limit_default)) {
+        return NextResponse.json({ error: "Batas VTO per User harus berupa angka bulat positif" }, { status: 400 });
+      }
+      const val = parseInt(body.vto_limit_default, 10);
+      if (val < 1 || val > 10000) {
+        return NextResponse.json({ error: "Batas VTO per User harus bernilai antara 1 dan 10000" }, { status: 400 });
+      }
+    }
+
+    if (body.vto_reset_interval_days !== undefined) {
+      if (!/^\d+$/.test(body.vto_reset_interval_days)) {
+        return NextResponse.json({ error: "Periode Reset Kuota VTO harus berupa angka bulat positif" }, { status: 400 });
+      }
+      const val = parseInt(body.vto_reset_interval_days, 10);
+      if (val < 1 || val > 30) {
+        return NextResponse.json({ error: "Periode Reset Kuota VTO harus bernilai antara 1 dan 30" }, { status: 400 });
+      }
+    }
+
     const entries = Object.entries(body);
     if (entries.length === 0) {
       return NextResponse.json({ error: "Tidak ada data yang dikirim" }, { status: 400 });

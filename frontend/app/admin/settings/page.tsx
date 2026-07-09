@@ -222,6 +222,29 @@ export default function SettingsPage() {
   }
 
   async function handleSave() {
+    // Validate VTO settings
+    if (!/^\d+$/.test(settings.vto_limit_default)) {
+      showToast("Batas VTO per User harus berupa angka bulat positif", false);
+      return;
+    }
+    if (!/^\d+$/.test(settings.vto_reset_interval_days)) {
+      showToast("Periode Reset Kuota VTO harus berupa angka bulat positif", false);
+      return;
+    }
+
+    const vtoLimitVal = parseInt(settings.vto_limit_default, 10);
+    const vtoDaysVal = parseInt(settings.vto_reset_interval_days, 10);
+
+    if (vtoLimitVal < 1 || vtoLimitVal > 10000) {
+      showToast("Batas VTO per User harus bernilai antara 1 dan 10000", false);
+      return;
+    }
+
+    if (vtoDaysVal < 1 || vtoDaysVal > 30) {
+      showToast("Periode Reset Kuota VTO harus bernilai antara 1 dan 30 hari", false);
+      return;
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/admin/settings", {
