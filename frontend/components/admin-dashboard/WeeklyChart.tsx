@@ -20,7 +20,7 @@ export default function WeeklyChart({ data }: WeeklyChartProps) {
   const SUMMARY = [
     { label: "Total Booking", value: totalBookings.toString(), sub: data.length > 7 ? "bulan ini" : "7 hari terakhir", color: "#C4728E" },
     { label: "Total Sewa", value: totalRentals.toString(), sub: data.length > 7 ? "bulan ini" : "7 hari terakhir", color: "#7B9FD4" },
-    { label: "Rerata Harian", value: avgCombined.toFixed(1).replace(/\.0$/, ""), sub: "booking & sewa", color: "#6B3A2A" },
+    { label: "Rata-rata Harian", value: avgCombined.toFixed(1).replace(/\.0$/, ""), sub: "booking & sewa", color: "#6B3A2A" },
   ];
 
   return (
