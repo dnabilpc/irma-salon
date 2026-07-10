@@ -10,12 +10,12 @@ export default function RentalPolicySection() {
     {
       icon: "⏰",
       title: "Waktu Pengembalian",
-      desc: "Durasi sewa standar adalah 3 hari (ambil H-1, gunakan hari H, kembalikan H+1). Jam operasional pengembalian dari pukul 09.00 - 18.00 WIB.",
+      desc: "Durasi sewa standar adalah 3 hari (ambil H-1, gunakan hari H, kembalikan H+1). Jam operasional pengembalian Menyesuaikan Jam Buka Salon",
     },
     {
       icon: "💸",
-      title: "Denda Keterlambatan",
-      desc: "Keterlambatan pengembalian baju di luar batas kesepakatan awal dikenakan denda administratif per hari (misal 10% dari tarif sewa per baju).",
+      title: "Keterlambatan",
+      desc: "Keterlambatan pengembalian baju di luar batas maka akan Dihitung Sebagai Hari Tambahan Sewa dan dikenakan biaya tambahan sesuai harga sewa per hari.",
     },
     {
       icon: "✨",
