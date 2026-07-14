@@ -817,7 +817,7 @@ export default function AdminBookingsClient() {
             background: "white",
             borderBottom: "1px solid #F5EBF0",
           }}>
-          <span>#</span>
+          <span>ID</span>
           <span>Pelanggan</span>
           <span>Jadwal</span>
           <span>Layanan</span>

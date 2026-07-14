@@ -406,7 +406,7 @@ export default function AdminRentalsClient() {
           <div style={{ minWidth: "900px" }}>
             {/* Header kolom */}
         <div className="table-row" style={{ gridTemplateColumns: COL, background: "#FDF8F5", fontSize: "12px", color: "#B08090", letterSpacing: "0.06em", textTransform: "uppercase" as const, fontWeight: 600 }}>
-          <span>#</span>
+          <span>ID</span>
           <span>Pelanggan</span>
           <span>Baju</span>
           <span>Mulai</span>
