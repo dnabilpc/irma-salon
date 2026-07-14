@@ -138,8 +138,15 @@ export async function sendWaMessage(to, message, options = {}) {
             console.log(`[WhatsApp] Resolving JID/LID for ${formattedJid}...`);
             const numberDetails = await client.getNumberId(formattedJid);
             if (numberDetails && numberDetails._serialized) {
-                jid = numberDetails._serialized;
-                console.log(`[WhatsApp] Resolved JID to: ${jid}`);
+                // If it resolves to a LID (@lid JID), fall back to standard @c.us JID
+                // because whatsapp-web.js's internal evaluate code throws 'getChat' of undefined when sending media to @lid JIDs
+                if (numberDetails._serialized.endsWith('@lid')) {
+                    jid = formattedJid; // Fallback to phone_number@c.us
+                    console.log(`[WhatsApp] Resolved to LID (${numberDetails._serialized}), falling back to standard JID: ${jid}`);
+                } else {
+                    jid = numberDetails._serialized;
+                    console.log(`[WhatsApp] Resolved JID to: ${jid}`);
+                }
             } else {
                 throw new Error(`Phone number ${to} is not registered on WhatsApp.`);
             }
