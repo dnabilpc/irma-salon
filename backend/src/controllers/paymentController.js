@@ -159,6 +159,16 @@ export async function uploadPaymentProof(req, res) {
             return res.status(400).json({ error: 'File screenshot bukti pembayaran wajib diunggah.' });
         }
 
+        // Validate file type (must be image)
+        if (!req.file.mimetype.startsWith('image/')) {
+            return res.status(400).json({ error: 'Format file harus berupa gambar (JPG, PNG, dll).' });
+        }
+
+        // Validate file size (max 5MB)
+        if (req.file.size > 5 * 1024 * 1024) {
+            return res.status(400).json({ error: 'Ukuran file maksimal adalah 5MB.' });
+        }
+
         // Find transaction
         let queryStr = `
             SELECT t.id, t.total_amount, t.booking_id, t.rental_id, t.user_id,
