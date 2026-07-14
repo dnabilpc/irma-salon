@@ -36,16 +36,26 @@ export default function InvoicePage() {
   useEffect(() => {
     if (!id) return;
     fetch(`/api/invoice/${id}`)
-      .then((res) => {
+      .then(async (res) => {
         if (res.status === 401) {
           router.push(`/login?callbackUrl=/invoice/${id}`);
           return null;
         }
+
+        const contentType = res.headers.get("content-type");
+        const isJson = contentType && contentType.includes("application/json");
+
         if (!res.ok) {
-          return res.json().then((d) => {
-            throw new Error(d.error ?? "Gagal memuat invoice.");
-          });
+          const errorMsg = isJson 
+            ? (await res.json()).error 
+            : `HTTP Error ${res.status}: ${res.statusText}`;
+          throw new Error(errorMsg || "Gagal memuat invoice.");
         }
+
+        if (!isJson) {
+          throw new Error("Respon dari server tidak valid (bukan JSON).");
+        }
+
         return res.json();
       })
       .then((d) => {

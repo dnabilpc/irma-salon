@@ -59,7 +59,7 @@ const FILTER_TABS: { key: BookingStatusDB | "ALL"; label: string }[] = [
 ];
 
 const LIMIT = 10;
-const COL = "56px 1fr 110px 160px 100px 90px 80px 44px";
+const COL = "56px 1fr 110px 160px 100px 90px 44px";
 
 // ── StatusBadge ──────────────────────────────────────────────────────────────
 
@@ -299,14 +299,6 @@ function DetailModal({
               label="Total"
               value={formatRupiah(booking.total_amount)}
               accent
-            />
-            <InfoRow
-              label="Metode"
-              value={
-                booking.payment_method === "cash"
-                  ? "Bayar di Tempat"
-                  : "Payment Gateway"
-              }
             />
             {booking.transaction_id && (
               <InfoRow
@@ -831,7 +823,6 @@ export default function AdminBookingsClient() {
           <span>Layanan</span>
           <span>Status</span>
           <span>Total</span>
-          <span>Bayar</span>
           <span />
         </div>
 
@@ -951,14 +942,7 @@ export default function AdminBookingsClient() {
                 {formatRupiah(b.total_amount)}
               </span>
 
-              <span
-                style={{
-                  fontSize: "0.68rem",
-                  color: "#B09080",
-                  fontFamily: "'DM Mono', monospace",
-                }}>
-                {b.payment_method === "cash" ? "Cash" : "GW"}
-              </span>
+
 
               {/* Quick approve */}
               <div

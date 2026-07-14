@@ -486,13 +486,46 @@ export async function updateRentalStatus(req, res) {
     }
 
     try {
+        // Fetch current rental details to check start_date
+        const checkRes = await pool.query(
+            `SELECT start_date, rental_status FROM rentals WHERE id = $1`,
+            [id]
+        );
+        if (!checkRes.rows.length) {
+            return res.status(404).json({ error: "Data sewa tidak ditemukan." });
+        }
+        const rental = checkRes.rows[0];
+
+        // Format today's date in local time YYYY-MM-DD
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        // Format start_date in YYYY-MM-DD
+        const startDateStr = rental.start_date instanceof Date
+            ? rental.start_date.toISOString().split('T')[0]
+            : new Date(rental.start_date).toISOString().split('T')[0];
+
+        // Block setting to ongoing/done if the start date hasn't arrived yet
+        if (startDateStr > todayStr) {
+            if (status === 'ongoing') {
+                return res.status(400).json({
+                    error: "Baju belum dapat diambil/dipinjam sebelum tanggal peminjaman dimulai."
+                });
+            }
+            if (status === 'done') {
+                return res.status(400).json({
+                    error: "Baju tidak dapat ditandai sebagai dikembalikan sebelum tanggal peminjaman dimulai."
+                });
+            }
+        }
+
         const query = `UPDATE rentals SET rental_status = $1 WHERE id = $2 RETURNING id, user_id`;
         const queryParams = [status, id];
 
         const result = await pool.query(query, queryParams);
-        if (!result.rows.length) {
-            return res.status(404).json({ error: "Data sewa tidak ditemukan." });
-        }
 
         // Kirim notifikasi WhatsApp ke Pelanggan di background
         triggerRentalStatusNotification(id, status).catch((err) =>
