@@ -7,6 +7,7 @@ interface PaymentProofUploadProps {
   rentalId?: number;
   transactionId?: number;
   initialProofSent?: boolean;
+  onSuccess?: () => void;
 }
 
 export default function PaymentProofUpload({
@@ -14,6 +15,7 @@ export default function PaymentProofUpload({
   rentalId,
   transactionId,
   initialProofSent = false,
+  onSuccess,
 }: PaymentProofUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,6 +70,9 @@ export default function PaymentProofUpload({
 
       setSuccess(true);
       setFile(null);
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Terjadi kesalahan saat mengunggah bukti.");

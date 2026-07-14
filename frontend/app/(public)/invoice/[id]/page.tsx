@@ -476,6 +476,12 @@ export default function InvoicePage() {
                 <PaymentProofUpload 
                   transactionId={transaction.id} 
                   initialProofSent={transaction.payment_proof_sent} 
+                  onSuccess={() => {
+                    // Automatically reload the page after 2.5 seconds to refresh the state and remove the timer
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 2500);
+                  }}
                 />
               </>
             )}
