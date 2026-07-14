@@ -488,7 +488,14 @@ export async function processNextVtoTask() {
     }
 
     let task = null;
-    const client = await pool.connect();
+    let client;
+    try {
+        client = await pool.connect();
+    } catch (connErr) {
+        console.warn('[VTO Worker] Database connection timeout/failure: %s', connErr.message);
+        return;
+    }
+
     try {
         await client.query('BEGIN');
         

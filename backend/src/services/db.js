@@ -20,4 +20,9 @@ if (!globalForPg._pgPool) {
 
 const pool = globalForPg._pgPool;
 
+// Add error listener on idle clients in the pool to prevent unhandled process crashes
+pool.on('error', (err) => {
+    console.error('[Database Pool] Unexpected error on idle client:', err.message);
+});
+
 export default pool;
