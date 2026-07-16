@@ -13,6 +13,7 @@ const PUBLIC_KEYS = [
   "salon_email",
   "salon_address",
   "salon_maps_url",
+  "qris_payload",
 ];
 
 function formatOpeningHours(rows: any[]) {
