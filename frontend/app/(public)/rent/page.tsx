@@ -679,7 +679,19 @@ export default function SewaBajuPage() {
   const filtered = outfits.filter((o) => {
     const matchSearch = !search || o.outfit_name.toLowerCase().includes(search.toLowerCase());
     const matchCat    = filterCat === "all" || String(o.outfit_category_id) === filterCat;
-    return matchSearch && matchCat;
+
+    // Filter Target Umur
+    const outfitAge = o.target_age || "semua_umur";
+    const matchAge  = filterAge === "all" || outfitAge === "semua_umur" || outfitAge === filterAge;
+
+    // Filter Gender
+    let matchGender = true;
+    if (!showAllGenders && userGender && userGender !== "unspecified") {
+      const outfitGen = o.target_gender || "unisex";
+      matchGender = outfitGen === "unisex" || outfitGen === userGender;
+    }
+
+    return matchSearch && matchCat && matchAge && matchGender;
   });
 
   if (isPending) {
@@ -741,34 +753,92 @@ export default function SewaBajuPage() {
         </div>
 
         {/* Filter + Search */}
-        <div style={{ display: "flex", gap: "12px", marginBottom: "32px", flexWrap: "wrap" }}>
-          <div style={{ position: "relative", flex: 1, minWidth: "200px" }}>
-            <span style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "#C9922A", pointerEvents: "none" }}>🔍</span>
-            <input
-              type="text"
-              placeholder="Cari nama baju..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: "100%", background: "white", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "11px 14px 11px 40px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", outline: "none", boxShadow: "0 1px 4px rgba(107,58,42,0.06)" }}
-            />
+        <div style={{ marginBottom: "32px", display: "flex", flexDirection: "column", gap: "12px" }}>
+
+          {/* Baris 1: Search + Kategori */}
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <div style={{ position: "relative", flex: 1, minWidth: "200px" }}>
+              <span style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "#C9922A", pointerEvents: "none" }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Cari nama baju..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: "100%", background: "white", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "11px 14px 11px 40px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", outline: "none", boxShadow: "0 1px 4px rgba(107,58,42,0.06)" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button
+                onClick={() => setFilterCat("all")}
+                style={{ padding: "10px 18px", border: `1.5px solid ${filterCat === "all" ? "#6B3A2A" : "#EDD8CC"}`, background: filterCat === "all" ? "#6B3A2A" : "white", color: filterCat === "all" ? "white" : "#6B3A2A", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer" }}
+              >
+                Semua
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setFilterCat(String(c.id))}
+                  style={{ padding: "10px 18px", border: `1.5px solid ${filterCat === String(c.id) ? "#6B3A2A" : "#EDD8CC"}`, background: filterCat === String(c.id) ? "#6B3A2A" : "white", color: filterCat === String(c.id) ? "white" : "#6B3A2A", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer" }}
+                >
+                  {c.category_name}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button
-              onClick={() => setFilterCat("all")}
-              style={{ padding: "10px 18px", border: `1.5px solid ${filterCat === "all" ? "#6B3A2A" : "#EDD8CC"}`, background: filterCat === "all" ? "#6B3A2A" : "white", color: filterCat === "all" ? "white" : "#6B3A2A", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer" }}
-            >
-              Semua
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setFilterCat(String(c.id))}
-                style={{ padding: "10px 18px", border: `1.5px solid ${filterCat === String(c.id) ? "#6B3A2A" : "#EDD8CC"}`, background: filterCat === String(c.id) ? "#6B3A2A" : "white", color: filterCat === String(c.id) ? "white" : "#6B3A2A", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer" }}
-              >
-                {c.category_name}
-              </button>
-            ))}
+          {/* Baris 2: Filter Umur + Checkbox Gender */}
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap", background: "white", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "10px 16px", boxShadow: "0 1px 4px rgba(107,58,42,0.04)" }}>
+
+            {/* Filter Umur */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "0.75rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, whiteSpace: "nowrap" }}>Umur:</span>
+              {([
+                { id: "all",      label: "🌐 Semua" },
+                { id: "dewasa",   label: "🧑 Dewasa" },
+                { id: "anak_anak", label: "🧒 Anak" },
+              ] as { id: "all" | "dewasa" | "anak_anak"; label: string }[]).map((age) => (
+                <button
+                  key={age.id}
+                  onClick={() => setFilterAge(age.id)}
+                  style={{
+                    padding: "5px 12px",
+                    border: `1.5px solid ${filterAge === age.id ? "#C9922A" : "#EDD8CC"}`,
+                    background: filterAge === age.id ? "#FDF0E6" : "white",
+                    color: filterAge === age.id ? "#6B3A2A" : "#8B6A5A",
+                    borderRadius: "6px",
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: "0.78rem",
+                    fontWeight: filterAge === age.id ? 700 : 400,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {age.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Divider */}
+            <div style={{ width: "1px", height: "20px", background: "#EDD8CC", flexShrink: 0 }} />
+
+            {/* Checkbox Semua Gender */}
+            <label style={{ display: "flex", alignItems: "center", gap: "7px", fontSize: "0.78rem", color: "#6B3A2A", fontFamily: "'DM Sans', sans-serif", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+              <input
+                type="checkbox"
+                checked={showAllGenders}
+                onChange={(e) => setShowAllGenders(e.target.checked)}
+                style={{ accentColor: "#C9922A", width: "15px", height: "15px" }}
+              />
+              Tampilkan Semua Gender
+            </label>
+
+            {/* Hint gender aktif */}
+            {!showAllGenders && userGender && userGender !== "unspecified" && (
+              <span style={{ fontSize: "0.72rem", color: "#C9922A", fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
+                💡 Rekomendasi untuk {userGender === "wanita" ? "Wanita 👩" : "Pria 👨"} &amp; Unisex
+              </span>
+            )}
           </div>
         </div>
 
