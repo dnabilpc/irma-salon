@@ -422,8 +422,22 @@ function CartPanel({
                   </div>
                 </div>
 
-                  <Trash2 size={18} />
-                </button>
+                <div style={{ display: "flex", gap: "4px" }}>
+                  <button
+                    onClick={() => onEditItem(item)}
+                    style={{ background: "transparent", border: "none", color: "#6B3A2A", cursor: "pointer", padding: "6px" }}
+                    title="Edit jadwal baju ini"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => onRemoveItem(item.id)}
+                    style={{ background: "transparent", border: "none", color: "#C05060", cursor: "pointer", padding: "6px" }}
+                    title="Hapus baju ini"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -773,13 +787,14 @@ export default function SewaBajuPage() {
         />
       )}
 
-      {/* Cart Drawer */}
+      {/* Cart Panel */}
       {isCartOpen && (
-        <CartDrawer
+        <CartPanel
           cartItems={cartItems}
           onRemoveItem={handleRemoveItem}
+          onEditItem={handleEditItem}
           onClose={() => setIsCartOpen(false)}
-          onCheckoutSuccess={(txId) => {
+          onCheckoutSuccess={(txId: number) => {
             updateCart([]);
             setIsCartOpen(false);
             router.push(`/invoice/${txId}`);
