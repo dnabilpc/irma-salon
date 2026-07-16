@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import { updateBookingStatus, getBookingsForAdmin } from "@/actions/booking";
 import type { BookingStatusDB, BookingRow } from "@/actions/booking";
 
@@ -680,9 +681,7 @@ export default function AdminBookingsClient() {
     try {
       const result = await getBookingsForAdmin({
         status: filter,
-        search: search || undefined,
-        page,
-        limit: LIMIT,
+        limit: 0,
       });
       if (result.success && result.data) {
         setBookings(result.data.rows);
@@ -696,7 +695,7 @@ export default function AdminBookingsClient() {
     } finally {
       setLoading(false);
     }
-  }, [filter, search, page, showToast]);
+  }, [filter, showToast]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -826,273 +825,108 @@ export default function AdminBookingsClient() {
         />
       </div>
 
-      {/* Filter + Search */}
+      {/* Filter Tabs */}
       <div
         style={{
           background: "white",
           border: "1px solid #F0E0E6",
           borderRadius: "12px",
-          padding: "16px 18px",
+          padding: "12px 18px",
           display: "flex",
-          flexDirection: "column",
-          gap: "12px",
+          gap: "8px",
+          flexWrap: "wrap",
           boxShadow: "0 1px 4px rgba(196,120,138,0.06)",
         }}>
-        <div style={{ position: "relative" }}>
-          <span
-            style={{
-              position: "absolute",
-              left: "13px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "#C4788A",
-              fontSize: "0.9rem",
-              pointerEvents: "none",
-            }}>
-            🔍
-          </span>
-          <input
-            type="text"
-            placeholder="Cari nama pelanggan atau layanan..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            style={{
-              width: "100%",
-              background: "#FDFAF7",
-              border: "1px solid #F0E0E6",
-              borderRadius: "8px",
-              padding: "9px 12px 9px 38px",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.82rem",
-              color: "#2C1A0E",
-              outline: "none",
-              transition: "border-color 0.2s",
-            }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
-          />
-        </div>
-
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-          {FILTER_TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              className={`filter-btn${filter === key ? " active" : ""}`}
-              onClick={() => { setFilter(key as BookingStatusDB | "ALL"); setPage(1); }}
-              style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              {label}
-            </button>
-          ))}
-        </div>
+        {FILTER_TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            className={`filter-btn${filter === key ? " active" : ""}`}
+            onClick={() => setFilter(key as BookingStatusDB | "ALL")}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Table */}
-      <div
-        style={{
-          background: "white",
-          border: "1px solid #F0E0E6",
-          borderRadius: "12px",
-          overflow: "hidden",
-          boxShadow: "0 1px 4px rgba(196,120,138,0.06)",
-        }}>
-        {/* Info bar */}
-        <div
-          style={{
-            padding: "12px 18px",
-            borderBottom: "1px solid #F0E0E6",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            background: "#FDFAF7",
-          }}>
-          <span
-            style={{
-              fontSize: "0.72rem",
-              color: "#B09080",
-              fontFamily: "'DM Mono', monospace",
-            }}>
-            {loading
-              ? "Memuat..."
-              : `Menampilkan ${bookings.length} dari ${total} booking`}
-          </span>
-          {filter === "ALL" && stats.pending > 0 && (
-            <span
-              style={{
-                fontSize: "0.72rem",
-                color: "#C9922A",
-                fontWeight: 600,
-              }}>
-              ⚡ {stats.pending} booking menunggu konfirmasimu
-            </span>
-          )}
-        </div>
-
-        <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
-          <div style={{ minWidth: "800px" }}>
-            {/* Column headers */}
-        <div
-          className="table-row"
-          style={{
-            gridTemplateColumns: COL,
-            color: "#B09080",
-            fontSize: "0.62rem",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            fontFamily: "'DM Mono', monospace",
-            fontWeight: 600,
-            background: "white",
-            borderBottom: "1px solid #F5EBF0",
-          }}>
-          <span>ID</span>
-          <span>Pelanggan</span>
-          <span>Jadwal</span>
-          <span>Layanan</span>
-          <span>Status</span>
-          <span>Total</span>
-          <span />
-        </div>
-
-        {/* Loading state */}
-        {loading && (
-          <div
-            style={{
-              padding: "48px",
-              textAlign: "center",
-              color: "#C4788A",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.85rem",
-            }}>
-            Memuat data booking...
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!loading && bookings.length === 0 && (
-          <div
-            style={{
-              padding: "48px",
-              textAlign: "center",
-              color: "#B09080",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.85rem",
-            }}>
-            Tidak ada data untuk filter ini 🌸
-          </div>
-        )}
-
-        {/* Rows */}
-        {!loading &&
-          bookings.map((b) => (
-            <div
-              key={b.id}
-              className="table-row"
-              style={{ gridTemplateColumns: COL, cursor: "pointer" }}
-              onClick={() => setSelected(b)}>
-              <span
-                style={{
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: "0.65rem",
-                  color: "#B09080",
-                }}>
-                {b.id}
-              </span>
-
-              <div style={{ overflow: "hidden" }}>
-                <div
-                  style={{
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    color: "#2C1A0E",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}>
-                  {b.customer_name}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "'DM Mono', monospace",
-                    fontSize: "0.62rem",
-                    color: "#B09080",
-                  }}>
-                  {b.phone_number}
-                </div>
-              </div>
-
+      {/* Instant DataTables Component */}
+      <DataTable
+        data={bookings}
+        loading={loading}
+        searchPlaceholder="Cari nama pelanggan, nomor telp, atau layanan..."
+        searchableKeys={["customer_name", "phone_number", "services", "id"]}
+        emptyMessage="Tidak ada data booking yang ditemukan 🌸"
+        columns={[
+          {
+            key: "id",
+            header: "ID",
+            sortable: true,
+            width: "60px",
+            render: (b) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B09080" }}>#{b.id}</span>,
+          },
+          {
+            key: "customer_name",
+            header: "Pelanggan",
+            sortable: true,
+            render: (b) => (
               <div>
-                <div
-                  style={{
-                    fontFamily: "'DM Mono', monospace",
-                    fontSize: "0.65rem",
-                    color: "#7A5C50",
-                  }}>
-                  {new Date(b.booking_datetime).toLocaleDateString("id-ID", {
-                    day: "2-digit",
-                    month: "short",
-                  })}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "'DM Mono', monospace",
-                    fontSize: "0.68rem",
-                    color: "#C4788A",
-                    fontWeight: 600,
-                  }}>
-                  {new Date(b.booking_datetime).toLocaleTimeString("id-ID", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
+                <div style={{ fontWeight: 600, color: "#2C1A0E" }}>{b.customer_name}</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.68rem", color: "#B09080" }}>{b.phone_number}</div>
               </div>
-
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  color: "#7A5C50",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}>
-                {b.services}
-              </span>
-
-              <StatusBadge status={b.status} />
-
-              <span
-                style={{
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: "0.72rem",
-                  color: "#C4788A",
-                  fontWeight: 600,
-                }}>
-                {formatRupiah(b.total_amount)}
-              </span>
-
-
-
-              {/* Quick approve */}
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{ display: "flex", justifyContent: "center" }}>
-                {b.status === "pending" ? (
-                  <div style={{ display: "flex", gap: "4px" }}>
-                    {/* ACCEPT */}
+            ),
+          },
+          {
+            key: "booking_datetime",
+            header: "Jadwal",
+            sortable: true,
+            sortValue: (b) => new Date(b.booking_datetime).getTime(),
+            render: (b) => {
+              const dt = new Date(b.booking_datetime);
+              return (
+                <div>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#7A5C50" }}>
+                    {dt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                  </div>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#C4788A", fontWeight: 600 }}>
+                    {dt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
+                  </div>
+                </div>
+              );
+            },
+          },
+          {
+            key: "services",
+            header: "Layanan",
+            sortable: true,
+            render: (b) => <span style={{ fontSize: "0.78rem", color: "#7A5C50" }}>{b.services}</span>,
+          },
+          {
+            key: "status",
+            header: "Status",
+            sortable: true,
+            render: (b) => <StatusBadge status={b.status} />,
+          },
+          {
+            key: "total_amount",
+            header: "Total",
+            sortable: true,
+            sortValue: (b) => Number(b.total_amount),
+            render: (b) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#C4788A", fontWeight: 600 }}>{formatRupiah(Number(b.total_amount))}</span>,
+          },
+          {
+            key: "action",
+            header: "Aksi",
+            align: "center",
+            render: (b) => (
+              <div style={{ display: "flex", gap: "6px", justifyContent: "center" }} onClick={(e) => e.stopPropagation()}>
+                {b.status === "pending" && (
+                  <>
                     <button
                       title="Terima booking"
                       onClick={() => handleStatusChange(b.id, "confirmed")}
-                      style={{
-                        background: "rgba(90,158,122,0.1)",
-                        border: "1px solid rgba(90,158,122,0.3)",
-                        color: "#3D7A5A",
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}>
-                      ✓
+                      style={{ background: "rgba(90,158,122,0.1)", border: "1px solid rgba(90,158,122,0.3)", color: "#3D7A5A", padding: "4px 8px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
+                    >
+                      ✓ Terima
                     </button>
-
-                    {/* REJECT */}
                     <button
                       title="Tolak booking"
                       onClick={() => {
@@ -1109,83 +943,19 @@ export default function AdminBookingsClient() {
                       }}>
                       ✕
                     </button>
-                  </div>
-                ) : (
-                  <span style={{ fontSize: "0.75rem", color: "#F0E0E6" }}>
-                    —
-                  </span>
+                  </>
                 )}
+                <button
+                  onClick={() => setSelected(b)}
+                  style={{ background: "transparent", border: "1px solid #F0E0E6", color: "#C4788A", padding: "4px 8px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
+                >
+                  Detail
+                </button>
               </div>
-            </div>
-          ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "6px",
-          }}>
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            style={{
-              background: "white",
-              border: "1px solid #F0E0E6",
-              color: page === 1 ? "#D4C4B8" : "#7A5C50",
-              padding: "6px 14px",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.78rem",
-              fontWeight: 500,
-              cursor: page === 1 ? "not-allowed" : "pointer",
-              borderRadius: "8px",
-            }}>
-            ← Prev
-          </button>
-
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              style={{
-                background: p === page ? "#C4788A" : "white",
-                border: `1px solid ${p === page ? "#C4788A" : "#F0E0E6"}`,
-                color: p === page ? "white" : "#7A5C50",
-                width: "34px",
-                height: "34px",
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "0.75rem",
-                fontWeight: p === page ? 700 : 400,
-                cursor: "pointer",
-                borderRadius: "8px",
-              }}>
-              {p}
-            </button>
-          ))}
-
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            style={{
-              background: "white",
-              border: "1px solid #F0E0E6",
-              color: page === totalPages ? "#D4C4B8" : "#7A5C50",
-              padding: "6px 14px",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.78rem",
-              fontWeight: 500,
-              cursor: page === totalPages ? "not-allowed" : "pointer",
-              borderRadius: "8px",
-            }}>
-            Next →
-          </button>
-        </div>
-      )}
+            ),
+          },
+        ]}
+      />
 
       {/* Detail Modal */}
       {selectedBooking && (

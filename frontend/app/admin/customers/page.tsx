@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useTransition, useCallback } from "react";
+import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import {
   fetchActiveCustomers,
   fetchPendingRegistrations,
@@ -295,201 +296,152 @@ export default function CustomersPage() {
         ))}
       </div>
 
-      {/* Search bar */}
-      <div className="admin-card" style={{ padding: "14px 18px" }}>
-        <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#B08090", pointerEvents: "none" }}>🔍</span>
-          <input
-            className="search-input"
-            placeholder="Cari nama, nomor HP, atau email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
-
       {/* ── TAB: Pending ── */}
       {activeTab === "pending" && (
-        <div className="admin-card" style={{ overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #F0D9E0", background: "rgba(201,146,42,0.05)", display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "1rem" }}>⏳</span>
-            <span style={{ fontSize: "13px", color: "#8A5A1A", fontWeight: 600 }}>
-              {filteredPending.length} pendaftaran menunggu persetujuan
-            </span>
-          </div>
-
-          {loadingTab === "pending" ? <Spinner /> : filteredPending.length === 0 ? (
-            <div style={{ padding: "48px", textAlign: "center", color: "#B08090", fontSize: "14px" }}>
-              {pending.length === 0 ? "Tidak ada pendaftaran yang menunggu persetujuan 🎉" : "Tidak ada hasil yang cocok"}
-            </div>
-          ) : (
-            <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
-              <div style={{ minWidth: "680px" }}>
-                {/* Table header */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 220px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                  <span>Pendaftar</span>
-                  <span>No. WhatsApp</span>
-                  <span>Tgl Daftar</span>
-                  <span>Aksi</span>
+        <DataTable
+          data={pending}
+          loading={loadingTab === "pending"}
+          searchPlaceholder="Cari pendaftar, no telp, email..."
+          searchableKeys={["name", "email", "phone_number"]}
+          emptyMessage="Tidak ada pendaftaran yang menunggu persetujuan 🎉"
+          columns={[
+            {
+              key: "name",
+              header: "Pendaftar",
+              sortable: true,
+              render: (reg) => (
+                <div>
+                  <div style={{ fontWeight: 600, color: "#3A1A28" }}>{reg.name}</div>
+                  <div style={{ fontSize: "0.72rem", color: "#B08090" }}>{reg.email}</div>
                 </div>
-                {filteredPending.map((reg) => (
-                <div
-                  key={reg.id}
-                  style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 220px", padding: "14px 16px", borderBottom: "1px solid #F0D9E0", alignItems: "center" }}
-                >
-                  <div>
-                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#3A1A28" }}>{reg.name}</div>
-                    <div style={{ fontSize: "12px", color: "#B08090" }}>{reg.email}</div>
-                  </div>
-                  <span style={{ fontSize: "13px", color: "#8A4060", fontFamily: "'DM Mono', monospace" }}>
-                    {reg.phone_number ?? "—"}
-                  </span>
-                  <span style={{ fontSize: "12px", color: "#8A4060" }}>{formatDate(reg.createdAt)}</span>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      onClick={() => handleApprove(reg.id)}
-                      disabled={isPending}
-                      style={{
-                        background: "#1A7A4A",
-                        color: "white",
-                        border: "none",
-                        padding: "7px 14px",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontWeight: 600,
-                        cursor: isPending ? "not-allowed" : "pointer",
-                        opacity: isPending ? 0.7 : 1,
-                        transition: "background 0.2s",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                      onMouseEnter={(e) => { if (!isPending) e.currentTarget.style.background = "#145C37"; }}
-                      onMouseLeave={(e) => { if (!isPending) e.currentTarget.style.background = "#1A7A4A"; }}
-                    >
-                      ✓ Setujui
-                    </button>
-                    <button
-                      onClick={() => handleReject(reg.id)}
-                      disabled={isPending}
-                      style={{
-                        background: "rgba(192,80,96,0.08)",
-                        color: "#C05060",
-                        border: "1px solid rgba(192,80,96,0.25)",
-                        padding: "7px 14px",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontWeight: 600,
-                        cursor: isPending ? "not-allowed" : "pointer",
-                        opacity: isPending ? 0.7 : 1,
-                        transition: "all 0.2s",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                      onMouseEnter={(e) => { if (!isPending) { e.currentTarget.style.background = "rgba(192,80,96,0.15)"; } }}
-                      onMouseLeave={(e) => { if (!isPending) { e.currentTarget.style.background = "rgba(192,80,96,0.08)"; } }}
-                    >
-                      ✕ Tolak
-                    </button>
-                  </div>
+              ),
+            },
+            {
+              key: "phone_number",
+              header: "No. WhatsApp",
+              sortable: true,
+              render: (reg) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#8A4060" }}>{reg.phone_number ?? "—"}</span>,
+            },
+            {
+              key: "createdAt",
+              header: "Tgl Daftar",
+              sortable: true,
+              sortValue: (reg) => new Date(reg.createdAt).getTime(),
+              render: (reg) => <span style={{ fontSize: "0.75rem", color: "#8A4060" }}>{formatDate(reg.createdAt)}</span>,
+            },
+            {
+              key: "action",
+              header: "Aksi",
+              align: "center",
+              render: (reg) => (
+                <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                  <button
+                    onClick={() => handleApprove(reg.id)}
+                    disabled={isPending}
+                    style={{ background: "#1A7A4A", color: "white", border: "none", padding: "5px 12px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 600, cursor: isPending ? "not-allowed" : "pointer" }}
+                  >
+                    ✓ Setujui
+                  </button>
+                  <button
+                    onClick={() => handleReject(reg.id)}
+                    disabled={isPending}
+                    style={{ background: "rgba(192,80,96,0.08)", color: "#C05060", border: "1px solid rgba(192,80,96,0.25)", padding: "5px 12px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 600, cursor: isPending ? "not-allowed" : "pointer" }}
+                  >
+                    ✕ Tolak
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-          )}
-        </div>
+              ),
+            },
+          ]}
+        />
       )}
 
       {/* ── TAB: Aktif ── */}
       {activeTab === "aktif" && (
-        <div className="admin-card" style={{ overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #F0D9E0", background: "#FDF8F5" }}>
-            <span style={{ fontSize: "13px", color: "#B08090" }}>
-              Menampilkan {filteredCustomers.length} dari {customers.length} pelanggan aktif
-            </span>
-          </div>
-
-          <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
-            <div style={{ minWidth: "680px" }}>
-              {/* Header kolom */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 80px 80px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                <span>Pelanggan</span>
-                <span>No. WhatsApp</span>
-                <span>Bergabung</span>
-                <span>Booking</span>
-                <span>Sewa</span>
-              </div>
-
-              {loadingTab === "aktif" ? <Spinner /> : filteredCustomers.length === 0 ? (
-                <div style={{ padding: "48px", textAlign: "center", color: "#B08090", fontSize: "14px" }}>
-                  {customers.length === 0 ? "Belum ada pelanggan aktif" : "Tidak ada hasil yang cocok"}
+        <DataTable
+          data={customers}
+          loading={loadingTab === "aktif"}
+          searchPlaceholder="Cari pelanggan aktif, email, no HP..."
+          searchableKeys={["name", "email", "phone_number"]}
+          emptyMessage="Belum ada pelanggan aktif yang ditemukan 🌸"
+          columns={[
+            {
+              key: "name",
+              header: "Pelanggan",
+              sortable: true,
+              render: (c) => (
+                <div>
+                  <div style={{ fontWeight: 600, color: "#3A1A28" }}>{c.name}</div>
+                  <div style={{ fontSize: "0.72rem", color: "#B08090" }}>{c.email}</div>
                 </div>
-              ) : (
-                filteredCustomers.map((c) => (
-                  <div
-                    key={c.id}
-                    style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 80px 80px", padding: "14px 16px", borderBottom: "1px solid #F0D9E0", alignItems: "center" }}
-                  >
-                    <div>
-                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#3A1A28" }}>{c.name}</div>
-                      <div style={{ fontSize: "12px", color: "#B08090" }}>{c.email}</div>
-                    </div>
-                    <span style={{ fontSize: "12px", color: "#8A4060", fontFamily: "'DM Mono', monospace" }}>{c.phone_number ?? "—"}</span>
-                    <span style={{ fontSize: "13px", color: "#8A4060" }}>{formatDate(c.createdAt)}</span>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C4728E", fontWeight: 600 }}>{c.total_booking}x</span>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{c.total_sewa}x</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+              ),
+            },
+            {
+              key: "phone_number",
+              header: "No. WhatsApp",
+              sortable: true,
+              render: (c) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#8A4060" }}>{c.phone_number ?? "—"}</span>,
+            },
+            {
+              key: "createdAt",
+              header: "Bergabung",
+              sortable: true,
+              sortValue: (c) => new Date(c.createdAt).getTime(),
+              render: (c) => <span style={{ fontSize: "0.75rem", color: "#8A4060" }}>{formatDate(c.createdAt)}</span>,
+            },
+            {
+              key: "total_booking",
+              header: "Booking",
+              sortable: true,
+              sortValue: (c) => Number(c.total_booking),
+              render: (c) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.78rem", color: "#C4728E", fontWeight: 600 }}>{c.total_booking}x</span>,
+            },
+            {
+              key: "total_sewa",
+              header: "Sewa Baju",
+              sortable: true,
+              sortValue: (c) => Number(c.total_sewa),
+              render: (c) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.78rem", color: "#C9922A", fontWeight: 600 }}>{c.total_sewa}x</span>,
+            },
+          ]}
+        />
       )}
 
       {/* ── TAB: Ditolak ── */}
       {activeTab === "ditolak" && (
-        <div className="admin-card" style={{ overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #F0D9E0", background: "rgba(192,80,96,0.04)" }}>
-            <span style={{ fontSize: "13px", color: "#C05060", fontWeight: 600 }}>
-              {filteredRejected.length} pendaftaran ditolak
-            </span>
-          </div>
-
-          <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
-            <div style={{ minWidth: "680px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 110px", padding: "10px 16px", background: "#FDF8F5", borderBottom: "1px solid #F0D9E0", fontSize: "11px", color: "#B08090", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                <span>Pendaftar</span>
-                <span>No. WhatsApp</span>
-                <span>Tgl Daftar</span>
-                <span>Tgl Ditolak</span>
-              </div>
-
-              {loadingTab === "ditolak" ? <Spinner /> : filteredRejected.length === 0 ? (
-                <div style={{ padding: "48px", textAlign: "center", color: "#B08090", fontSize: "14px" }}>
-                  Tidak ada pendaftaran yang ditolak
+        <DataTable
+          data={rejected}
+          loading={loadingTab === "ditolak"}
+          searchPlaceholder="Cari pendaftaran ditolak..."
+          searchableKeys={["name", "email", "phone_number"]}
+          emptyMessage="Tidak ada pendaftaran yang ditolak 🌸"
+          columns={[
+            {
+              key: "name",
+              header: "Pendaftar",
+              sortable: true,
+              render: (reg) => (
+                <div>
+                  <div style={{ fontWeight: 600, color: "#3A1A28" }}>{reg.name}</div>
+                  <div style={{ fontSize: "0.72rem", color: "#B08090" }}>{reg.email}</div>
                 </div>
-              ) : (
-                filteredRejected.map((reg) => (
-                  <div
-                    key={reg.id}
-                    style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 110px", padding: "14px 16px", borderBottom: "1px solid #F0D9E0", alignItems: "center" }}
-                  >
-                    <div>
-                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#3A1A28" }}>{reg.name}</div>
-                      <div style={{ fontSize: "12px", color: "#B08090" }}>{reg.email}</div>
-                    </div>
-                    <span style={{ fontSize: "12px", color: "#8A4060", fontFamily: "'DM Mono', monospace" }}>{reg.phone_number ?? "—"}</span>
-                    <span style={{ fontSize: "12px", color: "#8A4060" }}>{formatDate(reg.createdAt)}</span>
-                    <span style={{ fontSize: "12px", color: "#C05060" }}>{formatDate(reg.createdAt)}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+              ),
+            },
+            {
+              key: "phone_number",
+              header: "No. WhatsApp",
+              sortable: true,
+              render: (reg) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#8A4060" }}>{reg.phone_number ?? "—"}</span>,
+            },
+            {
+              key: "createdAt",
+              header: "Tgl Daftar",
+              sortable: true,
+              sortValue: (reg) => new Date(reg.createdAt).getTime(),
+              render: (reg) => <span style={{ fontSize: "0.75rem", color: "#8A4060" }}>{formatDate(reg.createdAt)}</span>,
+            },
+          ]}
+        />
       )}
       {/* Create Customer Modal */}
       {isCreateModalOpen && (

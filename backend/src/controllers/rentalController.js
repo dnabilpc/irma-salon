@@ -246,6 +246,13 @@ export async function getRentalsForAdmin(req, res) {
         );
         const total = parseInt(countResult.rows[0].count, 10);
 
+        let limitClause = "";
+        let queryParams = [...params];
+        if (limit > 0) {
+            limitClause = `LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+            queryParams.push(limit, offset);
+        }
+
         const result = await pool.query(
             `SELECT
                r.id,
@@ -269,8 +276,8 @@ export async function getRentalsForAdmin(req, res) {
              LEFT JOIN transactions t   ON t.rental_id = r.id
              ${where}
              ORDER BY r.id DESC
-             LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-            [...params, limit, offset]
+             ${limitClause}`,
+            queryParams
         );
 
         // Calculate global stats

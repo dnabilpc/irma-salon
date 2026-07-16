@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import ImageUploader from "@/components/ui/ImageUploader";
 import MultiImageUploader from "@/components/ui/MultiImageUploader";
 import { uploadAdminImage } from "@/actions/admin";
@@ -754,163 +755,137 @@ export default function ClothesCataloguePage() {
       {/* ── Tab: Katalog Baju ── */}
       {activeTab === "outfits" && (
         <>
-          {/* Filter + Search */}
-          <div style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "12px", padding: "14px 16px", display: "flex", gap: "12px", flexWrap: "wrap", boxShadow: "0 1px 4px rgba(196,120,138,0.06)" }}>
-            <div style={{ position: "relative", flex: 1, minWidth: "200px" }}>
-              <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#C4788A", pointerEvents: "none" }}>🔍</span>
-              <input
-                type="text"
-                placeholder="Cari nama baju..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ width: "100%", background: "#FDFAF7", border: "1px solid #F0E0E6", borderRadius: "8px", padding: "8px 12px 8px 36px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#2C1A0E", outline: "none" }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
-              />
-            </div>
-            <select
-              value={filterCat}
-              onChange={(e) => setFilterCat(e.target.value)}
-              style={{ background: "#FDFAF7", border: "1px solid #F0E0E6", borderRadius: "8px", padding: "8px 12px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#2C1A0E", outline: "none", cursor: "pointer" }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
-            >
-              <option value="all">Semua Kategori</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.category_name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Grid baju */}
-          {loading ? (
-            <div style={{ padding: "48px", textAlign: "center", color: "#C4788A", fontFamily: "'DM Sans', sans-serif" }}>Memuat data...</div>
-          ) : filteredOutfits.length === 0 ? (
-            <div style={{ padding: "48px", textAlign: "center", color: "#B09080", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem" }}>
-              {search || filterCat !== "all" ? "Baju tidak ditemukan." : "Belum ada baju. Klik '+ Tambah Baju' untuk mulai."}
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "16px" }}>
-              {filteredOutfits.map((o) => (
-                <div
-                  key={o.id}
-                  style={{
-                    background: "white",
-                    border: "1px solid #F0E0E6",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                    boxShadow: "0 1px 4px rgba(196,120,138,0.06)",
-                    transition: "all 0.2s",
-                    opacity: o.is_active === false ? 0.75 : 1,
-                    filter: o.is_active === false ? "grayscale(30%)" : "none"
-                  }}
-                  onMouseEnter={(e) => {
-                    if (o.is_active !== false) {
-                      (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(196,120,138,0.12)";
-                      (e.currentTarget as HTMLElement).style.borderColor = "#E8C0D0";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(196,120,138,0.06)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "#F0E0E6";
-                  }}
-                >
-                  {/* Gambar */}
-                  <div style={{ height: "180px", background: "linear-gradient(135deg, #FDF0F4, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
+          <DataTable
+            data={filteredOutfits}
+            loading={loading}
+            searchPlaceholder="Cari nama baju, deskripsi, ukuran..."
+            searchableKeys={["outfit_name", "description", "category_name", "size", "price"]}
+            emptyMessage="Belum ada koleksi baju yang ditemukan 🌸"
+            headerRightElement={
+              <select
+                value={filterCat}
+                onChange={(e) => setFilterCat(e.target.value)}
+                style={{
+                  background: "white",
+                  border: "1px solid #EDD8CC",
+                  borderRadius: "8px",
+                  padding: "8px 12px",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "0.82rem",
+                  color: "#2C1A0E",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="all">🌐 Semua Kategori</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.category_name}
+                  </option>
+                ))}
+              </select>
+            }
+            columns={[
+              {
+                key: "image_url",
+                header: "Foto",
+                width: "70px",
+                render: (o) => (
+                  <div style={{ width: "48px", height: "48px", borderRadius: "8px", overflow: "hidden", background: "#FDF0F4", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {o.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={o.image_url} alt={o.outfit_name} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={o.image_url} alt={o.outfit_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <span style={{ fontSize: "3rem" }}>👗</span>
-                    )}
-                    {/* Status Badge Non-aktif */}
-                    {o.is_active === false && (
-                      <div style={{ position: "absolute", top: "8px", left: "8px", background: "#8E7A80", color: "white", fontSize: "0.58rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                        Non-aktif
-                      </div>
-                    )}
-                    {/* Badge VTO */}
-                    {o.model_2d_file_link ? (
-                      <div style={{ position: "absolute", top: "8px", right: "8px", background: "rgba(201,146,42,0.92)", color: "white", fontSize: "0.58rem", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", letterSpacing: "0.06em" }}>
-                        ✨ VTO SIAP
-                      </div>
-                    ) : (
-                      <div style={{ position: "absolute", top: "8px", right: "8px", background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.7)", fontSize: "0.55rem", fontWeight: 600, padding: "3px 8px", borderRadius: "6px" }}>
-                        VTO BELUM ADA
-                      </div>
+                      <span style={{ fontSize: "1.2rem" }}>👗</span>
                     )}
                   </div>
-
-                  {/* Info */}
-                  <div style={{ padding: "14px 16px" }}>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
-                      <span style={{ fontSize: "0.62rem", color: "#C4788A", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                        {o.category_name}
-                      </span>
-                      <span style={{ fontSize: "0.6rem", background: "rgba(196,120,138,0.1)", color: "#C4788A", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                ),
+              },
+              {
+                key: "outfit_name",
+                header: "Nama Baju & Kategori",
+                sortable: true,
+                render: (o) => (
+                  <div>
+                    <div style={{ fontWeight: 600, color: "#2C1A0E" }}>{o.outfit_name}</div>
+                    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "2px" }}>
+                      <span style={{ fontSize: "0.65rem", color: "#C4788A", fontWeight: 600 }}>{o.category_name}</span>
+                      <span style={{ fontSize: "0.6rem", background: "rgba(196,120,138,0.1)", color: "#C4788A", padding: "1px 5px", borderRadius: "4px" }}>
                         {o.target_gender === 'pria' ? '👨 Pria' : o.target_gender === 'wanita' ? '👩 Wanita' : '👥 Unisex'}
                       </span>
-                      <span style={{ fontSize: "0.6rem", background: "rgba(90,158,122,0.12)", color: "#3B7A58", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
-                        {o.target_age === 'anak_anak' ? '🧒 Anak-Anak' : o.target_age === 'dewasa' ? '🧑 Dewasa' : '🌐 Semua Umur'}
+                      <span style={{ fontSize: "0.6rem", background: "rgba(90,158,122,0.12)", color: "#3B7A58", padding: "1px 5px", borderRadius: "4px" }}>
+                        {o.target_age === 'anak_anak' ? '🧒 Anak' : o.target_age === 'dewasa' ? '🧑 Dewasa' : '🌐 Semua'}
                       </span>
                     </div>
-                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.95rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
-                      {o.outfit_name}
-                    </div>
-                    {o.description && (
-                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#B09080", marginBottom: "10px", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
-                        {o.description}
-                      </div>
-                    )}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.88rem", fontWeight: 600, color: "#C4788A" }}>
-                        {formatRupiah(o.price)}<span style={{ fontSize: "0.6rem", color: "#B09080", fontWeight: 400 }}>/hari</span>
-                      </span>
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                        {o.size && (
-                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#B09080", background: "#F5EBF0", padding: "2px 8px", borderRadius: "6px" }}>
-                            {o.size}
-                          </span>
-                        )}
-                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#6B3A2A", background: "#FDF0E8", border: "1px solid #EDD8CC", padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>
-                          Stok: {o.stock ?? 1}
-                        </span>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
+                  </div>
+                ),
+              },
+              {
+                key: "price",
+                header: "Biaya Sewa / Hari",
+                sortable: true,
+                sortValue: (o) => Number(o.price),
+                render: (o) => <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 600, color: "#C4788A" }}>{formatRupiah(Number(o.price))}</span>,
+              },
+              {
+                key: "size",
+                header: "Ukuran",
+                sortable: true,
+                render: (o) => <span style={{ fontSize: "0.78rem", color: "#7A5C50", background: "#F5EBF0", padding: "2px 8px", borderRadius: "4px" }}>{o.size || "—"}</span>,
+              },
+              {
+                key: "stock",
+                header: "Stok",
+                sortable: true,
+                sortValue: (o) => Number(o.stock ?? 1),
+                render: (o) => <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 600, color: "#6B3A2A" }}>{o.stock ?? 1} unit</span>,
+              },
+              {
+                key: "vto",
+                header: "Fitting VTO 2D",
+                render: (o) =>
+                  o.model_2d_file_link ? (
+                    <span style={{ fontSize: "0.68rem", background: "rgba(201,146,42,0.15)", color: "#C9922A", padding: "3px 8px", borderRadius: "6px", fontWeight: 700 }}>
+                      ✨ VTO Ready
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: "0.68rem", color: "#B09080" }}>Belum Ada</span>
+                  ),
+              },
+              {
+                key: "action",
+                header: "Aksi",
+                align: "center",
+                render: (o) => (
+                  <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                    {o.is_active === false ? (
                       <button
-                        onClick={() => openEditOutfit(o)}
-                        style={{ flex: 1, background: "rgba(196,120,138,0.08)", border: "1px solid rgba(196,120,138,0.25)", color: "#C4788A", padding: "7px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.15)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.08)")}
+                        onClick={() => handleReactivateOutfit(o)}
+                        style={{ background: "#5A9E7A", color: "white", border: "none", padding: "5px 10px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}
                       >
-                        ✏️ Edit
+                        ✓ Aktifkan
                       </button>
-                      {o.is_active === false ? (
+                    ) : (
+                      <>
                         <button
-                          onClick={() => handleReactivateOutfit(o)}
-                          style={{ flex: 1, background: "rgba(90,158,122,0.08)", border: "1px solid rgba(90,158,122,0.25)", color: "#3D7A5A", padding: "7px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(90,158,122,0.15)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(90,158,122,0.08)")}
+                          onClick={() => openEditOutfit(o)}
+                          style={{ background: "transparent", border: "1px solid #F0E0E6", color: "#C4788A", padding: "5px 10px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
                         >
-                          ✓ Aktifkan
+                          ✏️ Edit
                         </button>
-                      ) : (
                         <button
                           onClick={() => setDeleteTarget({ id: o.id, name: o.outfit_name, type: "outfit" })}
-                          style={{ flex: 1, background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", color: "#C05060", padding: "7px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.12)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.06)")}
+                          style={{ background: "rgba(192,80,96,0.08)", border: "1px solid rgba(192,80,96,0.25)", color: "#C05060", padding: "5px 10px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
                         >
                           🗑️ Hapus
                         </button>
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ),
+              },
+            ]}
+          />
         </>
       )}
 

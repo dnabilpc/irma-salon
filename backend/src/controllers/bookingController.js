@@ -712,6 +712,13 @@ export async function getBookingsForAdmin(req, res) {
         );
         const total = parseInt(countResult.rows[0].count, 10);
 
+        let limitClause = "";
+        let queryParams = [...params];
+        if (limit > 0) {
+            limitClause = `LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+            queryParams.push(limit, offset);
+        }
+
         const result = await pool.query(
             `SELECT
                b.id,
@@ -732,8 +739,8 @@ export async function getBookingsForAdmin(req, res) {
              GROUP BY b.id, u.name, u.email, b.booking_datetime, b.status,
                       t.total_amount, t.payment_method, t.id
              ORDER BY b.booking_datetime DESC
-             LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-            [...params, limit, offset]
+             ${limitClause}`,
+            queryParams
         );
 
         // Calculate global stats

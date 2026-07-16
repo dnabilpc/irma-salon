@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import {
   getRentalsForAdmin,
   updateRentalStatus,
@@ -356,9 +357,7 @@ export default function AdminRentalsClient() {
     try {
       const result = await getRentalsForAdmin({
         status: filter,
-        search: search || undefined,
-        page,
-        limit: LIMIT,
+        limit: 0,
       });
       if (result.success && result.data) {
         setRentals(result.data.rows);
@@ -372,7 +371,7 @@ export default function AdminRentalsClient() {
     } finally {
       setLoading(false);
     }
-  }, [filter, search, page, showToast]);
+  }, [filter, showToast]);
 
   // Sync status terlambat saat halaman dibuka
   useEffect(() => {
@@ -478,173 +477,125 @@ export default function AdminRentalsClient() {
         </div>
       )}
 
-      {/* Filter + Search */}
-      <div className="admin-card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: "12px" }}>
-        <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#B08090", pointerEvents: "none" }}>🔍</span>
-          <input
-            className="search-input"
-            placeholder="Cari nama pelanggan atau baju..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          />
-        </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" as const }}>
-          {FILTER_TABS.map(({ key, label }) => {
-            const count = key === "ALL" ? total : rentals.filter((r) => r.rental_status === key).length;
-            return (
-              <button
-                key={key}
-                className={`filter-btn${filter === key ? " active" : ""}`}
-                onClick={() => { setFilter(key); setPage(1); }}
-              >
-                {label}
-                <span style={{ marginLeft: "5px", background: filter === key ? "rgba(255,255,255,0.25)" : "#F0D9E0", color: filter === key ? "white" : "#B08090", fontSize: "11px", fontWeight: 700, padding: "0 5px", borderRadius: "10px" }}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Tabel */}
-      <div className="admin-card" style={{ overflow: "hidden" }}>
-        {/* Info */}
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #F0D9E0", display: "flex", justifyContent: "space-between", background: "#FDF8F5" }}>
-          <span style={{ fontSize: "13px", color: "#B08090" }}>
-            {loading ? "Memuat..." : `Menampilkan ${rentals.length} dari ${total} data`}
-          </span>
-        </div>
-
-        <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
-          <div style={{ minWidth: "900px" }}>
-            {/* Header kolom */}
-        <div className="table-row" style={{ gridTemplateColumns: COL, background: "#FDF8F5", fontSize: "12px", color: "#B08090", letterSpacing: "0.06em", textTransform: "uppercase" as const, fontWeight: 600 }}>
-          <span>ID</span>
-          <span>Pelanggan</span>
-          <span>Baju</span>
-          <span>Mulai</span>
-          <span>Kembali</span>
-          <span>Status</span>
-          <span>Total</span>
-          <span />
-        </div>
-
-        {/* Loading */}
-        {loading && (
-          <div style={{ padding: "48px", textAlign: "center", color: "#C4728E", fontFamily: "'DM Sans', sans-serif", fontSize: "14px" }}>
-            Memuat data...
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && rentals.length === 0 && (
-          <div style={{ padding: "48px", textAlign: "center", color: "#B08090", fontFamily: "'DM Sans', sans-serif", fontSize: "14px" }}>
-            Tidak ada data untuk filter ini
-          </div>
-        )}
-
-        {/* Data rows */}
-        {!loading && rentals.map((r) => (
-          <div
-            key={r.id}
-            className="table-row"
-            style={{ gridTemplateColumns: COL, cursor: "pointer" }}
-            onClick={() => setSelected(r)}
-          >
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#B08090" }}>{r.id}</span>
-
-            <div style={{ overflow: "hidden" }}>
-              <div style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {r.customer_name}
-              </div>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#B08090" }}>
-                {r.customer_phone ?? "-"}
-              </div>
-            </div>
-
-            <div style={{ overflow: "hidden" }}>
-              <div style={{ fontSize: "13px", color: "#3A1A28", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {r.outfit_name}
-              </div>
-              <div style={{ fontSize: "11px", color: "#B08090" }}>{r.category_name}</div>
-            </div>
-
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>
-              {formatDate(r.start_date)}
-            </span>
-
-            <span style={{
-              fontFamily: "'DM Mono', monospace", fontSize: "12px",
-              color: r.rental_status === "terlambat" ? "#D94060" : "#8A4060",
-              fontWeight: r.rental_status === "terlambat" ? 700 : 400,
-            }}>
-              {formatDate(r.end_date)}
-            </span>
-
-            <StatusBadge status={r.rental_status as RentalStatus} />
-
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>
-              {formatRupiah(r.amount_to_be_paid)}
-            </span>
-
-            {/* Quick action */}
-            <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", justifyContent: "center" }}>
-              {r.rental_status === "pending" ? (
-                <button
-                  title="Konfirmasi dipinjam"
-                  onClick={() => handleStatusChange(r.id, "ongoing")}
-                  style={{ background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", width: "28px", height: "28px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >
-                  ✓
-                </button>
-              ) : r.rental_status === "ongoing" || r.rental_status === "terlambat" ? (
-                <button
-                  title="Klik untuk tandai selesai"
-                  onClick={() => setSelected(r)}
-                  style={{ background: "rgba(196,114,142,0.1)", border: "1px solid rgba(196,114,142,0.3)", color: "#C4728E", width: "28px", height: "28px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >
-                  ↩
-                </button>
-              ) : (
-                <span style={{ fontSize: "14px", color: "#D4B8C0" }}>—</span>
-              )}
-            </div>
-          </div>
-        ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            style={{ background: "white", border: "1px solid #E8C0D0", color: page === 1 ? "#D4B8C0" : "#8A4060", padding: "7px 16px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", cursor: page === 1 ? "not-allowed" : "pointer" }}
-          >
-            ← Prev
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+      {/* Filter Tabs */}
+      <div className="admin-card" style={{ padding: "12px 18px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        {FILTER_TABS.map(({ key, label }) => {
+          const count = key === "ALL" ? total : rentals.filter((r) => r.rental_status === key).length;
+          return (
             <button
-              key={p}
-              onClick={() => setPage(p)}
-              style={{ background: p === page ? "#C4728E" : "white", border: `1px solid ${p === page ? "#C4728E" : "#E8C0D0"}`, color: p === page ? "white" : "#8A4060", width: "36px", height: "36px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", fontWeight: p === page ? 600 : 400, cursor: "pointer" }}
+              key={key}
+              className={`filter-btn${filter === key ? " active" : ""}`}
+              onClick={() => setFilter(key)}
             >
-              {p}
+              {label}
+              <span style={{ marginLeft: "5px", background: filter === key ? "rgba(255,255,255,0.25)" : "#F0D9E0", color: filter === key ? "white" : "#B08090", fontSize: "11px", fontWeight: 700, padding: "0 5px", borderRadius: "10px" }}>
+                {count}
+              </span>
             </button>
-          ))}
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            style={{ background: "white", border: "1px solid #E8C0D0", color: page === totalPages ? "#D4B8C0" : "#8A4060", padding: "7px 16px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", cursor: page === totalPages ? "not-allowed" : "pointer" }}
-          >
-            Next →
-          </button>
-        </div>
-      )}
+          );
+        })}
+      </div>
+
+      {/* DataTables Component */}
+      <DataTable
+        data={rentals}
+        loading={loading}
+        searchPlaceholder="Cari nama pelanggan, telp, atau nama baju..."
+        searchableKeys={["customer_name", "customer_phone", "outfit_name", "category_name", "id"]}
+        emptyMessage="Tidak ada data sewa baju yang ditemukan 🌸"
+        columns={[
+          {
+            key: "id",
+            header: "ID",
+            sortable: true,
+            width: "60px",
+            render: (r) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B08090" }}>#{r.id}</span>,
+          },
+          {
+            key: "customer_name",
+            header: "Pelanggan",
+            sortable: true,
+            render: (r) => (
+              <div>
+                <div style={{ fontWeight: 600, color: "#3A1A28" }}>{r.customer_name}</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.68rem", color: "#B08090" }}>{r.customer_phone ?? "-"}</div>
+              </div>
+            ),
+          },
+          {
+            key: "outfit_name",
+            header: "Baju / Busana",
+            sortable: true,
+            render: (r) => (
+              <div>
+                <div style={{ fontWeight: 600, color: "#3A1A28" }}>{r.outfit_name}</div>
+                <div style={{ fontSize: "0.7rem", color: "#B08090" }}>{r.category_name}</div>
+              </div>
+            ),
+          },
+          {
+            key: "start_date",
+            header: "Mulai",
+            sortable: true,
+            render: (r) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#8A4060" }}>{formatDate(r.start_date)}</span>,
+          },
+          {
+            key: "end_date",
+            header: "Batas Kembali",
+            sortable: true,
+            render: (r) => (
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: r.rental_status === "terlambat" ? "#D94060" : "#8A4060", fontWeight: r.rental_status === "terlambat" ? 700 : 400 }}>
+                {formatDate(r.end_date)}
+              </span>
+            ),
+          },
+          {
+            key: "rental_status",
+            header: "Status",
+            sortable: true,
+            render: (r) => <StatusBadge status={r.rental_status as RentalStatus} />,
+          },
+          {
+            key: "amount_to_be_paid",
+            header: "Total Biaya",
+            sortable: true,
+            sortValue: (r) => Number(r.amount_to_be_paid),
+            render: (r) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#C9922A", fontWeight: 600 }}>{formatRupiah(r.amount_to_be_paid)}</span>,
+          },
+          {
+            key: "action",
+            header: "Aksi",
+            align: "center",
+            render: (r) => (
+              <div style={{ display: "flex", gap: "6px", justifyContent: "center" }} onClick={(e) => e.stopPropagation()}>
+                {r.rental_status === "pending" ? (
+                  <button
+                    title="Konfirmasi dipinjam"
+                    onClick={() => handleStatusChange(r.id, "ongoing")}
+                    style={{ background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", padding: "4px 8px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
+                  >
+                    ✓ Pinjam
+                  </button>
+                ) : r.rental_status === "ongoing" || r.rental_status === "terlambat" ? (
+                  <button
+                    title="Klik untuk tandai selesai"
+                    onClick={() => setSelected(r)}
+                    style={{ background: "rgba(196,114,142,0.1)", border: "1px solid rgba(196,114,142,0.3)", color: "#C4728E", padding: "4px 8px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
+                  >
+                    ↩ Selesai
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => setSelected(r)}
+                  style={{ background: "transparent", border: "1px solid #E8C0D0", color: "#8A4060", padding: "4px 8px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
+                >
+                  Detail
+                </button>
+              </div>
+            ),
+          },
+        ]}
+      />
       {/* Detail Modal */}
       {selected && (
         <DetailModal

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import { fetchAdminPayments, confirmAdminPayment } from "@/actions/admin";
 import type { PaymentRow } from "@/actions/admin";
 
@@ -242,144 +243,174 @@ export default function PaymentsPage() {
         ))}
       </div>
 
-      {/* Filter + Search */}
-      <div className="admin-card no-print" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: "12px" }}>
-        <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#B08090", pointerEvents: "none" }}>🔍</span>
-          <input className="search-input" placeholder="Cari nama pelanggan atau ID transaksi..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+      {/* Filter Tabs Bar */}
+      <div className="admin-card no-print" style={{ padding: "12px 18px", display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+        {/* Status filter */}
+        <span style={{ fontSize: "12px", color: "#B08090", fontWeight: 600, marginRight: "4px" }}>Status:</span>
+        {(["all", "lunas", "pending", "gagal"] as const).map((key) => {
+          const labels: Record<string, string> = { all: "Semua", lunas: "Lunas", pending: "Pending", gagal: "Gagal" };
+          const count = key === "all" ? payments.length : payments.filter((p) => p.status === key).length;
+          return (
+            <button key={key} className={`filter-btn${filter === key ? " active" : ""}`} onClick={() => setFilter(key)}>
+              {labels[key]}
+              <span style={{ marginLeft: "5px", background: filter === key ? "rgba(255,255,255,0.25)" : "#F0D9E0", color: filter === key ? "white" : "#B08090", fontSize: "11px", fontWeight: 700, padding: "0 5px", borderRadius: "10px" }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
 
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" as const, alignItems: "center" }}>
-          {/* Status filter */}
-          <span style={{ fontSize: "12px", color: "#B08090", fontWeight: 600, marginRight: "4px" }}>Status:</span>
-          {(["all", "lunas", "pending", "gagal"] as const).map((key) => {
-            const labels: Record<string, string> = { all: "Semua", lunas: "Lunas", pending: "Pending", gagal: "Gagal" };
-            const count = key === "all" ? payments.length : payments.filter((p) => p.status === key).length;
-            return (
-              <button key={key} className={`filter-btn${filter === key ? " active" : ""}`} onClick={() => setFilter(key)}>
-                {labels[key]}
-                <span style={{ marginLeft: "5px", background: filter === key ? "rgba(255,255,255,0.25)" : "#F0D9E0", color: filter === key ? "white" : "#B08090", fontSize: "11px", fontWeight: 700, padding: "0 5px", borderRadius: "10px" }}>
-                  {count}
+        {/* Divider */}
+        <div style={{ width: "1px", height: "20px", background: "#E8C0D0", margin: "0 4px" }} />
+
+        {/* Type filter */}
+        <span style={{ fontSize: "12px", color: "#B08090", fontWeight: 600, marginRight: "4px" }}>Tipe:</span>
+        {(["all", "booking", "sewa", "offline"] as const).map((key) => {
+          const labels: Record<string, string> = { all: "Semua", booking: "Booking", sewa: "Sewa", offline: "Offline" };
+          return (
+            <button key={key} className={`filter-btn${typeFilter === key ? " active" : ""}`} onClick={() => setTypeFilter(key)}>
+              {labels[key]}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* DataTables Component */}
+      <DataTable
+        data={payments.filter((p) => {
+          const matchStatus = filter === "all" || p.status === filter;
+          const matchType = typeFilter === "all" || p.type === typeFilter;
+          return matchStatus && matchType;
+        })}
+        loading={loading}
+        searchPlaceholder="Cari nama pelanggan, telp, deskripsi, atau ID TRX..."
+        searchableKeys={["customer", "description", "id", "phone", "date"]}
+        emptyMessage="Tidak ada transaksi yang ditemukan 🌸"
+        columns={[
+          {
+            key: "id",
+            header: "ID TRX",
+            sortable: true,
+            width: "80px",
+            render: (p) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B08090" }}>TRX-{p.id}</span>,
+          },
+          {
+            key: "customer",
+            header: "Pelanggan / Keterangan",
+            sortable: true,
+            render: (p) => (
+              <div>
+                <div style={{ fontWeight: 600, color: "#3A1A28" }}>{p.customer}</div>
+                <div style={{ fontSize: "0.72rem", color: "#B08090" }}>{p.description}</div>
+              </div>
+            ),
+          },
+          {
+            key: "type",
+            header: "Tipe",
+            sortable: true,
+            render: (p) => {
+              const tc = TYPE_CONFIG[p.type] || { label: p.type, bg: "rgba(100,100,100,0.1)", color: "#555" };
+              return (
+                <span style={{ display: "inline-flex", background: tc.bg, color: tc.color, fontSize: "0.72rem", fontWeight: 600, padding: "3px 10px", borderRadius: "20px" }}>
+                  {tc.label}
                 </span>
-              </button>
-            );
-          })}
-
-          {/* Divider */}
-          <div style={{ width: "1px", height: "20px", background: "#E8C0D0", margin: "0 4px" }} />
-
-          {/* Type filter */}
-          <span style={{ fontSize: "12px", color: "#B08090", fontWeight: 600, marginRight: "4px" }}>Tipe:</span>
-          {(["all", "booking", "sewa", "offline"] as const).map((key) => {
-            const labels: Record<string, string> = { all: "Semua", booking: "Booking", sewa: "Sewa", offline: "Offline" };
-            return (
-              <button key={key} className={`filter-btn${typeFilter === key ? " active" : ""}`} onClick={() => setTypeFilter(key)}>
-                {labels[key]}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Tabel */}
-      <div className="admin-card" style={{ overflow: "hidden" }}>
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #F0D9E0", background: "#FDF8F5" }}>
-          <span style={{ fontSize: "13px", color: "#B08090" }}>
-            {loading ? "Memuat data..." : `Menampilkan ${filtered.length} dari ${payments.length} transaksi`}
-          </span>
-        </div>
-
-        <div className="table-responsive-container" style={{ margin: 0, border: "none", borderRadius: 0 }}>
-          <div style={{ minWidth: "900px" }}>
-            <div className="table-row" style={{ gridTemplateColumns: COL, background: "#FDF8F5", fontSize: "12px", color: "#B08090", letterSpacing: "0.06em", textTransform: "uppercase" as const, fontWeight: 600 }}>
-              <span>ID</span>
-              <span>Pelanggan</span>
-              <span>Tipe</span>
-              <span>Metode</span>
-              <span>Status</span>
-              <span>Tanggal</span>
-              <span>Jam</span>
-              <span>Jumlah</span>
-              <span>Aksi</span>
-            </div>
-
-            {loading ? (
-              <div style={{ padding: "48px", textAlign: "center" as const, color: "#B08090", fontSize: "14px" }}>
-                Memuat data transaksi dari server...
-              </div>
-            ) : filtered.length === 0 ? (
-              <div style={{ padding: "48px", textAlign: "center" as const, color: "#B08090", fontSize: "14px" }}>
-                Tidak ada data untuk filter ini
-              </div>
-            ) : (
-              filtered.map((p) => {
-                const sc = STATUS_CONFIG[p.status] || { label: p.status, bg: "rgba(100,100,100,0.1)", color: "#555" };
-                const tc = TYPE_CONFIG[p.type] || { label: p.type, bg: "rgba(100,100,100,0.1)", color: "#555" };
-                const mc = METHOD_CONFIG[p.method] || { label: p.method, icon: "💳" };
-                return (
-                  <div key={p.id} className="table-row" style={{ gridTemplateColumns: COL, cursor: "pointer" }} onClick={() => setSelected(p)}>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#B08090" }}>TRX-{p.id}</span>
-                    <div>
-                      <div style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28" }}>{p.customer}</div>
-                      <div style={{ fontSize: "12px", color: "#B08090" }}>{p.description}</div>
-                    </div>
-                    <span style={{ display: "inline-flex", background: tc.bg, color: tc.color, fontSize: "12px", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", whiteSpace: "nowrap" as const, height: "fit-content", width: "fit-content" }}>
-                      {tc.label}
+              );
+            },
+          },
+          {
+            key: "method",
+            header: "Metode",
+            sortable: true,
+            render: (p) => {
+              const mc = METHOD_CONFIG[p.method] || { label: p.method, icon: "💳" };
+              return <span style={{ fontSize: "0.78rem", color: "#8A4060" }}>{mc.icon} {mc.label}</span>;
+            },
+          },
+          {
+            key: "status",
+            header: "Status",
+            sortable: true,
+            render: (p) => {
+              const sc = STATUS_CONFIG[p.status] || { label: p.status, bg: "rgba(100,100,100,0.1)", color: "#555" };
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <span style={{ display: "inline-flex", background: sc.bg, color: sc.color, fontSize: "0.72rem", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", width: "fit-content" }}>
+                    {sc.label}
+                  </span>
+                  {p.payment_proof_sent && p.status === "pending" && (
+                    <span style={{ display: "inline-flex", background: "rgba(0,75,123,0.08)", color: "#004b7b", fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", width: "fit-content", border: "1px dashed rgba(0,75,123,0.3)" }}>
+                      Bukti Dikirim 📱
                     </span>
-                    <span style={{ fontSize: "13px", color: "#8A4060" }}>{mc.icon} {mc.label}</span>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <span style={{ display: "inline-flex", background: sc.bg, color: sc.color, fontSize: "12px", fontWeight: 600, padding: "3px 10px", borderRadius: "20px", whiteSpace: "nowrap" as const, height: "fit-content", width: "fit-content" }}>
-                        {sc.label}
-                      </span>
-                      {p.payment_proof_sent && p.status === "pending" && (
-                        <span style={{ display: "inline-flex", background: "rgba(0,75,123,0.08)", color: "#004b7b", fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", width: "fit-content", border: "1px dashed rgba(0,75,123,0.3)" }}>
-                          Bukti Dikirim 📱
-                        </span>
-                      )}
-                    </div>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.date}</span>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#8A4060" }}>{p.payment_time || "—"}</span>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "#C9922A", fontWeight: 600 }}>{formatRupiah(Number(p.amount))}</span>
-                    <div className="no-print" onClick={(e) => e.stopPropagation()}>
-                      {p.status === "pending" ? (
-                        <button
-                          onClick={async () => {
-                            setSubmittingRowId(p.id);
-                            const res = await confirmAdminPayment(Number(p.id));
-                            setSubmittingRowId(null);
-                            if (res.success) {
-                              loadPayments();
-                            } else {
-                              alert(res.error || "Gagal memverifikasi pembayaran.");
-                            }
-                          }}
-                          disabled={submittingRowId !== null}
-                          style={{
-                            background: "linear-gradient(135deg, #2A8C5A, #1A7A4A)",
-                            border: "none",
-                            color: "white",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            padding: "5px 10px",
-                            borderRadius: "6px",
-                            cursor: submittingRowId !== null ? "not-allowed" : "pointer",
-                            boxShadow: "0 2px 4px rgba(42, 140, 90, 0.2)",
-                            transition: "all 0.2s"
-                          }}
-                        >
-                          {submittingRowId === p.id ? "..." : "✓ Konfirmasi"}
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: "12px", color: "#B08090" }}>—</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
+                  )}
+                </div>
+              );
+            },
+          },
+          {
+            key: "date",
+            header: "Tanggal",
+            sortable: true,
+            render: (p) => (
+              <div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#8A4060" }}>{p.date}</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.7rem", color: "#B08090" }}>{p.payment_time || "—"}</div>
+              </div>
+            ),
+          },
+          {
+            key: "amount",
+            header: "Jumlah",
+            sortable: true,
+            sortValue: (p) => Number(p.amount),
+            render: (p) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.78rem", color: "#C9922A", fontWeight: 600 }}>{formatRupiah(Number(p.amount))}</span>,
+          },
+          {
+            key: "action",
+            header: "Aksi",
+            align: "center",
+            render: (p) => (
+              <div className="no-print" onClick={(e) => e.stopPropagation()} style={{ display: "flex", justifyContent: "center" }}>
+                {p.status === "pending" ? (
+                  <button
+                    onClick={async () => {
+                      setSubmittingRowId(p.id);
+                      const res = await confirmAdminPayment(Number(p.id));
+                      setSubmittingRowId(null);
+                      if (res.success) {
+                        loadPayments();
+                      } else {
+                        alert(res.error || "Gagal memverifikasi pembayaran.");
+                      }
+                    }}
+                    disabled={submittingRowId !== null}
+                    style={{
+                      background: "linear-gradient(135deg, #2A8C5A, #1A7A4A)",
+                      border: "none",
+                      color: "white",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "5px 10px",
+                      borderRadius: "6px",
+                      cursor: submittingRowId !== null ? "not-allowed" : "pointer",
+                      boxShadow: "0 2px 4px rgba(42, 140, 90, 0.2)",
+                    }}
+                  >
+                    {submittingRowId === p.id ? "..." : "✓ Konfirmasi"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setSelected(p)}
+                    style={{ background: "transparent", border: "1px solid #E8C0D0", color: "#8A4060", padding: "4px 8px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
+                  >
+                    Detail
+                  </button>
+                )}
+              </div>
+            ),
+          },
+        ]}
+      />
 
       {/* Modal detail */}
       {selected && (

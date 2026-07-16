@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import ImageUploader from "@/components/ui/ImageUploader";
 import { uploadAdminImage } from "@/actions/admin";
 
@@ -379,7 +380,7 @@ export default function ServicesCataloguePage() {
       )}
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.5rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
             Katalog Jasa Salon
@@ -398,128 +399,99 @@ export default function ServicesCataloguePage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "12px", padding: "14px 16px", boxShadow: "0 1px 4px rgba(196,120,138,0.06)" }}>
-        <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#C4788A", pointerEvents: "none" }}>🔍</span>
-          <input
-            type="text"
-            placeholder="Cari nama layanan..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "100%", background: "#FDFAF7", border: "1px solid #F0E0E6", borderRadius: "8px", padding: "8px 12px 8px 36px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#2C1A0E", outline: "none" }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
-          />
-        </div>
-      </div>
-
-      {/* Grid kartu layanan */}
-      {loading ? (
-        <div style={{ padding: "48px", textAlign: "center", color: "#C4788A", fontFamily: "'DM Sans', sans-serif" }}>
-          Memuat data layanan...
-        </div>
-      ) : filtered.length === 0 ? (
-        <div style={{ padding: "48px", textAlign: "center", color: "#B09080", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem" }}>
-          {search ? "Layanan tidak ditemukan." : "Belum ada layanan. Klik '+ Tambah Layanan' untuk mulai."}
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
-          {filtered.map((s) => (
-            <div
-              key={s.id}
-              style={{
-                background: "white",
-                border: "1px solid #F0E0E6",
-                borderRadius: "12px",
-                overflow: "hidden",
-                boxShadow: "0 1px 4px rgba(196,120,138,0.06)",
-                transition: "all 0.2s",
-                opacity: s.is_active === false ? 0.75 : 1,
-                filter: s.is_active === false ? "grayscale(30%)" : "none"
-              }}
-              onMouseEnter={(e) => {
-                if (s.is_active !== false) {
-                  (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(196,120,138,0.12)";
-                  (e.currentTarget as HTMLElement).style.borderColor = "#E8C0D0";
-                }
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(196,120,138,0.06)";
-                (e.currentTarget as HTMLElement).style.borderColor = "#F0E0E6";
-              }}
-            >
-              {/* Gambar */}
-              <div style={{ height: "160px", background: "linear-gradient(135deg, #FDF0F4, #FDF8F3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
+      {/* DataTables Component */}
+      <DataTable
+        data={services}
+        loading={loading}
+        searchPlaceholder="Cari nama layanan salon..."
+        searchableKeys={["service_name", "price", "hour_duration"]}
+        emptyMessage="Belum ada layanan salon yang ditemukan 🌸"
+        columns={[
+          {
+            key: "image_url",
+            header: "Foto",
+            width: "70px",
+            render: (s) => (
+              <div style={{ width: "48px", height: "48px", borderRadius: "8px", overflow: "hidden", background: "#FDF0F4", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {s.image_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={s.image_url} alt={s.service_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                  <img src={s.image_url} alt={s.service_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
-                  <span style={{ fontSize: "3rem" }}>✂️</span>
-                )}
-                {s.is_active === false && (
-                  <div style={{ position: "absolute", top: "10px", left: "10px", background: "#8E7A80", color: "white", padding: "4px 8px", borderRadius: "6px", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                    Non-aktif
-                  </div>
+                  <span style={{ fontSize: "1.2rem" }}>✂️</span>
                 )}
               </div>
-
-              {/* Info */}
-              <div style={{ padding: "14px 16px" }}>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {s.service_name}
+            ),
+          },
+          {
+            key: "service_name",
+            header: "Nama Layanan",
+            sortable: true,
+            render: (s) => (
+              <div>
+                <div style={{ fontWeight: 600, color: "#2C1A0E" }}>{s.service_name}</div>
+                {s.is_active === false && (
+                  <span style={{ fontSize: "0.68rem", color: "#C05060", background: "rgba(192,80,96,0.1)", padding: "2px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                    Non-Aktif
                   </span>
-                  {s.is_price_variable && (
-                    <span style={{ fontSize: "0.6rem", background: "rgba(196,120,138,0.12)", color: "#C4788A", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, flexShrink: 0 }}>
-                      Variabel
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.88rem", fontWeight: 600, color: "#C4788A" }}>
-                    {s.is_price_variable ? "Mulai dari " : ""}{formatRupiah(s.price)}
-                  </span>
-                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#B09080", background: "#F5EBF0", padding: "2px 8px", borderRadius: "6px" }}>
-                    ⏱ {s.hour_duration} jam
-                  </span>
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: "flex", gap: "8px" }}>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: "price",
+            header: "Harga",
+            sortable: true,
+            sortValue: (s) => Number(s.price),
+            render: (s) => (
+              <div>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 600, color: "#C4788A" }}>
+                  {s.is_price_variable && <span style={{ fontSize: "0.72rem", color: "#B09080", fontWeight: 400 }}>Mulai </span>}
+                  {formatRupiah(Number(s.price))}
+                </span>
+              </div>
+            ),
+          },
+          {
+            key: "hour_duration",
+            header: "Durasi Est.",
+            sortable: true,
+            sortValue: (s) => Number(s.hour_duration),
+            render: (s) => <span style={{ fontSize: "0.78rem", color: "#7A5C50" }}>⏱️ {s.hour_duration} Jam</span>,
+          },
+          {
+            key: "action",
+            header: "Aksi",
+            align: "center",
+            render: (s) => (
+              <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                {s.is_active === false ? (
                   <button
-                    onClick={() => openEdit(s)}
-                    style={{ flex: 1, background: "rgba(196,120,138,0.08)", border: "1px solid rgba(196,120,138,0.25)", color: "#C4788A", padding: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.15)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(196,120,138,0.08)")}
+                    onClick={() => handleReactivate(s)}
+                    style={{ background: "#5A9E7A", color: "white", border: "none", padding: "5px 12px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}
                   >
-                    ✏️ Edit
+                    ✓ Aktifkan
                   </button>
-                  {s.is_active === false ? (
+                ) : (
+                  <>
                     <button
-                      onClick={() => handleReactivate(s)}
-                      style={{ flex: 1, background: "rgba(90,158,122,0.08)", border: "1px solid rgba(90,158,122,0.25)", color: "#3D7A5A", padding: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(90,158,122,0.15)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(90,158,122,0.08)")}
+                      onClick={() => openEdit(s)}
+                      style={{ background: "transparent", border: "1px solid #F0E0E6", color: "#C4788A", padding: "5px 10px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
                     >
-                      ✓ Aktifkan
+                      ✏️ Edit
                     </button>
-                  ) : (
                     <button
                       onClick={() => setDeleteTarget(s)}
-                      style={{ flex: 1, background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", color: "#C05060", padding: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer", borderRadius: "8px", transition: "all 0.2s" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.12)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(192,80,96,0.06)")}
+                      style={{ background: "rgba(192,80,96,0.08)", border: "1px solid rgba(192,80,96,0.25)", color: "#C05060", padding: "5px 10px", borderRadius: "6px", fontSize: "0.72rem", cursor: "pointer" }}
                     >
                       🗑️ Hapus
                     </button>
-                  )}
-                </div>
+                  </>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ),
+          },
+        ]}
+      />
 
       {/* Modals */}
       {formOpen && (
