@@ -226,11 +226,17 @@ function ConfigureModal({
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.4)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.4)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}
       onClick={onClose}
     >
+      {/* Sembunyikan native spinner arrows untuk input number */}
+      <style>{`
+        .rent-duration-input::-webkit-inner-spin-button,
+        .rent-duration-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .rent-duration-input { -moz-appearance: textfield; appearance: textfield; }
+      `}</style>
       <div
-        style={{ background: "white", border: "1px solid #EDD8CC", borderRadius: "12px", width: "100%", maxWidth: "440px", boxShadow: "0 24px 64px rgba(107,58,42,0.15)", overflow: "hidden" }}
+        style={{ background: "white", border: "1px solid #EDD8CC", borderRadius: "12px", width: "100%", maxWidth: "440px", boxShadow: "0 24px 64px rgba(107,58,42,0.15)", maxHeight: "90vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #EDD8CC", background: "linear-gradient(135deg, #FDF8F3, #FDF0E8)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -290,6 +296,7 @@ function ConfigureModal({
               </button>
               <input
                 type="number"
+                className="rent-duration-input"
                 min={1}
                 max={10}
                 value={durationDays}

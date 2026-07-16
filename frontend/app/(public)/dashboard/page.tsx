@@ -1926,6 +1926,7 @@ export default function CustomerDashboard() {
                 justifyContent: "center",
                 zIndex: 1000,
                 padding: "20px",
+                overflowY: "auto",
               }}
             >
               <div
@@ -2083,6 +2084,7 @@ export default function CustomerDashboard() {
                 justifyContent: "center",
                 zIndex: 1000,
                 padding: "20px",
+                overflowY: "auto",
               }}
             >
               <div

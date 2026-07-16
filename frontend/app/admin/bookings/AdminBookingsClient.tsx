@@ -181,6 +181,7 @@ function DetailModal({
         alignItems: "center",
         justifyContent: "center",
         padding: "24px",
+        overflowY: "auto",
       }}
       onClick={onClose}>
       <div
@@ -190,7 +191,8 @@ function DetailModal({
           borderRadius: "16px",
           width: "100%",
           maxWidth: "500px",
-          overflow: "hidden",
+          overflowY: "auto",
+          maxHeight: "90vh",
           boxShadow: "0 24px 64px rgba(196,120,138,0.2)",
         }}
         onClick={(e) => e.stopPropagation()}>
@@ -1004,10 +1006,7 @@ export default function AdminBookingsClient() {
           <div
             style={{
               position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
+              top: 0, left: 0, right: 0, bottom: 0,
               background: "rgba(44, 26, 14, 0.4)",
               backdropFilter: "blur(4px)",
               display: "flex",
@@ -1015,6 +1014,7 @@ export default function AdminBookingsClient() {
               justifyContent: "center",
               zIndex: 1100,
               padding: "20px",
+              overflowY: "auto",
             }}
           >
             <div
@@ -1029,6 +1029,8 @@ export default function AdminBookingsClient() {
                 display: "flex",
                 flexDirection: "column",
                 gap: "20px",
+                maxHeight: "90vh",
+                overflowY: "auto",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

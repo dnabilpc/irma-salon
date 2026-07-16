@@ -103,11 +103,11 @@ function ServiceFormModal({
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}
       onClick={onClose}
     >
       <div
-        style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "480px", overflow: "hidden", boxShadow: "0 24px 64px rgba(196,120,138,0.2)" }}
+        style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "480px", overflowY: "auto", maxHeight: "90vh", boxShadow: "0 24px 64px rgba(196,120,138,0.2)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -214,8 +214,8 @@ function DeleteConfirmModal({ name, onClose, onConfirm, loading }: {
   name: string; onClose: () => void; onConfirm: () => void; loading: boolean;
 }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }} onClick={onClose}>
-      <div style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "400px", padding: "28px", boxShadow: "0 24px 64px rgba(196,120,138,0.2)", textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }} onClick={onClose}>
+      <div style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "400px", maxHeight: "90vh", overflowY: "auto", padding: "28px", boxShadow: "0 24px 64px rgba(196,120,138,0.2)", textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ fontSize: "2.5rem", marginBottom: "14px" }}>🗑️</div>
         <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
           Hapus Layanan?

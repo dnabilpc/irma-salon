@@ -80,11 +80,11 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit }: Detai
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(90,20,40,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(90,20,40,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}
       onClick={onClose}
     >
       <div
-        style={{ background: "white", border: "1px solid #E8C0D0", borderRadius: "12px", width: "100%", maxWidth: "520px", overflow: "hidden", boxShadow: "0 20px 60px rgba(196,114,142,0.25)", maxHeight: "90vh", overflowY: "auto" }}
+        style={{ background: "white", border: "1px solid #E8C0D0", borderRadius: "12px", width: "100%", maxWidth: "520px", boxShadow: "0 20px 60px rgba(196,114,142,0.25)", maxHeight: "90vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -673,6 +673,7 @@ export default function AdminRentalsClient() {
               justifyContent: "center",
               zIndex: 1100,
               padding: "20px",
+              overflowY: "auto",
             }}
           >
             <div
@@ -687,6 +688,8 @@ export default function AdminRentalsClient() {
                 display: "flex",
                 flexDirection: "column",
                 gap: "20px",
+                maxHeight: "90vh",
+                overflowY: "auto",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

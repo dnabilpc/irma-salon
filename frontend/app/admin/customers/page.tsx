@@ -489,6 +489,8 @@ export default function CustomersPage() {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
+            overflowY: "auto",
+            padding: "16px",
           }}
         >
           <div
@@ -498,9 +500,10 @@ export default function CustomersPage() {
               borderRadius: "8px",
               width: "100%",
               maxWidth: "460px",
+              maxHeight: "90vh",
+              overflowY: "auto",
               boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
               position: "relative",
-              margin: "20px"
             }}
           >
             <h2

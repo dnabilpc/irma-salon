@@ -171,7 +171,7 @@ function OutfitFormModal({
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}
       onClick={onClose}
     >
       <div
@@ -402,11 +402,11 @@ function CategoryFormModal({
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}
       onClick={onClose}
     >
       <div
-        style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "400px", overflow: "hidden", boxShadow: "0 24px 64px rgba(196,120,138,0.2)" }}
+        style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "400px", boxShadow: "0 24px 64px rgba(196,120,138,0.2)", maxHeight: "90vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ padding: "18px 24px", borderBottom: "1px solid #F0E0E6", background: "linear-gradient(135deg, #FDF8F3, #FDF0F4)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -473,11 +473,11 @@ function DeleteConfirmModal({ name, onClose, onConfirm, loading }: {
 }) {
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.3)", backdropFilter: "blur(4px)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}
       onClick={onClose}
     >
       <div
-        style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "380px", padding: "28px", boxShadow: "0 24px 64px rgba(196,120,138,0.2)", textAlign: "center" }}
+        style={{ background: "white", border: "1px solid #F0E0E6", borderRadius: "16px", width: "100%", maxWidth: "380px", padding: "28px", boxShadow: "0 24px 64px rgba(196,120,138,0.2)", textAlign: "center", maxHeight: "90vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ fontSize: "2.5rem", marginBottom: "14px" }}>🗑️</div>

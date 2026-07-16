@@ -436,11 +436,11 @@ export default function PaymentsPage() {
       {selected && (
         <div
           className="no-print"
-          style={{ position: "fixed", inset: 0, background: "rgba(90,20,40,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+          style={{ position: "fixed", inset: 0, background: "rgba(90,20,40,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", overflowY: "auto" }}
           onClick={() => setSelected(null)}
         >
           <div
-            style={{ background: "white", border: "1px solid #E8C0D0", borderRadius: "12px", width: "100%", maxWidth: "480px", overflow: "hidden", boxShadow: "0 20px 60px rgba(196,114,142,0.25)" }}
+            style={{ background: "white", border: "1px solid #E8C0D0", borderRadius: "12px", width: "100%", maxWidth: "480px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(196,114,142,0.25)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ padding: "20px 24px", borderBottom: "1px solid #F0D9E0", background: "#FAEAF0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -519,6 +519,7 @@ export default function PaymentsPage() {
             alignItems: "center",
             justifyContent: "center",
             padding: "20px",
+            overflowY: "auto",
           }}
         >
           <div
