@@ -502,10 +502,15 @@ function DeleteConfirmModal({ name, onClose, onConfirm, loading }: {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
+import { useAdminCache } from "@/context/AdminCacheContext";
+
 export default function ClothesCataloguePage() {
-  const [outfits, setOutfits] = useState<Outfit[]>([]);
-  const [categories, setCategories] = useState<OutfitCategory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { getCache, setCache, setRevalidating, revalidatingKeys } = useAdminCache();
+  const cacheKey = "admin_clothes_catalogue";
+
+  const [outfits, setOutfits] = useState<Outfit[]>(() => getCache<any>(cacheKey)?.outfits ?? []);
+  const [categories, setCategories] = useState<OutfitCategory[]>(() => getCache<any>(cacheKey)?.categories ?? []);
+  const [loading, setLoading] = useState(!getCache<any>(cacheKey));
   const [activeTab, setActiveTab] = useState<ActiveTab>("outfits");
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<string>("all");
@@ -529,37 +534,45 @@ export default function ClothesCataloguePage() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // refreshKey di-increment setiap kali ingin re-fetch
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // fetchData hanya increment refreshKey — tidak memanggil setState langsung
   const fetchData = useCallback(() => {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  // Fetch data — semua setState hanya dipanggil di dalam callback async (bukan synchronous)
   useEffect(() => {
     const controller = new AbortController();
 
-    // setLoading via queueMicrotask agar tidak synchronous di body effect
-    queueMicrotask(() => setLoading(true));
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      setOutfits(cached.outfits);
+      setCategories(cached.categories);
+      setLoading(false);
+      setRevalidating(cacheKey, true);
+    } else {
+      queueMicrotask(() => setLoading(true));
+    }
 
     fetch("/api/admin/outfits", { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
-        setOutfits(data.outfits ?? []);
-        setCategories(data.categories ?? []);
+        const payload = { outfits: data.outfits ?? [], categories: data.categories ?? [] };
+        setOutfits(payload.outfits);
+        setCategories(payload.categories);
+        setCache(cacheKey, payload);
         setLoading(false);
+        setRevalidating(cacheKey, false);
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
         setLoading(false);
+        setRevalidating(cacheKey, false);
         setToast({ msg: "Gagal memuat data.", ok: false });
         setTimeout(() => setToast(null), 3000);
       });
 
     return () => controller.abort();
-  }, [refreshKey]);
+  }, [refreshKey, getCache, setCache, setRevalidating]);
 
   const filteredOutfits = outfits.filter((o) => {
     const matchSearch = !search || o.outfit_name.toLowerCase().includes(search.toLowerCase());
@@ -758,6 +771,8 @@ export default function ClothesCataloguePage() {
           <DataTable
             data={filteredOutfits}
             loading={loading}
+            onRefresh={fetchData}
+            isRevalidating={revalidatingKeys.has(cacheKey)}
             searchPlaceholder="Cari nama baju, deskripsi, ukuran..."
             searchableKeys={["outfit_name", "description", "category_name", "size", "price"]}
             emptyMessage="Belum ada koleksi baju yang ditemukan 🌸"

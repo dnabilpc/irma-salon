@@ -24,6 +24,8 @@ interface DataTableProps<T> {
   headerRightElement?: React.ReactNode;
   rowKey?: keyof T | ((item: T) => string | number);
   loading?: boolean;
+  onRefresh?: () => void;
+  isRevalidating?: boolean;
 }
 
 export default function DataTable<T extends Record<string, any>>({
@@ -37,6 +39,8 @@ export default function DataTable<T extends Record<string, any>>({
   headerRightElement,
   rowKey,
   loading = false,
+  onRefresh,
+  isRevalidating = false,
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState("");
   const [pageSize, setPageSize] = useState(defaultPageSize);
@@ -206,6 +210,37 @@ export default function DataTable<T extends Record<string, any>>({
               onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
             />
           </div>
+
+          {isRevalidating && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.72rem", color: "#C9922A", background: "rgba(201,146,42,0.1)", border: "1px solid rgba(201,146,42,0.25)", padding: "4px 10px", borderRadius: "12px", fontFamily: "'DM Sans', sans-serif" }}>
+              <span style={{ display: "inline-block", animation: "spin 1.5s linear infinite" }}>🔄</span>
+              <span>Memperbarui...</span>
+            </div>
+          )}
+
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              title="Refresh Data dari DB"
+              style={{
+                background: "white",
+                border: "1px solid #EDD8CC",
+                color: "#6B3A2A",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                fontSize: "0.82rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
+            >
+              🔄 Refresh
+            </button>
+          )}
 
           {headerRightElement}
         </div>

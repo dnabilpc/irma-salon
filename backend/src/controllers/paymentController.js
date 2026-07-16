@@ -80,54 +80,57 @@ export async function confirmPayment(req, res) {
         const transactionId = result.rows[0].id;
 
         // Auto-generate invoice and send via WhatsApp in the background
-        (async () => {
-            try {
-                console.log(`[Invoice] Starting invoice generation for transaction ID: ${transactionId}`);
-                const data = await getInvoiceData(transactionId);
-                if (!data) {
-                    console.error(`[Invoice] Transaction data not found for ID: ${transactionId}`);
-                    return;
-                }
-
-                const { transaction, items } = data;
-                if (!transaction.customer_phone) {
-                    console.log(`[Invoice] Customer has no phone number, skipping WhatsApp receipt.`);
-                    return;
-                }
-
-                const caption = `Halo *${transaction.customer_name}*,\n\n` +
-                    `Pembayaran Anda untuk invoice *INV/2026/${transaction.id}* sebesar *${formatRupiah(transaction.total_amount)}* telah *BERHASIL* dikonfirmasi oleh Admin.\n\n` +
-                    `Berikut kami lampirkan bukti pembayaran resmi Anda. Terima kasih telah mempercayai Irma Wedding Salon! ✨`;
-
-                try {
-                    // Try generating JPEG image using Puppeteer screenshot
-                    console.log(`[Invoice] Generating screenshot of invoice using Puppeteer...`);
-                    const imgBuffer = await generateInvoiceImageBuffer(transaction, items);
-                    const media = new MessageMedia('image/jpeg', imgBuffer.toString('base64'), `invoice_${transaction.id}.jpg`);
-                    
-                    console.log(`[Invoice] Dispatching image receipt to ${transaction.customer_phone}...`);
-                    await sendWaMessage(transaction.customer_phone, caption, { media });
-                    console.log(`[Invoice] Image receipt sent successfully.`);
-                } catch (imgErr) {
-                    console.error(`[Invoice] Puppeteer screenshot failed. Falling back to text receipt. Error:`, imgErr);
-                    
-                    // Fallback to plain text receipt
-                    const fallbackText = generateInvoiceText(transaction, items);
-                    const fallbackMessage = `${caption}\n\n-----------------------------------\n${fallbackText}`;
-                    
-                    console.log(`[Invoice] Dispatching fallback text receipt to ${transaction.customer_phone}...`);
-                    await sendWaMessage(transaction.customer_phone, fallbackMessage);
-                    console.log(`[Invoice] Fallback text receipt sent successfully.`);
-                }
-            } catch (bgErr) {
-                console.error(`[Invoice] Background invoice processing encountered an error:`, bgErr);
-            }
-        })();
+        sendInvoiceReceipt(transactionId).catch(err => console.error('[confirmPayment] invoice err:', err));
 
         return res.json({ success: true });
     } catch (err) {
         console.error('[confirmPayment]', err);
         return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+/**
+ * Reusable helper to generate & dispatch WA invoice receipt for a transaction
+ */
+export async function sendInvoiceReceipt(transactionId) {
+    try {
+        console.log(`[Invoice] Starting invoice generation for transaction ID: ${transactionId}`);
+        const data = await getInvoiceData(transactionId);
+        if (!data) {
+            console.error(`[Invoice] Transaction data not found for ID: ${transactionId}`);
+            return;
+        }
+
+        const { transaction, items } = data;
+        if (!transaction.customer_phone) {
+            console.log(`[Invoice] Customer has no phone number, skipping WhatsApp receipt.`);
+            return;
+        }
+
+        const caption = `Halo *${transaction.customer_name}*,\n\n` +
+            `Pembayaran Anda untuk invoice *INV/2026/${transaction.id}* sebesar *${formatRupiah(transaction.total_amount)}* telah *BERHASIL* dikonfirmasi oleh Admin.\n\n` +
+            `Berikut kami lampirkan bukti pembayaran resmi Anda. Terima kasih telah mempercayai Irma Wedding Salon! ✨`;
+
+        try {
+            console.log(`[Invoice] Generating screenshot of invoice using Puppeteer...`);
+            const imgBuffer = await generateInvoiceImageBuffer(transaction, items);
+            const media = new MessageMedia('image/jpeg', imgBuffer.toString('base64'), `invoice_${transaction.id}.jpg`);
+            
+            console.log(`[Invoice] Dispatching image receipt to ${transaction.customer_phone}...`);
+            await sendWaMessage(transaction.customer_phone, caption, { media });
+            console.log(`[Invoice] Image receipt sent successfully.`);
+        } catch (imgErr) {
+            console.error(`[Invoice] Puppeteer screenshot failed. Falling back to text receipt. Error:`, imgErr);
+            
+            const fallbackText = generateInvoiceText(transaction, items);
+            const fallbackMessage = `${caption}\n\n-----------------------------------\n${fallbackText}`;
+            
+            console.log(`[Invoice] Dispatching fallback text receipt to ${transaction.customer_phone}...`);
+            await sendWaMessage(transaction.customer_phone, fallbackMessage);
+            console.log(`[Invoice] Fallback text receipt sent successfully.`);
+        }
+    } catch (bgErr) {
+        console.error(`[Invoice] Background invoice processing encountered an error:`, bgErr);
     }
 }
 

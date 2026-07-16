@@ -6,6 +6,8 @@ import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import { fetchAdminPayments, confirmAdminPayment } from "@/actions/admin";
 import type { PaymentRow } from "@/actions/admin";
 
+import { useAdminCache } from "@/context/AdminCacheContext";
+
 type PaymentStatus = "lunas" | "pending" | "refund" | "gagal";
 type PaymentMethod = "cash" | "qris" | "transfer" | "midtrans" | "payment_gateway";
 type PaymentType   = "booking" | "sewa" | "offline";
@@ -38,8 +40,11 @@ function formatRupiah(n: number) {
 const COL = "75px 1.2fr 80px 80px 90px 90px 60px 90px 105px";
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { getCache, setCache, setRevalidating, revalidatingKeys } = useAdminCache();
+  const cacheKey = "admin_payments";
+
+  const [payments, setPayments] = useState<PaymentRow[]>(() => getCache<any>(cacheKey) ?? []);
+  const [loading, setLoading] = useState(!getCache<any>(cacheKey));
   const [submitting, setSubmitting] = useState(false);
   const [submittingRowId, setSubmittingRowId] = useState<number | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "all">("all");
@@ -113,19 +118,32 @@ export default function PaymentsPage() {
   };
 
   const loadPayments = async () => {
-    setLoading(true);
-    const res = await fetchAdminPayments();
-    if (res.success && res.data) {
-      setPayments(res.data.payments);
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      setPayments(cached);
+      setLoading(false);
+      setRevalidating(cacheKey, true);
+    } else {
+      setLoading(true);
     }
-    setLoading(false);
+
+    try {
+      const res = await fetchAdminPayments();
+      if (res.success && res.data) {
+        setPayments(res.data.payments);
+        setCache(cacheKey, res.data.payments);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+      setRevalidating(cacheKey, false);
+    }
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadPayments();
-    }, 0);
-    return () => clearTimeout(timer);
+    loadPayments();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = payments.filter((p) => {
@@ -283,6 +301,8 @@ export default function PaymentsPage() {
           return matchStatus && matchType;
         })}
         loading={loading}
+        onRefresh={loadPayments}
+        isRevalidating={revalidatingKeys.has(cacheKey)}
         searchPlaceholder="Cari nama pelanggan, telp, deskripsi, atau ID TRX..."
         searchableKeys={["customer", "description", "id", "phone", "date"]}
         emptyMessage="Tidak ada transaksi yang ditemukan 🌸"

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import { updateBookingStatus, getBookingsForAdmin } from "@/actions/booking";
 import type { BookingStatusDB, BookingRow } from "@/actions/booking";
+import { useAdminCache } from "@/context/AdminCacheContext";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -150,6 +151,7 @@ function DetailModal({
     id: number,
     status: BookingStatusDB,
     reason?: string,
+    confirmPayment?: boolean,
   ) => void;
   loading: boolean;
   rejectReason: string;
@@ -314,8 +316,12 @@ function DetailModal({
           {/* Action — PENDING */}
           {booking.status === "pending" && (
             <>
+              <div style={{ background: "rgba(201,146,42,0.06)", border: "1px solid rgba(201,146,42,0.2)", borderRadius: "8px", padding: "10px 12px", fontSize: "0.78rem", color: "#8B6A5A" }}>
+                Metode Bayar: <strong style={{ color: "#2C1A0E" }}>{booking.payment_method?.toUpperCase()}</strong>
+              </div>
+
               <textarea
-                placeholder="Masukkan alasan penolakan..."
+                placeholder="Masukkan alasan penolakan (opsional jika menolak)..."
                 value={rejectReason}
                 onChange={(e) => {
                   setRejectReason(e.target.value);
@@ -323,7 +329,7 @@ function DetailModal({
                 }}
                 style={{
                   width: "100%",
-                  marginTop: "10px",
+                  marginTop: "6px",
                   padding: "10px",
                   border: `1px solid ${rejectError ? "#C05060" : "#F0E0E6"}`,
                   borderRadius: "8px",
@@ -331,77 +337,77 @@ function DetailModal({
                 }}
               />
               {rejectError && (
-                <div
-                  style={{
-                    color: "#C05060",
-                    fontSize: "0.7rem",
-                    marginTop: "4px",
-                    fontWeight: 500,
-                  }}>
+                <div style={{ color: "#C05060", fontSize: "0.7rem", marginTop: "4px", fontWeight: 500 }}>
                   {rejectError}
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <button
                   disabled={loading}
-                  onClick={() => onStatusChange(booking.id, "confirmed")}
+                  onClick={() => onStatusChange(booking.id, "confirmed", undefined, true)}
                   style={{
-                    flex: 1,
-                    background: "rgba(90,158,122,0.1)",
-                    border: "1.5px solid rgba(90,158,122,0.4)",
-                    color: "#3D7A5A",
-                    padding: "11px",
+                    width: "100%",
+                    background: "linear-gradient(135deg, #1A7A4A, #3D7A5A)",
+                    color: "white",
+                    border: "none",
+                    padding: "12px",
+                    borderRadius: "8px",
                     fontFamily: "'DM Sans', sans-serif",
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
+                    fontSize: "0.84rem",
+                    fontWeight: 700,
                     cursor: loading ? "not-allowed" : "pointer",
-                    borderRadius: "10px",
+                    boxShadow: "0 4px 12px rgba(26,122,74,0.25)",
                     transition: "all 0.2s",
                   }}
-                  onMouseEnter={(e) => {
-                    if (!loading)
-                      e.currentTarget.style.background =
-                        "rgba(90,158,122,0.18)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!loading)
-                      e.currentTarget.style.background = "rgba(90,158,122,0.1)";
-                  }}>
-                  ✓ Terima Booking
+                >
+                  🟢 Terima & Konfirmasi Pembayaran (Lunas)
                 </button>
-                <button
-                  disabled={loading}
-                  onClick={() => {
-                    if (!rejectReason.trim()) {
-                      setRejectError("Alasan penolakan wajib diisi.");
-                      return;
-                    }
-                    onStatusChange(booking.id, "rejected", rejectReason);
-                  }}
-                  style={{
-                    flex: 1,
-                    background: "rgba(192,80,96,0.08)",
-                    border: "1.5px solid rgba(192,80,96,0.3)",
-                    color: "#C05060",
-                    padding: "11px",
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    cursor: loading ? "not-allowed" : "pointer",
-                    borderRadius: "10px",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!loading)
-                      e.currentTarget.style.background = "rgba(192,80,96,0.15)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!loading)
-                      e.currentTarget.style.background = "rgba(192,80,96,0.08)";
-                  }}>
-                  ✕ Tolak Booking
-                </button>
+
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    disabled={loading}
+                    onClick={() => onStatusChange(booking.id, "confirmed", undefined, false)}
+                    style={{
+                      flex: 1,
+                      background: "rgba(201,146,42,0.1)",
+                      border: "1.5px solid rgba(201,146,42,0.4)",
+                      color: "#A07010",
+                      padding: "10px",
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      cursor: loading ? "not-allowed" : "pointer",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    🟡 Terima Saja (Bayar di Salon)
+                  </button>
+                  <button
+                    disabled={loading}
+                    onClick={() => {
+                      if (!rejectReason.trim()) {
+                        setRejectError("Alasan penolakan wajib diisi.");
+                        return;
+                      }
+                      onStatusChange(booking.id, "rejected", rejectReason);
+                    }}
+                    style={{
+                      flex: 1,
+                      background: "rgba(192,80,96,0.08)",
+                      border: "1.5px solid rgba(192,80,96,0.3)",
+                      color: "#C05060",
+                      padding: "10px",
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      cursor: loading ? "not-allowed" : "pointer",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    🔴 Tolak Booking
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -562,10 +568,13 @@ function MiniStat({
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function AdminBookingsClient() {
-  const [bookings, setBookings] = useState<BookingRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const { getCache, setCache, invalidateCache, setRevalidating, revalidatingKeys } = useAdminCache();
   const [filter, setFilter] = useState<BookingStatusDB | "ALL">("ALL");
+  const cacheKey = `admin_bookings_${filter}`;
+
+  const [bookings, setBookings] = useState<BookingRow[]>(() => getCache<any>(cacheKey)?.rows ?? []);
+  const [total, setTotal] = useState(() => getCache<any>(cacheKey)?.total ?? 0);
+  const [loading, setLoading] = useState(!getCache<any>(cacheKey));
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selectedBooking, setSelected] = useState<BookingRow | null>(null);
@@ -582,6 +591,13 @@ export default function AdminBookingsClient() {
   const [savingBooking, setSavingBooking] = useState(false);
   const [bookingError, setBookingError] = useState("");
   const [hasVariablePriceService, setHasVariablePriceService] = useState(false);
+
+  const [stats, setStats] = useState(() => getCache<any>(cacheKey)?.stats ?? {
+    total: 0,
+    pending: 0,
+    diterima: 0,
+    revenue: 0,
+  });
 
   // Load initial edit values when editingBooking changes
   useEffect(() => {
@@ -662,22 +678,25 @@ export default function AdminBookingsClient() {
     }
   };
 
-  const totalPages = Math.ceil(total / LIMIT);
-
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    diterima: 0,
-    revenue: 0,
-  });
-
   const showToast = useCallback((msg: string, ok: boolean) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // Fetch data dari server action
+  // Fetch data dengan SWR Caching
   const fetchData = useCallback(async () => {
+    const key = `admin_bookings_${filter}`;
+    const cached = getCache<any>(key);
+    if (cached) {
+      setBookings(cached.rows);
+      setTotal(cached.total);
+      if (cached.stats) setStats(cached.stats);
+      setLoading(false);
+      setRevalidating(key, true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const result = await getBookingsForAdmin({
         status: filter,
@@ -689,13 +708,15 @@ export default function AdminBookingsClient() {
         if (result.data.stats) {
           setStats(result.data.stats);
         }
+        setCache(key, result.data);
       }
     } catch {
       showToast("Gagal memuat data.", false);
     } finally {
       setLoading(false);
+      setRevalidating(key, false);
     }
-  }, [filter, showToast]);
+  }, [filter, getCache, setCache, setRevalidating, showToast]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -706,23 +727,27 @@ export default function AdminBookingsClient() {
     id: number,
     status: BookingStatusDB,
     reason?: string,
+    confirmPayment?: boolean,
   ) {
     setActionLoading(true);
     try {
-      const result = await updateBookingStatus(id, status, reason);
+      const result = await updateBookingStatus(id, status, reason, confirmPayment);
       if (result.success) {
         setBookings((prev) =>
           prev.map((b) => (b.id === id ? { ...b, status } : b)),
         );
         setSelected(null);
         showToast(
-          status === "confirmed"
+          status === "confirmed" && confirmPayment
+            ? "Booking & Pembayaran berhasil dikonfirmasi LUNAS! Invoice WA dikirim."
+            : status === "confirmed"
             ? "Booking berhasil diterima!"
             : status === "completed"
             ? "Booking ditandai selesai!"
             : "Status booking diperbarui.",
           status === "confirmed" || status === "completed",
         );
+        invalidateCache("admin_payments");
         fetchData();
       } else {
         showToast(result.error ?? "Gagal mengubah status.", false);
@@ -852,6 +877,8 @@ export default function AdminBookingsClient() {
       <DataTable
         data={bookings}
         loading={loading}
+        onRefresh={fetchData}
+        isRevalidating={revalidatingKeys.has(cacheKey)}
         searchPlaceholder="Cari nama pelanggan, nomor telp, atau layanan..."
         searchableKeys={["customer_name", "phone_number", "services", "id"]}
         emptyMessage="Tidak ada data booking yang ditemukan 🌸"

@@ -238,9 +238,14 @@ function DeleteConfirmModal({ name, onClose, onConfirm, loading }: {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
+import { useAdminCache } from "@/context/AdminCacheContext";
+
 export default function ServicesCataloguePage() {
-  const [services, setServices] = useState<SalonService[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const { getCache, setCache, setRevalidating, revalidatingKeys } = useAdminCache();
+  const cacheKey = "admin_services_catalogue";
+
+  const [services, setServices] = useState<SalonService[]>(() => getCache<any>(cacheKey) ?? []);
+  const [loading, setLoading]   = useState(!getCache<any>(cacheKey));
   const [search, setSearch]     = useState("");
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
 
@@ -258,16 +263,29 @@ export default function ServicesCataloguePage() {
   }, []);
 
   const fetchServices = useCallback(async () => {
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      setServices(cached);
+      setLoading(false);
+      setRevalidating(cacheKey, true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const res = await fetch("/api/admin/services");
       const data = await res.json();
-      setServices(data);
+      if (Array.isArray(data)) {
+        setServices(data);
+        setCache(cacheKey, data);
+      }
     } catch {
       showToast("Gagal memuat data layanan.", false);
     } finally {
       setLoading(false);
+      setRevalidating(cacheKey, false);
     }
-  }, [showToast]);
+  }, [getCache, setCache, setRevalidating, showToast]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchServices(); }, [fetchServices]);
@@ -403,6 +421,8 @@ export default function ServicesCataloguePage() {
       <DataTable
         data={services}
         loading={loading}
+        onRefresh={fetchServices}
+        isRevalidating={revalidatingKeys.has(cacheKey)}
         searchPlaceholder="Cari nama layanan salon..."
         searchableKeys={["service_name", "price", "hour_duration"]}
         emptyMessage="Belum ada layanan salon yang ditemukan 🌸"

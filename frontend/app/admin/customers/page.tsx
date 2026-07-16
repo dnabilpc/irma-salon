@@ -14,6 +14,8 @@ import {
   type ActiveCustomer,
 } from "@/actions/authActions";
 
+import { useAdminCache } from "@/context/AdminCacheContext";
+
 type Tab = "aktif" | "pending" | "ditolak";
 
 function formatDate(iso: string) {
@@ -39,13 +41,16 @@ function Spinner() {
 }
 
 export default function CustomersPage() {
+  const { getCache, setCache, setRevalidating, revalidatingKeys } = useAdminCache();
   const [activeTab, setActiveTab] = useState<Tab>("pending");
+  const cacheKey = `admin_customers_${activeTab}`;
+
   const [search, setSearch]       = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const [customers,   setCustomers]   = useState<ActiveCustomer[]>([]);
-  const [pending,     setPending]      = useState<PendingRegistration[]>([]);
-  const [rejected,    setRejected]     = useState<PendingRegistration[]>([]);
+  const [customers,   setCustomers]   = useState<ActiveCustomer[]>(() => getCache<any>("admin_customers_aktif") ?? []);
+  const [pending,     setPending]      = useState<PendingRegistration[]>(() => getCache<any>("admin_customers_pending") ?? []);
+  const [rejected,    setRejected]     = useState<PendingRegistration[]>(() => getCache<any>("admin_customers_ditolak") ?? []);
   const [loadingTab,  setLoadingTab]   = useState<Tab | null>(null);
   const [toast,       setToast]        = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -84,13 +89,11 @@ export default function CustomersPage() {
     if (res.success) {
       showToast("Pelanggan baru berhasil dibuat!", "success");
       setIsCreateModalOpen(false);
-      // Reset form
       setNewName("");
       setNewEmail("");
       setNewPhone("");
       setNewPassword("");
       setNewConfirmPassword("");
-      // Reload active customers tab
       loadTab(activeTab);
     } else {
       setModalError(res.error || "Gagal membuat pelanggan baru.");
@@ -98,19 +101,42 @@ export default function CustomersPage() {
   }
 
   const loadTab = useCallback(async (tab: Tab) => {
-    setLoadingTab(tab);
-    if (tab === "aktif") {
-      const res = await fetchActiveCustomers();
-      if (res.success) setCustomers(res.customers ?? []);
-    } else if (tab === "pending") {
-      const res = await fetchPendingRegistrations();
-      if (res.success) setPending(res.registrations ?? []);
+    const key = `admin_customers_${tab}`;
+    const cached = getCache<any>(key);
+    if (cached) {
+      if (tab === "aktif") setCustomers(cached);
+      else if (tab === "pending") setPending(cached);
+      else setRejected(cached);
+      setRevalidating(key, true);
     } else {
-      const res = await fetchRejectedRegistrations();
-      if (res.success) setRejected(res.registrations ?? []);
+      setLoadingTab(tab);
     }
-    setLoadingTab(null);
-  }, []);
+
+    try {
+      if (tab === "aktif") {
+        const res = await fetchActiveCustomers();
+        if (res.success && res.customers) {
+          setCustomers(res.customers);
+          setCache(key, res.customers);
+        }
+      } else if (tab === "pending") {
+        const res = await fetchPendingRegistrations();
+        if (res.success && res.registrations) {
+          setPending(res.registrations);
+          setCache(key, res.registrations);
+        }
+      } else {
+        const res = await fetchRejectedRegistrations();
+        if (res.success && res.registrations) {
+          setRejected(res.registrations);
+          setCache(key, res.registrations);
+        }
+      }
+    } finally {
+      setLoadingTab(null);
+      setRevalidating(key, false);
+    }
+  }, [getCache, setCache, setRevalidating]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -301,6 +327,8 @@ export default function CustomersPage() {
         <DataTable
           data={pending}
           loading={loadingTab === "pending"}
+          onRefresh={() => loadTab("pending")}
+          isRevalidating={revalidatingKeys.has("admin_customers_pending")}
           searchPlaceholder="Cari pendaftar, no telp, email..."
           searchableKeys={["name", "email", "phone_number"]}
           emptyMessage="Tidak ada pendaftaran yang menunggu persetujuan 🎉"
@@ -361,6 +389,8 @@ export default function CustomersPage() {
         <DataTable
           data={customers}
           loading={loadingTab === "aktif"}
+          onRefresh={() => loadTab("aktif")}
+          isRevalidating={revalidatingKeys.has("admin_customers_aktif")}
           searchPlaceholder="Cari pelanggan aktif, email, no HP..."
           searchableKeys={["name", "email", "phone_number"]}
           emptyMessage="Belum ada pelanggan aktif yang ditemukan 🌸"
@@ -412,6 +442,8 @@ export default function CustomersPage() {
         <DataTable
           data={rejected}
           loading={loadingTab === "ditolak"}
+          onRefresh={() => loadTab("ditolak")}
+          isRevalidating={revalidatingKeys.has("admin_customers_ditolak")}
           searchPlaceholder="Cari pendaftaran ditolak..."
           searchableKeys={["name", "email", "phone_number"]}
           emptyMessage="Tidak ada pendaftaran yang ditolak 🌸"

@@ -199,12 +199,13 @@ async function runMigrations() {
             ADD COLUMN IF NOT EXISTS notes TEXT;
         `);
 
-        // VTO Settings initialization
+        // VTO Settings & QRIS Payload initialization
         await pool.query(`
             INSERT INTO settings (key, value)
             VALUES 
                 ('vto_milestones_config', '[{"rentals_count": 1, "bonus_limit": 2}, {"rentals_count": 3, "bonus_limit": 4}, {"rentals_count": 6, "bonus_limit": 6}, {"rentals_count": 10, "bonus_limit": 10}]'),
-                ('vto_bonus_expiry_days', '30')
+                ('vto_bonus_expiry_days', '30'),
+                ('qris_payload', '00020101021126580016ID.CO.QRIS.WWW01189360091400000000005204599953033605802ID5918RUMAH CANTIK IRMA6008SURABAYA6304B76B')
             ON CONFLICT (key) DO NOTHING;
         `);
 

@@ -120,11 +120,12 @@ export async function updateBookingStatus(
   bookingId: number,
   status: BookingStatusDB,
   reason?: string,
+  confirmPayment?: boolean,
 ): Promise<ActionResult> {
   try {
     const response = await backendFetch(`/api/admin/bookings/${bookingId}/status`, {
       method: "PATCH",
-      body: { status, reason },
+      body: { status, reason, confirm_payment: confirmPayment },
     });
 
     const data = await response.json();

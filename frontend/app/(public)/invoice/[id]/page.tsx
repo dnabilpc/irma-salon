@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import PaymentProofUpload from "@/components/payment/PaymentProofUpload";
+import QRCode from "qrcode";
+import { generateDynamicQrisPayload } from "@/lib/qris";
 
 interface Transaction {
   id: number;
@@ -32,6 +34,7 @@ export default function InvoicePage() {
   const [data, setData] = useState<{ transaction: Transaction; items: Item[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [qrisPayloadDataUrl, setQrisPayloadDataUrl] = useState<string>("");
 
   useEffect(() => {
     if (!id) return;
@@ -69,6 +72,33 @@ export default function InvoicePage() {
         setLoading(false);
       });
   }, [id, router]);
+
+  // Fetch settings & Generate Dynamic QRIS
+  useEffect(() => {
+    if (!data || !data.transaction) return;
+
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((settings) => {
+        const staticPayload = settings.qris_payload || "";
+        const dynamicPayload = generateDynamicQrisPayload(staticPayload, Number(data.transaction.total_amount));
+
+        QRCode.toDataURL(dynamicPayload, {
+          margin: 1,
+          width: 300,
+          color: { dark: "#2C1A0E", light: "#FFFFFF" },
+        })
+          .then((url) => setQrisPayloadDataUrl(url))
+          .catch((err) => console.error("Error generating QRIS DataURL:", err));
+      })
+      .catch((err) => {
+        console.error("Error fetching settings for QRIS:", err);
+        const dynamicPayload = generateDynamicQrisPayload("", Number(data.transaction.total_amount));
+        QRCode.toDataURL(dynamicPayload, { margin: 1, width: 300 })
+          .then((url) => setQrisPayloadDataUrl(url))
+          .catch(() => {});
+      });
+  }, [data]);
 
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [qrisImageError, setQrisImageError] = useState(false);
@@ -445,7 +475,14 @@ export default function InvoicePage() {
                     <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
                       NMID: ID1020304050607
                     </div>
-                    {!qrisImageError ? (
+                    {qrisPayloadDataUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img 
+                        src={qrisPayloadDataUrl} 
+                        alt="QRIS Dinamis Rumah Cantik Irma" 
+                        style={{ width: "190px", height: "190px", objectFit: "contain", margin: "0 auto 10px", display: "block", borderRadius: "8px" }} 
+                      />
+                    ) : !qrisImageError ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img 
                         src="/qris.png" 
@@ -467,18 +504,21 @@ export default function InvoicePage() {
                         alignItems: "center",
                         justifyContent: "center"
                       }}>
-                        {/* Position detection patterns (corners) */}
                         <div style={{ position: "absolute", top: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
                         <div style={{ position: "absolute", top: "2px", right: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
                         <div style={{ position: "absolute", bottom: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                        {/* Center branding box */}
                         <div style={{ background: "white", padding: "4px 8px", border: "2px solid #2C1A0E", borderRadius: "4px", fontSize: "0.65rem", fontWeight: 700, color: "#C9922A", zIndex: 5 }}>
                           IRMA
                         </div>
                       </div>
                     )}
+                    <div style={{ background: "rgba(42,140,90,0.08)", border: "1px solid rgba(42,140,90,0.25)", color: "#1A7A4A", padding: "6px 10px", borderRadius: "8px", fontSize: "0.72rem", fontWeight: 600, margin: "0 auto 8px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <span>🔒 QRIS Dinamis</span>
+                      <span>•</span>
+                      <span>Total: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(transaction.total_amount)}</span>
+                    </div>
                     <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontWeight: 500 }}>
-                      Scan dengan E-Wallet atau Mobile Banking
+                      Scan dengan E-Wallet atau Mobile Banking (Nominal Terisi Otomatis)
                     </div>
                   </div>
                 </div>

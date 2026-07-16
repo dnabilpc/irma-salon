@@ -1,6 +1,7 @@
 // backend/src/controllers/bookingController.js
 import pool from '../services/db.js';
 import { sendWaMessage, getWhatsappStatus } from '../services/whatsappService.js';
+import { sendInvoiceReceipt } from './paymentController.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 
@@ -636,7 +637,7 @@ export async function updateBookingStatus(req, res) {
     }
 
     const { id } = req.params;
-    const { status, reason } = req.body;
+    const { status, reason, confirm_payment } = req.body;
 
     const valid = ["pending", "confirmed", "rejected", "cancelled", "completed"];
     if (!valid.includes(status)) {
@@ -672,6 +673,19 @@ export async function updateBookingStatus(req, res) {
         }
 
         const result = await pool.query(query, params);
+
+        // If confirm_payment is requested, set transaction status to lunas & send invoice WA
+        if (confirm_payment && (status === "confirmed" || status === "completed")) {
+            const txRes = await pool.query(
+                `UPDATE transactions SET status = 'lunas' WHERE booking_id = $1 RETURNING id`,
+                [id]
+            );
+            if (txRes.rows.length > 0) {
+                sendInvoiceReceipt(txRes.rows[0].id).catch((err) =>
+                    console.error("[updateBookingStatus] Failed sending WA invoice:", err)
+                );
+            }
+        }
 
         // WhatsApp notification (async)
         triggerBookingStatusNotification(id, status, reason).catch((err) =>

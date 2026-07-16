@@ -20,6 +20,8 @@ interface Settings {
   salon_address: string;
   salon_maps_url: string;
   salon_open_description: string;
+  // QRIS
+  qris_payload: string;
 }
 
 interface MilestoneTier {
@@ -71,6 +73,7 @@ const DEFAULT_SETTINGS: Settings = {
   salon_address: "",
   salon_maps_url: "",
   salon_open_description: "",
+  qris_payload: "00020101021126580016ID.CO.QRIS.WWW01189360091400000000005204599953033605802ID5918RUMAH CANTIK IRMA6008SURABAYA6304B76B",
 };
 
 function SectionTitle({ icon, title, sub }: { icon: string; title: string; sub: string }) {
@@ -145,12 +148,20 @@ function Field({
   );
 }
 
+import QRCode from "qrcode";
+import { generateDynamicQrisPayload } from "@/lib/qris";
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [activeTab, setActiveTab] = useState<"vto" | "salon" | "schedule">("vto");
+  const [activeTab, setActiveTab] = useState<"vto" | "salon" | "schedule" | "qris">("vto");
+
+  // QRIS dynamic preview test states
+  const [testAmount, setTestAmount] = useState<string>("150000");
+  const [testQrDataUrl, setTestQrDataUrl] = useState<string>("");
+  const [testDynamicPayload, setTestDynamicPayload] = useState<string>("");
 
   // Weekly Schedules & Holidays
   const [weeklySchedules, setWeeklySchedules] = useState<WeeklySchedule[]>([]);
@@ -409,6 +420,7 @@ export default function SettingsPage() {
           { key: "vto", label: "⚙️ Virtual Try-On" },
           { key: "salon", label: "🏪 Info Salon" },
           { key: "schedule", label: "📅 Jadwal & Hari Libur" },
+          { key: "qris", label: "📱 QRIS Dinamis" },
         ] as const).map(({ key, label }) => (
           <button
             key={key}
@@ -851,6 +863,91 @@ export default function SettingsPage() {
                 )}
               </div>
 
+            </div>
+          )}
+
+          {/* TAB 4: QRIS Dinamis */}
+          {activeTab === "qris" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <div className="admin-card" style={{ padding: "28px" }}>
+                <SectionTitle
+                  icon="📱"
+                  title="String Payload QRIS Statis Utama"
+                  sub="String payload format EMVCo QRIS Toko. Sistem akan menginjeksi nominal invoice secara dinamis ke string ini saat pelanggan melakukan scan bayar."
+                />
+                
+                <Field
+                  label="Payload QRIS EMVCo (String)"
+                  type="textarea"
+                  value={settings.qris_payload}
+                  onChange={(v) => setSettings((p) => ({ ...p, qris_payload: v }))}
+                  placeholder="0002010102112658..."
+                  hint="Pastikan diawali dengan 000201... dan memiliki format EMVCo QRIS standar Indonesia."
+                />
+              </div>
+
+              {/* Tester Section */}
+              <div className="admin-card" style={{ padding: "28px" }}>
+                <SectionTitle
+                  icon="🧪"
+                  title="Tes Generator QRIS Dinamis Interaktif"
+                  sub="Uji coba penyisipan nominal otomatis & verifikasi Checksum CRC16 secara realtime."
+                />
+
+                <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: "280px", display: "flex", flexDirection: "column", gap: "14px" }}>
+                    <Field
+                      label="Nominal Tes (IDR)"
+                      type="number"
+                      value={testAmount}
+                      onChange={(v) => setTestAmount(v)}
+                      placeholder="150000"
+                    />
+
+                    <button
+                      onClick={() => {
+                        const amt = Number(testAmount) || 0;
+                        const dynamic = generateDynamicQrisPayload(settings.qris_payload, amt);
+                        setTestDynamicPayload(dynamic);
+                        QRCode.toDataURL(dynamic, { margin: 1, width: 240, color: { dark: "#2C1A0E", light: "#FFFFFF" } })
+                          .then((url) => setTestQrDataUrl(url))
+                          .catch(() => {});
+                      }}
+                      style={{
+                        background: "#6B3A2A", color: "white", border: "none",
+                        padding: "10px 18px", borderRadius: "8px", fontWeight: 600,
+                        fontSize: "0.82rem", cursor: "pointer", marginTop: "4px"
+                      }}
+                    >
+                      ⚡ Generasikan QRIS Dinamis Tes
+                    </button>
+
+                    {testDynamicPayload && (
+                      <div>
+                        <div style={{ fontSize: "0.68rem", fontWeight: 600, color: "#7A2848", textTransform: "uppercase", marginBottom: "4px" }}>
+                          Hasil String QRIS Dinamis (Termasuk Tag 54 Amount & CRC16 Baru):
+                        </div>
+                        <div style={{ background: "#FDF8F5", border: "1px solid #EDD8CC", padding: "10px", borderRadius: "6px", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", wordBreak: "break-all", color: "#6B3A2A" }}>
+                          {testDynamicPayload}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {testQrDataUrl && (
+                    <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "12px", padding: "20px", textAlign: "center", minWidth: "220px" }}>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
+                        Preview QR Code Tes
+                      </div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={testQrDataUrl} alt="QR Code Preview" style={{ width: "160px", height: "160px", margin: "0 auto 8px", display: "block" }} />
+                      <div style={{ fontSize: "0.72rem", color: "#1A7A4A", fontWeight: 600, background: "rgba(42,140,90,0.1)", padding: "4px 8px", borderRadius: "6px" }}>
+                        🔒 Terkunci: Rp {Number(testAmount).toLocaleString("id-ID")}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

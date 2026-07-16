@@ -85,12 +85,13 @@ export async function getRentalsForAdmin(filters?: {
 
 export async function updateRentalStatus(
   rentalId: number,
-  status: RentalStatus
+  status: RentalStatus,
+  confirmPayment?: boolean
 ): Promise<ActionResult<any>> {
   try {
     const response = await backendFetch(`/api/admin/rentals/${rentalId}/status`, {
       method: "PATCH",
-      body: { status },
+      body: { status, confirm_payment: confirmPayment },
     });
 
     const data = await response.json();

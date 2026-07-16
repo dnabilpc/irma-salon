@@ -10,6 +10,7 @@ import {
   type RentalRow,
   type RentalStatus,
 } from "@/actions/rental";
+import { useAdminCache } from "@/context/AdminCacheContext";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ function StatusBadge({ status }: { status: RentalStatus }) {
 interface DetailModalProps {
   rental: RentalRow;
   onClose: () => void;
-  onStatusChange: (id: number, status: RentalStatus) => void;
+  onStatusChange: (id: number, status: RentalStatus, confirmPayment?: boolean) => void;
   loading: boolean;
   onEdit: (rental: RentalRow) => void;
 }
@@ -121,7 +122,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit }: Detai
           {/* Info baju */}
           <div style={{ background: "#FDF8F5", border: "1px solid #F0D9E0", borderRadius: "8px", padding: "0 16px", marginBottom: "14px" }}>
             <div style={{ fontSize: "0.6rem", letterSpacing: "0.18em", color: "#C4728E", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif", padding: "10px 0 4px", fontWeight: 600 }}>
-              Info Sewa
+              Info Sewa & Pembayaran
             </div>
             {[
               { label: "Baju",          value: rental.outfit_name },
@@ -129,6 +130,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit }: Detai
               { label: "Tanggal Mulai", value: formatDate(rental.start_date) },
               { label: "Tanggal Kembali", value: formatDate(rental.end_date) },
               { label: "Durasi",        value: `${rental.duration_days} hari` },
+              { label: "Metode Bayar",  value: (rental.payment_method ?? "cash").toUpperCase() },
               { label: "Total Biaya",   value: formatRupiah(rental.amount_to_be_paid), accent: true }
             ].map((row) => (
               <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #F0D9E0" }}>
@@ -143,23 +145,44 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit }: Detai
 
           {/* Action buttons sesuai status */}
 
-          {/* Pending → konfirmasi atau batalkan */}
+          {/* Pending → konfirmasi 1-click lunas atau batalkan */}
           {rental.status === "pending" && (
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <button
                 disabled={loading}
-                onClick={() => onStatusChange(rental.id, "ongoing")}
-                style={{ flex: 1, background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", padding: "12px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
+                onClick={() => onStatusChange(rental.id, "ongoing", true)}
+                style={{
+                  width: "100%",
+                  background: "linear-gradient(135deg, #1A7A4A, #3D7A5A)",
+                  color: "white",
+                  border: "none",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  boxShadow: "0 4px 12px rgba(26,122,74,0.25)",
+                }}
               >
-                ✓ Konfirmasi Dipinjam
+                🟢 Konfirmasi Dipinjam & Bayar (Lunas)
               </button>
-              <button
-                disabled={loading}
-                onClick={() => onStatusChange(rental.id, "cancelled")}
-                style={{ flex: 1, background: "rgba(217,64,96,0.08)", border: "1px solid rgba(217,64,96,0.25)", color: "#D94060", padding: "12px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
-              >
-                ✕ Batalkan
-              </button>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  disabled={loading}
+                  onClick={() => onStatusChange(rental.id, "ongoing", false)}
+                  style={{ flex: 1, background: "rgba(201,146,42,0.1)", border: "1.5px solid rgba(201,146,42,0.4)", color: "#A07010", padding: "10px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}
+                >
+                  🟡 Konfirmasi Dipinjam (Bayar di Salon/Cash)
+                </button>
+                <button
+                  disabled={loading}
+                  onClick={() => onStatusChange(rental.id, "cancelled")}
+                  style={{ flex: 1, background: "rgba(217,64,96,0.08)", border: "1.5px solid rgba(217,64,96,0.3)", color: "#D94060", padding: "10px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}
+                >
+                  🔴 Batalkan
+                </button>
+              </div>
             </div>
           )}
 
@@ -264,10 +287,13 @@ function MiniStat({ label, value, color }: { label: string; value: string | numb
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export default function AdminRentalsClient() {
-  const [rentals, setRentals]       = useState<RentalRow[]>([]);
-  const [total, setTotal]           = useState(0);
-  const [loading, setLoading]       = useState(true);
+  const { getCache, setCache, invalidateCache, setRevalidating, revalidatingKeys } = useAdminCache();
   const [filter, setFilter]         = useState<RentalStatus | "ALL">("ALL");
+  const cacheKey = `admin_rentals_${filter}`;
+
+  const [rentals, setRentals]       = useState<RentalRow[]>(() => getCache<any>(cacheKey)?.rows ?? []);
+  const [total, setTotal]           = useState(() => getCache<any>(cacheKey)?.total ?? 0);
+  const [loading, setLoading]       = useState(!getCache<any>(cacheKey));
   const [search, setSearch]         = useState("");
   const [page, setPage]             = useState(1);
   const [selected, setSelected]     = useState<RentalRow | null>(null);
@@ -281,6 +307,13 @@ export default function AdminRentalsClient() {
   const [rentalEditDuration, setRentalEditDuration] = useState<number>(1);
   const [savingRental, setSavingRental] = useState(false);
   const [rentalError, setRentalError] = useState("");
+
+  const [stats, setStats] = useState(() => getCache<any>(cacheKey)?.stats ?? {
+    total: 0,
+    ongoing: 0,
+    terlambat: 0,
+    revenue: 0,
+  });
 
   useEffect(() => {
     fetch("/api/outfits")
@@ -341,19 +374,24 @@ export default function AdminRentalsClient() {
 
   const totalPages = Math.ceil(total / LIMIT);
 
-  const [stats, setStats] = useState({
-    total: 0,
-    ongoing: 0,
-    terlambat: 0,
-    revenue: 0,
-  });
-
   const showToast = useCallback((msg: string, ok: boolean) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
   const fetchData = useCallback(async () => {
+    const key = `admin_rentals_${filter}`;
+    const cached = getCache<any>(key);
+    if (cached) {
+      setRentals(cached.rows);
+      setTotal(cached.total);
+      if (cached.stats) setStats(cached.stats);
+      setLoading(false);
+      setRevalidating(key, true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const result = await getRentalsForAdmin({
         status: filter,
@@ -365,13 +403,15 @@ export default function AdminRentalsClient() {
         if (result.data.stats) {
           setStats(result.data.stats);
         }
+        setCache(key, result.data);
       }
     } catch {
       showToast("Gagal memuat data.", false);
     } finally {
       setLoading(false);
+      setRevalidating(key, false);
     }
-  }, [filter, showToast]);
+  }, [filter, getCache, setCache, setRevalidating, showToast]);
 
   // Sync status terlambat saat halaman dibuka
   useEffect(() => {
@@ -385,15 +425,17 @@ export default function AdminRentalsClient() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  async function handleStatusChange(id: number, status: RentalStatus) {
+  async function handleStatusChange(id: number, status: RentalStatus, confirmPayment?: boolean) {
     setActionLoading(true);
     try {
-      const result = await updateRentalStatus(id, status);
+      const result = await updateRentalStatus(id, status, confirmPayment);
       if (result.success) {
         setRentals((prev) => prev.map((r) => r.id === id ? { ...r, rental_status: status } : r));
         setSelected(null);
         let msg = "Status diperbarui.";
-        if (status === "done") {
+        if (status === "ongoing" && confirmPayment) {
+          msg = "Sewa dikonfirmasi & Pembayaran LUNAS! Invoice WA dikirim.";
+        } else if (status === "done") {
           if (result.data?.penaltyAmount) {
             msg = `Pengembalian dicatat. Denda ${formatRupiah(result.data.penaltyAmount)} (${result.data.lateDays} hari telat) ditambahkan.`;
           } else {
@@ -405,6 +447,7 @@ export default function AdminRentalsClient() {
           msg = "Sewa dibatalkan.";
         }
         showToast(msg, status !== "cancelled");
+        invalidateCache("admin_payments");
         fetchData();
       } else {
         showToast(result.error ?? "Gagal mengubah status.", false);
@@ -500,6 +543,8 @@ export default function AdminRentalsClient() {
       <DataTable
         data={rentals}
         loading={loading}
+        onRefresh={fetchData}
+        isRevalidating={revalidatingKeys.has(cacheKey)}
         searchPlaceholder="Cari nama pelanggan, telp, atau nama baju..."
         searchableKeys={["customer_name", "customer_phone", "outfit_name", "category_name", "id"]}
         emptyMessage="Tidak ada data sewa baju yang ditemukan 🌸"

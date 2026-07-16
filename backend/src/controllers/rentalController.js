@@ -1,6 +1,7 @@
 // backend/src/controllers/rentalController.js
 import pool from '../services/db.js';
 import { sendWaMessage } from '../services/whatsappService.js';
+import { sendInvoiceReceipt } from './paymentController.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 async function getAdminPhone() {
@@ -487,7 +488,7 @@ export async function updateRentalStatus(req, res) {
     }
 
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, confirm_payment } = req.body;
 
     const valid = ["pending", "ongoing", "terlambat", "done", "cancelled"];
     if (!valid.includes(status)) {
@@ -497,7 +498,7 @@ export async function updateRentalStatus(req, res) {
     try {
         // Fetch current rental details to check start_date
         const checkRes = await pool.query(
-            `SELECT start_date, rental_status FROM rentals WHERE id = $1`,
+            `SELECT start_date, rental_status, rental_order_id FROM rentals WHERE id = $1`,
             [id]
         );
         if (!checkRes.rows.length) {
@@ -535,6 +536,27 @@ export async function updateRentalStatus(req, res) {
         const queryParams = [status, id];
 
         const result = await pool.query(query, queryParams);
+
+        // If confirm_payment is requested, set transaction status to lunas & send invoice WA
+        if (confirm_payment && (status === "ongoing" || status === "done")) {
+            let txRes;
+            if (rental.rental_order_id) {
+                txRes = await pool.query(
+                    `UPDATE transactions SET status = 'lunas' WHERE rental_order_id = $1 RETURNING id`,
+                    [rental.rental_order_id]
+                );
+            } else {
+                txRes = await pool.query(
+                    `UPDATE transactions SET status = 'lunas' WHERE rental_id = $1 RETURNING id`,
+                    [id]
+                );
+            }
+            if (txRes.rows.length > 0) {
+                sendInvoiceReceipt(txRes.rows[0].id).catch((err) =>
+                    console.error("[updateRentalStatus] Failed sending WA invoice:", err)
+                );
+            }
+        }
 
         let penaltyInfo = null;
 
