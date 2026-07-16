@@ -6,6 +6,60 @@ import { updateBookingStatus, getBookingsForAdmin } from "@/actions/booking";
 import type { BookingStatusDB, BookingRow } from "@/actions/booking";
 import { useAdminCache } from "@/context/AdminCacheContext";
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatRupiah(n: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(n);
+}
+
+type StatusConfig = { label: string; bg: string; color: string; dot: string };
+
+const STATUS_CONFIG: Record<BookingStatusDB, StatusConfig> = {
+  pending: {
+    label: "Pending",
+    bg: "rgba(201,146,42,0.12)",
+    color: "#A07010",
+    dot: "#C9922A",
+  },
+  confirmed: {
+    label: "Diterima",
+    bg: "rgba(90,158,122,0.12)",
+    color: "#3D7A5A",
+    dot: "#5A9E7A",
+  },
+  rejected: {
+    label: "Ditolak",
+    bg: "rgba(192,80,96,0.12)",
+    color: "#C05060",
+    dot: "#C05060",
+  },
+  cancelled: {
+    label: "Cancelled",
+    bg: "rgba(150,120,110,0.12)",
+    color: "#7A5C50",
+    dot: "#B09080",
+  },
+  completed: {
+    label: "Completed",
+    bg: "rgba(79,70,229,0.12)",
+    color: "#4F46E5",
+    dot: "#6366F1",
+  },
+};
+
+const FILTER_TABS: { key: BookingStatusDB | "ALL"; label: string }[] = [
+  { key: "ALL", label: "Semua" },
+  { key: "pending", label: "Pending" },
+  { key: "confirmed", label: "Diterima" },
+  { key: "rejected", label: "Ditolak" },
+  { key: "cancelled", label: "Cancelled" },
+  { key: "completed", label: "Completed" },
+];
+
 // ── StatusBadge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: BookingStatusDB }) {
@@ -800,7 +854,7 @@ export default function AdminBookingsClient() {
           flexWrap: "wrap",
           boxShadow: "0 1px 4px rgba(196,120,138,0.06)",
         }}>
-        {FILTER_TABS.map(({ key, label }) => (
+        {FILTER_TABS.map(({ key, label }: { key: BookingStatusDB | "ALL"; label: string }) => (
           <button
             key={key}
             className={`filter-btn${filter === key ? " active" : ""}`}
