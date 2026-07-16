@@ -1,67 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import DataTable, { ColumnDef } from "@/components/ui/DataTable";
+import DataTable from "@/components/ui/DataTable";
 import { updateBookingStatus, getBookingsForAdmin } from "@/actions/booking";
 import type { BookingStatusDB, BookingRow } from "@/actions/booking";
 import { useAdminCache } from "@/context/AdminCacheContext";
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatRupiah(n: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(n);
-}
-
-type StatusConfig = { label: string; bg: string; color: string; dot: string };
-
-const STATUS_CONFIG: Record<BookingStatusDB, StatusConfig> = {
-  pending: {
-    label: "Pending",
-    bg: "rgba(201,146,42,0.12)",
-    color: "#A07010",
-    dot: "#C9922A",
-  },
-  confirmed: {
-    label: "Diterima",
-    bg: "rgba(90,158,122,0.12)",
-    color: "#3D7A5A",
-    dot: "#5A9E7A",
-  },
-  rejected: {
-    label: "Ditolak",
-    bg: "rgba(192,80,96,0.12)",
-    color: "#C05060",
-    dot: "#C05060",
-  },
-  cancelled: {
-    label: "Cancelled",
-    bg: "rgba(150,120,110,0.12)",
-    color: "#7A5C50",
-    dot: "#B09080",
-  },
-  completed: {
-    label: "Completed",
-    bg: "rgba(79,70,229,0.12)",
-    color: "#4F46E5",
-    dot: "#6366F1",
-  },
-};
-
-const FILTER_TABS: { key: BookingStatusDB | "ALL"; label: string }[] = [
-  { key: "ALL", label: "Semua" },
-  { key: "pending", label: "Pending" },
-  { key: "confirmed", label: "Diterima" },
-  { key: "rejected", label: "Ditolak" },
-  { key: "cancelled", label: "Cancelled" },
-  { key: "completed", label: "Completed" },
-];
-
-const LIMIT = 10;
-const COL = "56px 1fr 110px 160px 100px 90px 44px";
 
 // ── StatusBadge ──────────────────────────────────────────────────────────────
 
@@ -572,11 +515,10 @@ export default function AdminBookingsClient() {
   const [filter, setFilter] = useState<BookingStatusDB | "ALL">("ALL");
   const cacheKey = `admin_bookings_${filter}`;
 
-  const [bookings, setBookings] = useState<BookingRow[]>(() => getCache<any>(cacheKey)?.rows ?? []);
-  const [total, setTotal] = useState(() => getCache<any>(cacheKey)?.total ?? 0);
-  const [loading, setLoading] = useState(!getCache<any>(cacheKey));
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  type CacheData = { rows: BookingRow[]; total: number; stats: { total: number; pending: number; diterima: number; revenue: number } };
+
+  const [bookings, setBookings] = useState<BookingRow[]>(() => getCache<CacheData>(cacheKey)?.rows ?? []);
+  const [loading, setLoading] = useState(!getCache<CacheData>(cacheKey));
   const [selectedBooking, setSelected] = useState<BookingRow | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -592,7 +534,7 @@ export default function AdminBookingsClient() {
   const [bookingError, setBookingError] = useState("");
   const [hasVariablePriceService, setHasVariablePriceService] = useState(false);
 
-  const [stats, setStats] = useState(() => getCache<any>(cacheKey)?.stats ?? {
+  const [stats, setStats] = useState(() => getCache<CacheData>(cacheKey)?.stats ?? {
     total: 0,
     pending: 0,
     diterima: 0,
@@ -602,7 +544,6 @@ export default function AdminBookingsClient() {
   // Load initial edit values when editingBooking changes
   useEffect(() => {
     if (editingBooking) {
-      setBookingError("");
       const bDate = new Date(editingBooking.booking_datetime);
       const dateStr = bDate.getFullYear() + '-' + String(bDate.getMonth() + 1).padStart(2, '0') + '-' + String(bDate.getDate()).padStart(2, '0');
       const timeStr = String(bDate.getHours()).padStart(2, '0') + ":" + String(bDate.getMinutes()).padStart(2, '0');
@@ -615,7 +556,7 @@ export default function AdminBookingsClient() {
         .then(res => res.json())
         .then(data => {
           if (data && data.details) {
-            const hasVar = data.details.some((d: any) => d.is_price_variable);
+            const hasVar = data.details.some((d: { is_price_variable?: boolean }) => d.is_price_variable);
             setHasVariablePriceService(hasVar);
           }
         })
@@ -648,7 +589,7 @@ export default function AdminBookingsClient() {
     const datetimeStr = `${bookingEditDate}T${bookingEditTime}:00`;
 
     try {
-      const payload: any = {
+      const payload: { booking_datetime: string; total_amount?: number } = {
         booking_datetime: datetimeStr,
       };
       if (hasVariablePriceService) {
@@ -686,10 +627,9 @@ export default function AdminBookingsClient() {
   // Fetch data dengan SWR Caching
   const fetchData = useCallback(async () => {
     const key = `admin_bookings_${filter}`;
-    const cached = getCache<any>(key);
+    const cached = getCache<CacheData>(key);
     if (cached) {
       setBookings(cached.rows);
-      setTotal(cached.total);
       if (cached.stats) setStats(cached.stats);
       setLoading(false);
       setRevalidating(key, true);
@@ -704,7 +644,6 @@ export default function AdminBookingsClient() {
       });
       if (result.success && result.data) {
         setBookings(result.data.rows);
-        setTotal(result.data.total);
         if (result.data.stats) {
           setStats(result.data.stats);
         }
@@ -719,7 +658,6 @@ export default function AdminBookingsClient() {
   }, [filter, getCache, setCache, setRevalidating, showToast]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, [fetchData]);
 
