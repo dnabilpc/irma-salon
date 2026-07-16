@@ -68,6 +68,27 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    if (body.vto_bonus_expiry_days !== undefined) {
+      if (!/^\d+$/.test(body.vto_bonus_expiry_days)) {
+        return NextResponse.json({ error: "Durasi reset inaktif bonus VTO harus berupa angka non-negatif" }, { status: 400 });
+      }
+      const val = parseInt(body.vto_bonus_expiry_days, 10);
+      if (val < 0 || val > 365) {
+        return NextResponse.json({ error: "Durasi reset inaktif bonus VTO harus bernilai antara 0 dan 365 hari" }, { status: 400 });
+      }
+    }
+
+    if (body.vto_milestones_config !== undefined) {
+      try {
+        const parsed = JSON.parse(body.vto_milestones_config);
+        if (!Array.isArray(parsed)) {
+          return NextResponse.json({ error: "Konfigurasi Milestone Bonus VTO harus berupa array" }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: "Format Konfigurasi Milestone Bonus VTO tidak valid" }, { status: 400 });
+      }
+    }
+
     const entries = Object.entries(body);
     if (entries.length === 0) {
       return NextResponse.json({ error: "Tidak ada data yang dikirim" }, { status: 400 });

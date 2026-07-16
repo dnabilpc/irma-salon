@@ -25,7 +25,7 @@ export async function GET() {
       db.query(
         `SELECT oc.id, oc.outfit_name, oc.description, oc.price, oc.size,
                 oc.image_url, oc.additional_image_urls, oc.model_2d_file_link,
-                oc.outfit_category_id, oc.is_active, oc.stock,
+                oc.outfit_category_id, oc.is_active, oc.stock, oc.target_gender, oc.target_age,
                 cat.category_name
          FROM outfit_catalogues oc
          JOIN outfit_categories cat ON cat.id = oc.outfit_category_id
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, stock } = body;
+    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, stock, target_gender, target_age } = body;
 
     if (!outfit_category_id || !outfit_name || !price) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -80,10 +80,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Stok harus berupa angka bulat positif" }, { status: 400 });
     }
 
+    const validTargetGender = ["pria", "wanita", "unisex"].includes(target_gender) ? target_gender : "unisex";
+    const validTargetAge = ["dewasa", "anak_anak", "semua_umur"].includes(target_age) ? target_age : "semua_umur";
+
+    // Check for duplicate outfit_name within the same category
+    const dupCheck = await db.query(
+      `SELECT id FROM outfit_catalogues WHERE LOWER(outfit_name) = LOWER($1) AND outfit_category_id = $2`,
+      [outfit_name.trim(), outfit_category_id]
+    );
+    if (dupCheck.rows.length > 0) {
+      return NextResponse.json({ error: "Baju dengan nama tersebut sudah ada dalam kategori ini" }, { status: 400 });
+    }
+
     const result = await db.query(
       `INSERT INTO outfit_catalogues
-         (outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, stock)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, stock, target_gender, target_age)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         outfit_category_id,
@@ -95,6 +107,8 @@ export async function POST(req: NextRequest) {
         additional_image_urls || [],
         model_2d_file_link || null,
         parsedStock,
+        validTargetGender,
+        validTargetAge,
       ]
     );
 

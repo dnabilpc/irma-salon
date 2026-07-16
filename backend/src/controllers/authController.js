@@ -164,58 +164,65 @@ export async function updateProfile(req, res) {
         return res.status(401).json({ error: 'Unauthorized: User not authenticated.' });
     }
 
-    const { name, phone_number, image } = req.body;
+        const { name, phone_number, image, gender } = req.body;
 
-    if (!name) {
-        return res.status(400).json({ error: 'Nama wajib diisi.' });
-    }
+        if (!name) {
+            return res.status(400).json({ error: 'Nama wajib diisi.' });
+        }
 
-    try {
-        // Check if phone number already registered on another account
-        if (phone_number) {
-            const normalizedPhoneVal = normalizePhone(phone_number);
-            const existingPhone = await pool.query(
-                `SELECT id FROM "user" 
-                 WHERE phone_number IS NOT NULL 
-                   AND id != $1
-                   AND CASE 
-                     WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '0%' 
-                       THEN '62' || SUBSTRING(regexp_replace(phone_number, '\\D', '', 'g') FROM 2)
-                     WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '8%' 
-                       THEN '62' || regexp_replace(phone_number, '\\D', '', 'g')
-                     ELSE regexp_replace(phone_number, '\\D', '', 'g')
-                   END = $2 
-                 LIMIT 1`,
-                [userId, normalizedPhoneVal]
-            );
+        try {
+            // Check if phone number already registered on another account
+            if (phone_number) {
+                const normalizedPhoneVal = normalizePhone(phone_number);
+                const existingPhone = await pool.query(
+                    `SELECT id FROM "user" 
+                     WHERE phone_number IS NOT NULL 
+                       AND id != $1
+                       AND CASE 
+                         WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '0%' 
+                           THEN '62' || SUBSTRING(regexp_replace(phone_number, '\\D', '', 'g') FROM 2)
+                         WHEN regexp_replace(phone_number, '\\D', '', 'g') LIKE '8%' 
+                           THEN '62' || regexp_replace(phone_number, '\\D', '', 'g')
+                         ELSE regexp_replace(phone_number, '\\D', '', 'g')
+                       END = $2 
+                     LIMIT 1`,
+                    [userId, normalizedPhoneVal]
+                );
 
-            if (existingPhone.rows.length > 0) {
-                return res.status(409).json({ error: 'Nomor WhatsApp sudah terdaftar pada akun lain.' });
+                if (existingPhone.rows.length > 0) {
+                    return res.status(409).json({ error: 'Nomor WhatsApp sudah terdaftar pada akun lain.' });
+                }
             }
-        }
 
-        let imageUrlToSave = image;
-        if (image && image.startsWith('data:image/')) {
-            const uploadedUrl = await uploadToSupabaseStorage(image, 'profiles', userId);
-            if (uploadedUrl) {
-                imageUrlToSave = uploadedUrl;
-            } else {
-                return res.status(500).json({ error: 'Gagal mengunggah foto profil ke Supabase Storage.' });
+            let imageUrlToSave = image;
+            if (image && image.startsWith('data:image/')) {
+                const uploadedUrl = await uploadToSupabaseStorage(image, 'profiles', userId);
+                if (uploadedUrl) {
+                    imageUrlToSave = uploadedUrl;
+                } else {
+                    return res.status(500).json({ error: 'Gagal mengunggah foto profil ke Supabase Storage.' });
+                }
             }
-        }
 
-        let query = `UPDATE "user" SET name = $1, phone_number = $2`;
-        const params = [name, phone_number || null];
-        let paramCounter = 3;
+            let query = `UPDATE "user" SET name = $1, phone_number = $2`;
+            const params = [name, phone_number || null];
+            let paramCounter = 3;
 
-        if (image !== undefined) {
-            query += `, image = $${paramCounter}`;
-            params.push(imageUrlToSave || null);
-            paramCounter++;
-        }
+            if (image !== undefined) {
+                query += `, image = $${paramCounter}`;
+                params.push(imageUrlToSave || null);
+                paramCounter++;
+            }
 
-        query += `, "updatedAt" = NOW() WHERE id = $${paramCounter} RETURNING id, name, email, phone_number, image`;
-        params.push(userId);
+            if (gender !== undefined) {
+                const validGender = ['pria', 'wanita'].includes(gender) ? gender : 'unspecified';
+                query += `, gender = $${paramCounter}`;
+                params.push(validGender);
+                paramCounter++;
+            }
+
+            query += `, "updatedAt" = NOW() WHERE id = $${paramCounter} RETURNING id, name, email, phone_number, image, gender`;
+            params.push(userId);
 
         const result = await pool.query(query, params);
 

@@ -4,7 +4,8 @@ import multer from 'multer';
 import {
     getPaymentsForAdmin,
     confirmPayment,
-    uploadPaymentProof
+    uploadPaymentProof,
+    createOfflineTransaction
 } from '../controllers/paymentController.js';
 import { checkInternalApiKey } from '../middleware/authMiddleware.js';
 
@@ -18,6 +19,7 @@ const router = express.Router();
 
 // Secured admin payments routes
 router.get('/admin/payments', checkInternalApiKey, getPaymentsForAdmin);
+router.post('/admin/payments/offline', checkInternalApiKey, createOfflineTransaction);
 router.patch('/admin/payments/:id/confirm', checkInternalApiKey, confirmPayment);
 
 // Public/customer upload proof route

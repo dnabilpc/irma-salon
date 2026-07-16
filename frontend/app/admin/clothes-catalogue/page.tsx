@@ -27,6 +27,8 @@ interface Outfit {
   category_name: string;
   is_active?: boolean;
   stock?: number;
+  target_gender?: string;
+  target_age?: string;
 }
 
 type FormMode = "create" | "edit";
@@ -42,6 +44,8 @@ interface OutfitForm {
   additional_image_urls: string[];
   model_2d_file_link: string; // vto_image_url
   stock: string;
+  target_gender: string;
+  target_age: string;
 }
 
 interface CategoryForm {
@@ -59,6 +63,8 @@ const EMPTY_OUTFIT_FORM: OutfitForm = {
   additional_image_urls: [],
   model_2d_file_link: "",
   stock: "1",
+  target_gender: "unisex",
+  target_age: "semua_umur",
 };
 
 const EMPTY_CAT_FORM: CategoryForm = { category_name: "", description: "" };
@@ -202,6 +208,38 @@ function OutfitFormModal({
                 <option key={c.id} value={c.id}>{c.category_name}</option>
               ))}
             </select>
+          </div>
+
+          {/* Target Gender & Target Umur Row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <label style={labelStyle}>Target Gender *</label>
+              <select
+                value={form.target_gender}
+                onChange={(e) => update("target_gender", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
+              >
+                <option value="unisex">Unisex / Universal</option>
+                <option value="wanita">Wanita</option>
+                <option value="pria">Pria</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Target Umur *</label>
+              <select
+                value={form.target_age}
+                onChange={(e) => update("target_age", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#C4788A")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#F0E0E6")}
+              >
+                <option value="semua_umur">Semua Umur</option>
+                <option value="dewasa">Dewasa</option>
+                <option value="anak_anak">Anak-Anak</option>
+              </select>
+            </div>
           </div>
 
           {/* Nama */}
@@ -548,6 +586,8 @@ export default function ClothesCataloguePage() {
       additional_image_urls: o.additional_image_urls ?? [],
       model_2d_file_link: o.model_2d_file_link ?? "",
       stock: String(o.stock ?? 1),
+      target_gender: o.target_gender ?? "unisex",
+      target_age: o.target_age ?? "semua_umur",
     });
     setEditingOutfitId(o.id);
     setOutfitFormOpen(true);
@@ -564,6 +604,8 @@ export default function ClothesCataloguePage() {
       additional_image_urls: form.additional_image_urls || [],
       model_2d_file_link: form.model_2d_file_link || null,
       stock: Number(form.stock),
+      target_gender: form.target_gender,
+      target_age: form.target_age,
     };
     const url = outfitFormMode === "create" ? "/api/admin/outfits" : `/api/admin/outfits/${editingOutfitId}`;
     const method = outfitFormMode === "create" ? "POST" : "PUT";
@@ -801,8 +843,16 @@ export default function ClothesCataloguePage() {
 
                   {/* Info */}
                   <div style={{ padding: "14px 16px" }}>
-                    <div style={{ fontSize: "0.62rem", color: "#C4788A", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "4px" }}>
-                      {o.category_name}
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
+                      <span style={{ fontSize: "0.62rem", color: "#C4788A", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                        {o.category_name}
+                      </span>
+                      <span style={{ fontSize: "0.6rem", background: "rgba(196,120,138,0.1)", color: "#C4788A", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                        {o.target_gender === 'pria' ? '👨 Pria' : o.target_gender === 'wanita' ? '👩 Wanita' : '👥 Unisex'}
+                      </span>
+                      <span style={{ fontSize: "0.6rem", background: "rgba(90,158,122,0.12)", color: "#3B7A58", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                        {o.target_age === 'anak_anak' ? '🧒 Anak-Anak' : o.target_age === 'dewasa' ? '🧑 Dewasa' : '🌐 Semua Umur'}
+                      </span>
                     </div>
                     <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.95rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
                       {o.outfit_name}

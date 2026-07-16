@@ -97,3 +97,36 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function PUT(req: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const user = session.user as unknown as AppUser;
+    const { id } = await params;
+    const bookingId = parseInt(id, 10);
+    if (isNaN(bookingId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
+    }
+
+    const body = await req.json();
+    const isProductAdmin = user.role === "admin";
+    const endpoint = isProductAdmin ? `/api/admin/bookings/${bookingId}` : `/api/bookings/${bookingId}`;
+
+    const response = await backendFetch(endpoint, {
+      method: "PUT",
+      body,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return NextResponse.json({ error: data.error || "Internal Server Error" }, { status: response.status });
+    }
+
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error("[PUT /api/bookings/:id]", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

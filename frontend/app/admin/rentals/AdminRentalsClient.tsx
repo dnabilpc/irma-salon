@@ -71,9 +71,10 @@ interface DetailModalProps {
   onClose: () => void;
   onStatusChange: (id: number, status: RentalStatus) => void;
   loading: boolean;
+  onEdit: (rental: RentalRow) => void;
 }
 
-function DetailModal({ rental, onClose, onStatusChange, loading }: DetailModalProps) {
+function DetailModal({ rental, onClose, onStatusChange, loading, onEdit }: DetailModalProps) {
 
   return (
     <div
@@ -198,6 +199,48 @@ function DetailModal({ rental, onClose, onStatusChange, loading }: DetailModalPr
               {rental.status === "done" ? "Transaksi sewa selesai." : "Transaksi sewa dibatalkan."}
             </div>
           )}
+          {/* Admin Edit Button */}
+          {(() => {
+            const rentalEndDate = new Date(rental.start_date);
+            rentalEndDate.setDate(rentalEndDate.getDate() + Number(rental.duration_days));
+            const isExpired = rentalEndDate < new Date();
+            if (isExpired) return null;
+
+            return (
+              <button
+                disabled={loading}
+                onClick={() => onEdit(rental)}
+                style={{
+                  width: "100%",
+                  marginTop: "12px",
+                  background: "white",
+                  border: "1.5px solid #6B3A2A",
+                  color: "#6B3A2A",
+                  padding: "11px",
+                  borderRadius: "8px",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.background = "#6B3A2A";
+                    e.currentTarget.style.color = "white";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.background = "white";
+                    e.currentTarget.style.color = "#6B3A2A";
+                  }
+                }}
+              >
+                ✏️ Edit Sewa (Baju / Tanggal)
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>
@@ -229,6 +272,71 @@ export default function AdminRentalsClient() {
   const [selected, setSelected]     = useState<RentalRow | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast]           = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const [editingRental, setEditingRental] = useState<RentalRow | null>(null);
+  const [outfitList, setOutfitList] = useState<any[]>([]);
+  const [rentalEditOutfitId, setRentalEditOutfitId] = useState<number>(0);
+  const [rentalEditStartDate, setRentalEditStartDate] = useState<string>("");
+  const [rentalEditDuration, setRentalEditDuration] = useState<number>(1);
+  const [savingRental, setSavingRental] = useState(false);
+  const [rentalError, setRentalError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/outfits")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.outfits) {
+          setOutfitList(data.outfits);
+        }
+      })
+      .catch(err => console.error("Error loading outfits:", err));
+  }, []);
+
+  useEffect(() => {
+    if (editingRental) {
+      setRentalError("");
+      setRentalEditOutfitId(editingRental.outfit_catalogues_id);
+      
+      const sDate = new Date(editingRental.start_date);
+      const dateStr = sDate.getFullYear() + '-' + String(sDate.getMonth() + 1).padStart(2, '0') + '-' + String(sDate.getDate()).padStart(2, '0');
+      setRentalEditStartDate(dateStr);
+      setRentalEditDuration(editingRental.duration_days);
+    }
+  }, [editingRental]);
+
+  const handleSaveRentalEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRental) return;
+    setSavingRental(true);
+    setRentalError("");
+
+    try {
+      const response = await fetch(`/api/rentals/${editingRental.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outfit_catalogues_id: rentalEditOutfitId,
+          start_date: rentalEditStartDate,
+          duration_days: rentalEditDuration,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setRentalError(data.error || "Gagal memperbarui penyewaan.");
+      } else {
+        setEditingRental(null);
+        setSelected(null);
+        fetchData();
+        showToast("Penyewaan baju berhasil diperbarui.", true);
+      }
+    } catch (err) {
+      console.error(err);
+      setRentalError("Terjadi kesalahan koneksi.");
+    } finally {
+      setSavingRental(false);
+    }
+  };
 
   const totalPages = Math.ceil(total / LIMIT);
 
@@ -285,12 +393,19 @@ export default function AdminRentalsClient() {
       if (result.success) {
         setRentals((prev) => prev.map((r) => r.id === id ? { ...r, rental_status: status } : r));
         setSelected(null);
-        showToast(
-          status === "done" ? "Sewa selesai dicatat!" :
-          status === "ongoing" ? "Status diperbarui ke Dipinjam." :
-          status === "cancelled" ? "Sewa dibatalkan." : "Status diperbarui.",
-          status !== "cancelled"
-        );
+        let msg = "Status diperbarui.";
+        if (status === "done") {
+          if (result.data?.penaltyAmount) {
+            msg = `Pengembalian dicatat. Denda ${formatRupiah(result.data.penaltyAmount)} (${result.data.lateDays} hari telat) ditambahkan.`;
+          } else {
+            msg = "Sewa selesai dicatat tepat waktu!";
+          }
+        } else if (status === "ongoing") {
+          msg = "Status diperbarui ke Dipinjam.";
+        } else if (status === "cancelled") {
+          msg = "Sewa dibatalkan.";
+        }
+        showToast(msg, status !== "cancelled");
         fetchData();
       } else {
         showToast(result.error ?? "Gagal mengubah status.", false);
@@ -530,7 +645,6 @@ export default function AdminRentalsClient() {
           </button>
         </div>
       )}
-
       {/* Detail Modal */}
       {selected && (
         <DetailModal
@@ -538,8 +652,143 @@ export default function AdminRentalsClient() {
           onClose={() => setSelected(null)}
           onStatusChange={handleStatusChange}
           loading={actionLoading}
+          onEdit={setEditingRental}
         />
       )}
+
+      {/* Admin Edit Rental Modal */}
+      {editingRental && (() => {
+        const selectedOutfit = outfitList.find(o => o.id === Number(rentalEditOutfitId));
+        const dailyPrice = selectedOutfit ? Number(selectedOutfit.price) : 0;
+        const estimatedTotal = dailyPrice * rentalEditDuration;
+
+        return (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(44, 26, 14, 0.4)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1100,
+              padding: "20px",
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                border: "1px solid #EDD8CC",
+                borderRadius: "16px",
+                width: "100%",
+                maxWidth: "460px",
+                boxShadow: "0 24px 48px rgba(107, 58, 42, 0.15)",
+                padding: "28px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.2rem", fontWeight: 700, color: "#6B3A2A", margin: 0 }}>
+                  Edit Sewa Baju #{editingRental.id} (Admin)
+                </h3>
+                <button
+                  onClick={() => setEditingRental(null)}
+                  style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#8B6A5A" }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {rentalError && (
+                <div style={{ background: "#FDF2F2", border: "1px solid #F8B4B4", color: "#C81E1E", borderRadius: "8px", padding: "12px", fontSize: "0.8rem", fontWeight: 500 }}>
+                  ⚠️ {rentalError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Pilih Baju yang Disewa</label>
+                <select
+                  value={rentalEditOutfitId}
+                  onChange={(e) => setRentalEditOutfitId(Number(e.target.value))}
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", background: "white", fontFamily: "inherit" }}
+                >
+                  <option value={0} disabled>Pilih baju...</option>
+                  {outfitList.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.outfit_name} - {o.size} ({new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(o.price)}/hari)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Tanggal Mulai Sewa</label>
+                <input
+                  type="date"
+                  value={rentalEditStartDate}
+                  onChange={(e) => setRentalEditStartDate(e.target.value)}
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", fontFamily: "inherit" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Durasi Sewa (Hari)</label>
+                <input
+                  type="number"
+                  value={rentalEditDuration}
+                  onChange={(e) => setRentalEditDuration(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  min={1}
+                  max={30}
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", fontFamily: "inherit" }}
+                />
+              </div>
+
+              {dailyPrice > 0 && (
+                <div style={{ padding: "12px 16px", background: "#FAF6F4", borderRadius: "8px", border: "1px solid #EDD8CC", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.8rem", color: "#8B6A5A" }}>Estimasi Total Harga Baru:</span>
+                  <strong style={{ fontSize: "0.95rem", color: "#6B3A2A" }}>
+                    {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(estimatedTotal)}
+                  </strong>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "12px", marginTop: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingRental(null)}
+                  style={{ padding: "10px 18px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#8B6A5A", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={savingRental || rentalEditOutfitId === 0 || !rentalEditStartDate}
+                  onClick={handleSaveRentalEdit}
+                  style={{
+                    padding: "10px 18px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "#6B3A2A",
+                    color: "white",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    cursor: savingRental ? "not-allowed" : "pointer",
+                    opacity: savingRental ? 0.7 : 1,
+                  }}
+                >
+                  {savingRental ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

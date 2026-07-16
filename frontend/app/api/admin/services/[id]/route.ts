@@ -48,6 +48,15 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Tautan gambar terlalu panjang" }, { status: 400 });
     }
 
+    // Check for duplicate service_name (excluding current serviceId)
+    const dupCheck = await db.query(
+      `SELECT id FROM salon_services WHERE LOWER(service_name) = LOWER($1) AND id != $2`,
+      [service_name.trim(), serviceId]
+    );
+    if (dupCheck.rows.length > 0) {
+      return NextResponse.json({ error: "Layanan salon dengan nama tersebut sudah ada di katalog" }, { status: 400 });
+    }
+
     const result = await db.query(
       `UPDATE salon_services
        SET service_name = $1, price = $2, hour_duration = $3, image_url = $4, is_price_variable = $5,

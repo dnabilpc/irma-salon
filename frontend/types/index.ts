@@ -42,6 +42,7 @@ export interface AppUser {
   emailVerified: boolean;
   phone_number?: string;
   image?: string;
+  gender?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -121,4 +122,18 @@ export interface ServiceBreakdown {
 export interface NavLink {
     label: string;
     href: string;
+}
+
+export interface VtoStatus {
+  usage: number;
+  limit: number;
+  base_limit?: number;
+  bonus_limit?: number;
+  completed_rentals?: number;
+  days_inactive?: number;
+  is_bonus_expired?: boolean;
+  bonus_expiry_days?: number;
+  remaining: number;
+  next_reset: string;
+  can_use: boolean;
 }

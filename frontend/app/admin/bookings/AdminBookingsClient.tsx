@@ -141,6 +141,7 @@ function DetailModal({
   setRejectReason,
   rejectError,
   setRejectError,
+  onEdit,
 }: {
   booking: BookingRow;
   onClose: () => void;
@@ -154,6 +155,7 @@ function DetailModal({
   setRejectReason: (val: string) => void;
   rejectError: string;
   setRejectError: (val: string) => void;
+  onEdit: (booking: BookingRow) => void;
 }) {
   const dt = new Date(booking.booking_datetime);
   const jadwal =
@@ -453,6 +455,42 @@ function DetailModal({
               </button>
             </div>
           )}
+
+          {/* Admin Edit Button */}
+          {new Date(booking.booking_datetime) >= new Date() && (
+            <button
+              disabled={loading}
+              onClick={() => onEdit(booking)}
+              style={{
+                width: "100%",
+                marginTop: "12px",
+                background: "white",
+                border: "1.5px solid #6B3A2A",
+                color: "#6B3A2A",
+                padding: "11px",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                cursor: loading ? "not-allowed" : "pointer",
+                borderRadius: "10px",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.background = "#6B3A2A";
+                  e.currentTarget.style.color = "white";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.background = "white";
+                  e.currentTarget.style.color = "#6B3A2A";
+                }
+              }}
+            >
+              ✏️ Edit Booking (Jadwal / Harga)
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -534,6 +572,94 @@ export default function AdminBookingsClient() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectError, setRejectError] = useState("");
+
+  const [editingBooking, setEditingBooking] = useState<BookingRow | null>(null);
+  const [bookingEditDate, setBookingEditDate] = useState<string>("");
+  const [bookingEditTime, setBookingEditTime] = useState<string>("");
+  const [bookingEditPrice, setBookingEditPrice] = useState<number>(0);
+  const [bookingAvailableSlots, setBookingAvailableSlots] = useState<string[]>([]);
+  const [savingBooking, setSavingBooking] = useState(false);
+  const [bookingError, setBookingError] = useState("");
+  const [hasVariablePriceService, setHasVariablePriceService] = useState(false);
+
+  // Load initial edit values when editingBooking changes
+  useEffect(() => {
+    if (editingBooking) {
+      setBookingError("");
+      const bDate = new Date(editingBooking.booking_datetime);
+      const dateStr = bDate.getFullYear() + '-' + String(bDate.getMonth() + 1).padStart(2, '0') + '-' + String(bDate.getDate()).padStart(2, '0');
+      const timeStr = String(bDate.getHours()).padStart(2, '0') + ":" + String(bDate.getMinutes()).padStart(2, '0');
+      setBookingEditDate(dateStr);
+      setBookingEditTime(timeStr);
+      setBookingEditPrice(Number(editingBooking.total_amount));
+      setHasVariablePriceService(false);
+
+      fetch(`/api/bookings/${editingBooking.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.details) {
+            const hasVar = data.details.some((d: any) => d.is_price_variable);
+            setHasVariablePriceService(hasVar);
+          }
+        })
+        .catch(err => console.error("Error loading booking details for edit:", err));
+    } else {
+      setBookingAvailableSlots([]);
+    }
+  }, [editingBooking]);
+
+  // Fetch available slots when editing date changes
+  useEffect(() => {
+    if (editingBooking && bookingEditDate) {
+      fetch(`/api/bookings/slots?date=${bookingEditDate}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.available) {
+            setBookingAvailableSlots(data.available);
+          }
+        })
+        .catch(err => console.error("Error fetching slots:", err));
+    }
+  }, [editingBooking, bookingEditDate]);
+
+  const handleSaveBookingEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBooking) return;
+    setSavingBooking(true);
+    setBookingError("");
+
+    const datetimeStr = `${bookingEditDate}T${bookingEditTime}:00`;
+
+    try {
+      const payload: any = {
+        booking_datetime: datetimeStr,
+      };
+      if (hasVariablePriceService) {
+        payload.total_amount = bookingEditPrice;
+      }
+
+      const response = await fetch(`/api/bookings/${editingBooking.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setBookingError(data.error || "Gagal memperbarui booking.");
+      } else {
+        setEditingBooking(null);
+        setSelected(null);
+        fetchData();
+        showToast("Booking berhasil diperbarui.", true);
+      }
+    } catch (err) {
+      console.error(err);
+      setBookingError("Terjadi kesalahan koneksi.");
+    } finally {
+      setSavingBooking(false);
+    }
+  };
 
   const totalPages = Math.ceil(total / LIMIT);
 
@@ -1072,8 +1198,151 @@ export default function AdminBookingsClient() {
           setRejectReason={setRejectReason}
           rejectError={rejectError}
           setRejectError={setRejectError}
+          onEdit={setEditingBooking}
         />
       )}
+
+      {/* Admin Edit Booking Modal */}
+      {editingBooking && (() => {
+        const currentBookingTime = new Date(editingBooking.booking_datetime).toTimeString().substring(0, 5);
+        const slotsToDisplay = [...bookingAvailableSlots];
+        if (currentBookingTime && !slotsToDisplay.includes(currentBookingTime)) {
+          slotsToDisplay.push(currentBookingTime);
+        }
+        slotsToDisplay.sort();
+
+        return (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(44, 26, 14, 0.4)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1100,
+              padding: "20px",
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                border: "1px solid #EDD8CC",
+                borderRadius: "16px",
+                width: "100%",
+                maxWidth: "460px",
+                boxShadow: "0 24px 48px rgba(107, 58, 42, 0.15)",
+                padding: "28px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.2rem", fontWeight: 700, color: "#6B3A2A", margin: 0 }}>
+                  Edit Booking #{editingBooking.id} (Admin)
+                </h3>
+                <button
+                  onClick={() => setEditingBooking(null)}
+                  style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#8B6A5A" }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {bookingError && (
+                <div style={{ background: "#FDF2F2", border: "1px solid #F8B4B4", color: "#C81E1E", borderRadius: "8px", padding: "12px", fontSize: "0.8rem", fontWeight: 500 }}>
+                  ⚠️ {bookingError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Tanggal Booking</label>
+                <input
+                  type="date"
+                  value={bookingEditDate}
+                  onChange={(e) => setBookingEditDate(e.target.value)}
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", fontFamily: "inherit" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Pilih Jam Slot</label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: "8px", maxHeight: "120px", overflowY: "auto", padding: "4px" }}>
+                  {slotsToDisplay.map((slot) => (
+                    <button
+                      key={slot}
+                      type="button"
+                      onClick={() => setBookingEditTime(slot)}
+                      style={{
+                        padding: "6px 4px",
+                        borderRadius: "6px",
+                        border: bookingEditTime === slot ? "1px solid #6B3A2A" : "1px solid #EDD8CC",
+                        background: bookingEditTime === slot ? "#6B3A2A" : "white",
+                        color: bookingEditTime === slot ? "white" : "#6B3A2A",
+                        fontSize: "0.75rem",
+                        fontFamily: "monospace",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {hasVariablePriceService && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Harga Akhir (Variabel)</label>
+                  <input
+                    type="number"
+                    value={bookingEditPrice}
+                    onChange={(e) => setBookingEditPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", fontFamily: "inherit" }}
+                  />
+                  <span style={{ fontSize: "0.72rem", color: "#A87C66" }}>
+                    *Harga dapat diubah karena booking ini mengandung layanan bertarif variabel.
+                  </span>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "12px", marginTop: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingBooking(null)}
+                  style={{ padding: "10px 18px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#8B6A5A", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={savingBooking || !bookingEditTime}
+                  onClick={handleSaveBookingEdit}
+                  style={{
+                    padding: "10px 18px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "#6B3A2A",
+                    color: "white",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    cursor: savingBooking ? "not-allowed" : "pointer",
+                    opacity: savingBooking ? 0.7 : 1,
+                  }}
+                >
+                  {savingBooking ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

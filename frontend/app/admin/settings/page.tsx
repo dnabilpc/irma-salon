@@ -8,6 +8,8 @@ interface Settings {
   // VTO
   vto_limit_default: string;
   vto_reset_interval_days: string;
+  vto_milestones_config: string;
+  vto_bonus_expiry_days: string;
   // Salon info
   salon_name: string;
   salon_whatsapp: string;
@@ -18,6 +20,11 @@ interface Settings {
   salon_address: string;
   salon_maps_url: string;
   salon_open_description: string;
+}
+
+interface MilestoneTier {
+  rentals_count: number;
+  bonus_limit: number;
 }
 
 interface WeeklySchedule {
@@ -48,6 +55,13 @@ const DAY_LABELS: Record<string, string> = {
 const DEFAULT_SETTINGS: Settings = {
   vto_limit_default: "5",
   vto_reset_interval_days: "14",
+  vto_milestones_config: JSON.stringify([
+    { rentals_count: 1, bonus_limit: 2 },
+    { rentals_count: 3, bonus_limit: 4 },
+    { rentals_count: 6, bonus_limit: 6 },
+    { rentals_count: 10, bonus_limit: 10 }
+  ]),
+  vto_bonus_expiry_days: "30",
   salon_name: "",
   salon_whatsapp: "",
   salon_instagram: "",
@@ -424,16 +438,16 @@ export default function SettingsPage() {
           {/* ── Tab: VTO ── */}
           {activeTab === "vto" && (
             <div className="admin-card" style={{ padding: "24px" }}>
-              <SectionTitle icon="✨" title="Konfigurasi Virtual Try-On" sub="Atur batas penggunaan dan periode reset kuota VTO per user" />
+              <SectionTitle icon="✨" title="Konfigurasi Virtual Try-On & Benefit Sewa" sub="Atur limit kuota dasar, periode reset, serta reward bonus VTO dari penyelesaian sewa baju" />
 
               <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
                 <Field
-                  label="Batas VTO per User"
+                  label="Batas VTO Dasar per User"
                   value={settings.vto_limit_default}
                   onChange={(v) => update("vto_limit_default", v)}
                   type="number"
                   placeholder="5"
-                  hint="Jumlah maksimal penggunaan Virtual Try-On per user dalam satu periode reset."
+                  hint="Jumlah maksimal penggunaan Virtual Try-On dasar per user dalam satu periode reset."
                 />
                 <Field
                   label="Interval Reset (hari)"
@@ -441,18 +455,143 @@ export default function SettingsPage() {
                   onChange={(v) => update("vto_reset_interval_days", v)}
                   type="number"
                   placeholder="14"
-                  hint="Setiap berapa hari kuota VTO direset secara otomatis. Default: 14 hari (2 minggu). Kuota juga direset saat transaksi sewa baju selesai."
+                  hint="Setiap berapa hari kuota VTO direset secara otomatis. Default: 14 hari (2 minggu)."
+                />
+                <Field
+                  label="Batas Hari Inaktif Reset Bonus VTO (hari)"
+                  value={settings.vto_bonus_expiry_days}
+                  onChange={(v) => update("vto_bonus_expiry_days", v)}
+                  type="number"
+                  placeholder="30"
+                  hint="Durasi (hari) pelanggan tidak melakukan sewa baru sebelum bonus VTO hangus/reset ke limit dasar. (Misal: 30 hari). Isi 0 untuk menonaktifkan masa hangus."
                 />
 
+                {/* Section Milestone Tiers */}
+                <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <label style={{ fontSize: "0.85rem", fontWeight: 700, color: "#3A1A28", fontFamily: "'DM Sans', sans-serif" }}>
+                        🎁 Tier Benefit Bonus Limit VTO (Berdasarkan Penyelesaian Sewa)
+                      </label>
+                      <p style={{ fontSize: "0.76rem", color: "#B08090", margin: "2px 0 0 0" }}>
+                        Pengaturan bertahap tambahan kuota VTO berdasarkan total transaksi penyewaan baju berstatus selesai/lunas.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          const list = JSON.parse(settings.vto_milestones_config || "[]");
+                          const lastRent = list.length > 0 ? list[list.length - 1].rentals_count + 3 : 1;
+                          const lastBonus = list.length > 0 ? list[list.length - 1].bonus_limit + 2 : 2;
+                          list.push({ rentals_count: lastRent, bonus_limit: lastBonus });
+                          update("vto_milestones_config", JSON.stringify(list));
+                        } catch {
+                          update("vto_milestones_config", JSON.stringify([{ rentals_count: 1, bonus_limit: 2 }]));
+                        }
+                      }}
+                      style={{
+                        background: "rgba(196,114,142,0.12)",
+                        border: "1px solid rgba(196,114,142,0.3)",
+                        color: "#7A2848",
+                        padding: "6px 12px",
+                        borderRadius: "6px",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ➕ Tambah Tier Milestone
+                    </button>
+                  </div>
+
+                  <div style={{ border: "1px solid #F0D9E0", borderRadius: "10px", overflow: "hidden" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                      <thead>
+                        <tr style={{ background: "#FDF8FA", borderBottom: "1px solid #F0D9E0", textAlign: "left", color: "#7A2848", fontWeight: 600 }}>
+                          <th style={{ padding: "10px 14px", width: "80px" }}>Tier #</th>
+                          <th style={{ padding: "10px 14px" }}>Minimal Penyelesaian Sewa (kali)</th>
+                          <th style={{ padding: "10px 14px" }}>Tambahan Bonus Limit VTO (+ Limit)</th>
+                          <th style={{ padding: "10px 14px", width: "70px", textAlign: "center" }}>Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          let milestones: MilestoneTier[] = [];
+                          try {
+                            milestones = JSON.parse(settings.vto_milestones_config || "[]");
+                          } catch {}
+                          if (!Array.isArray(milestones) || milestones.length === 0) {
+                            milestones = [
+                              { rentals_count: 1, bonus_limit: 2 },
+                              { rentals_count: 3, bonus_limit: 4 },
+                              { rentals_count: 6, bonus_limit: 6 },
+                              { rentals_count: 10, bonus_limit: 10 }
+                            ];
+                          }
+                          return milestones.map((m, idx) => (
+                            <tr key={idx} style={{ borderBottom: idx < milestones.length - 1 ? "1px solid #F0D9E0" : "none" }}>
+                              <td style={{ padding: "10px 14px", fontWeight: 700, color: "#C4728E" }}>
+                                Tier {idx + 1}
+                              </td>
+                              <td style={{ padding: "10px 14px" }}>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={m.rentals_count}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                    const updated = milestones.map((item, i) => i === idx ? { ...item, rentals_count: val } : item);
+                                    update("vto_milestones_config", JSON.stringify(updated));
+                                  }}
+                                  style={{ width: "90px", padding: "6px 10px", borderRadius: "6px", border: "1px solid #E8C0D0", fontSize: "0.82rem", fontWeight: 600 }}
+                                />
+                                <span style={{ marginLeft: "8px", color: "#B08090", fontSize: "0.78rem" }}>sewa selesai</span>
+                              </td>
+                              <td style={{ padding: "10px 14px" }}>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={m.bonus_limit}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                    const updated = milestones.map((item, i) => i === idx ? { ...item, bonus_limit: val } : item);
+                                    update("vto_milestones_config", JSON.stringify(updated));
+                                  }}
+                                  style={{ width: "90px", padding: "6px 10px", borderRadius: "6px", border: "1px solid #E8C0D0", fontSize: "0.82rem", fontWeight: 700, color: "#1A7A4A" }}
+                                />
+                                <span style={{ marginLeft: "8px", color: "#1A7A4A", fontWeight: 600, fontSize: "0.78rem" }}>+ limit kuota VTO</span>
+                              </td>
+                              <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = milestones.filter((_, i) => i !== idx);
+                                    update("vto_milestones_config", JSON.stringify(updated));
+                                  }}
+                                  style={{ background: "none", border: "none", color: "#D94060", cursor: "pointer", fontSize: "1rem" }}
+                                  title="Hapus Tier"
+                                >
+                                  🗑️
+                                </button>
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
                 {/* Preview info */}
-                <div style={{ background: "rgba(196,120,138,0.06)", border: "1px solid #F0D9E0", borderRadius: "10px", padding: "14px 16px" }}>
+                <div style={{ background: "rgba(196,120,138,0.06)", border: "1px solid #F0D9E0", borderRadius: "10px", padding: "14px 16px", marginTop: "10px" }}>
                   <div style={{ fontSize: "0.72rem", color: "#7A2848", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: "8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                    Preview Kebijakan
+                    Preview Kebijakan VTO & Benefit
                   </div>
                   <p style={{ fontSize: "0.82rem", color: "#8A4060", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.7, margin: 0 }}>
-                    Setiap user mendapat <strong>{settings.vto_limit_default || "5"} kali</strong> penggunaan Virtual Try-On
-                    per <strong>{settings.vto_reset_interval_days || "14"} hari</strong>.
-                    Kuota juga akan direset otomatis saat user menyelesaikan transaksi sewa baju.
+                    Setiap user baru mendapat kuota dasar <strong>{settings.vto_limit_default || "5"} kali</strong> per <strong>{settings.vto_reset_interval_days || "14"} hari</strong>.
+                    Setiap kali user menyelesaikan transaksi sewa baju, mereka memperoleh tambahan bonus kuota VTO sesuai tingkatan milestone yang dicapai.
+                    Jika pelanggan inaktif sewa lebih dari <strong>{settings.vto_bonus_expiry_days || "30"} hari</strong>, bonus kuota VTO akan direset kembali ke kuota dasar.
                   </p>
                 </div>
               </div>

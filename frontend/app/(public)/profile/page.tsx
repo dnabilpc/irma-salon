@@ -11,6 +11,7 @@ interface UserType {
   email?: string | null;
   image?: string | null;
   phone_number?: string;
+  gender?: string;
 }
 
 function ProfileForm({ user }: { user: UserType }) {
@@ -21,6 +22,7 @@ function ProfileForm({ user }: { user: UserType }) {
 
   const [name, setName] = useState(user.name || "");
   const [phone, setPhone] = useState(phoneNumber);
+  const [gender, setGender] = useState(user.gender || "unspecified");
   const [imagePreview, setImagePreview] = useState<string | null>(user.image ?? null);
   const [imageChanged, setImageChanged] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,7 @@ function ProfileForm({ user }: { user: UserType }) {
       // If image did not change, pass undefined (controller won't touch DB image column)
       const imageToSend = imageChanged ? imagePreview : undefined;
 
-      const result = await updateUserProfile(name, phone, imageToSend);
+      const result = await updateUserProfile(name, phone, imageToSend, gender);
 
       if (result.success) {
         setMessage({ type: "success", text: "Profil berhasil diperbarui!" });
@@ -340,6 +342,34 @@ function ProfileForm({ user }: { user: UserType }) {
                 onFocus={(e) => (e.currentTarget.style.borderColor = "#6B3A2A")}
                 onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
               />
+            </div>
+
+            {/* Gender */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 500, color: "#6B3A2A" }}>
+                Gender / Jenis Kelamin
+              </label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid #EDD8CC",
+                  background: "#FFF",
+                  color: "#333",
+                  fontSize: "0.85rem",
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#6B3A2A")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
+              >
+                <option value="unspecified">Belum Ditentukan / Bebas</option>
+                <option value="wanita">Wanita</option>
+                <option value="pria">Pria</option>
+              </select>
             </div>
 
             {/* Status Messages */}

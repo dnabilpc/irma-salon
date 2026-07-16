@@ -78,11 +78,14 @@ export async function registerCustomer(req, res) {
         const accountId = crypto.randomUUID();
         const now = new Date();
 
+        const { gender } = req.body;
+        const validGender = ['pria', 'wanita'].includes(gender) ? gender : 'unspecified';
+
         // Insert user with PENDING status
         await pool.query(
-            `INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt", role, phone_number, status)
-             VALUES ($1, $2, $3, false, $4, $4, 'customer', $5, 'PENDING')`,
-            [userId, name, email, now, phone_number || null]
+            `INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt", role, phone_number, status, gender)
+             VALUES ($1, $2, $3, false, $4, $4, 'customer', $5, 'PENDING', $6)`,
+            [userId, name, email, now, phone_number || null, validGender]
         );
 
         // Insert credential account record (compatible with better-auth schema)

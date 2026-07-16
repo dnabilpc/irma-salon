@@ -65,6 +65,8 @@ export async function getDashboardStats(req, res) {
                 (t.booking_id IS NOT NULL AND b.booking_datetime >= DATE_TRUNC('month', CURRENT_DATE) AND b.booking_datetime < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')
                 OR
                 (t.rental_id IS NOT NULL AND r.start_date >= DATE_TRUNC('month', CURRENT_DATE) AND r.start_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')
+                OR
+                (t.booking_id IS NULL AND t.rental_id IS NULL AND t.created_at >= DATE_TRUNC('month', CURRENT_DATE) AND t.created_at < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')
               )
         `);
         const revLastMonthRes = await pool.query(`
@@ -77,6 +79,8 @@ export async function getDashboardStats(req, res) {
                 (t.booking_id IS NOT NULL AND b.booking_datetime >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND b.booking_datetime < DATE_TRUNC('month', CURRENT_DATE))
                 OR
                 (t.rental_id IS NOT NULL AND r.start_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND r.start_date < DATE_TRUNC('month', CURRENT_DATE))
+                OR
+                (t.booking_id IS NULL AND t.rental_id IS NULL AND t.created_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND t.created_at < DATE_TRUNC('month', CURRENT_DATE))
               )
         `);
         const revThisMonth = parseFloat(revThisMonthRes.rows[0].revenue) || 0;

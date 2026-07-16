@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [name, setName]                       = useState("");
   const [email, setEmail]                     = useState("");
   const [phone, setPhone]                     = useState("");
+  const [gender, setGender]                   = useState("wanita");
   const [password, setPassword]               = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError]                     = useState("");
@@ -47,7 +48,7 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const result = await registerCustomer(name, email, phone, password);
+    const result = await registerCustomer(name, email, phone, password, gender);
 
     if (!result.success) {
       setError(result.error || "Pendaftaran gagal. Silakan coba lagi.");
@@ -219,6 +220,21 @@ export default function RegisterPage() {
             <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#8B6A5A", marginTop: "4px" }}>
               Digunakan untuk mengirimkan kode OTP dan konfirmasi pesanan via WhatsApp.
             </p>
+          </div>
+
+          {/* Gender */}
+          <div>
+            <label style={labelStyle}>Gender / Jenis Kelamin</label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              style={inputStyle}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
+            >
+              <option value="wanita">Wanita</option>
+              <option value="pria">Pria</option>
+            </select>
           </div>
 
           {/* Password */}

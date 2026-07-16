@@ -21,6 +21,8 @@ interface Outfit {
   model_2d_file_link: string | null;
   outfit_category_id: number;
   category_name: string;
+  target_gender?: string;
+  target_age?: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -46,9 +48,16 @@ function VtoQuotaBar({ status }: { status: VtoStatus }) {
       marginBottom: "24px",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-          Kuota Virtual Try-On
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            Kuota Virtual Try-On
+          </span>
+          {Boolean(status.bonus_limit && status.bonus_limit > 0) && (
+            <span style={{ background: "rgba(90,158,122,0.2)", border: "1px solid rgba(90,158,122,0.4)", color: "#7CD6A2", fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: "10px" }}>
+              🎁 Bonus Sewa +{status.bonus_limit} Limit
+            </span>
+          )}
+        </div>
         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.8rem", color, fontWeight: 600 }}>
           {status.remaining} / {status.limit} tersisa
         </span>
@@ -56,8 +65,11 @@ function VtoQuotaBar({ status }: { status: VtoStatus }) {
       <div style={{ height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: "3px", transition: "width 0.5s ease" }} />
       </div>
-      <div style={{ marginTop: "6px", fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", fontFamily: "'DM Sans', sans-serif" }}>
-        Reset otomatis: {formatDate(status.next_reset)} · atau saat transaksi sewa selesai
+      <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", fontSize: "0.68rem", color: "rgba(255,255,255,0.5)", fontFamily: "'DM Sans', sans-serif" }}>
+        <span>
+          Limit Dasar: {status.base_limit ?? status.limit} {status.bonus_limit ? `+ Bonus Tier: +${status.bonus_limit} (dari ${status.completed_rentals || 0}x penyewaan)` : ""}
+        </span>
+        <span>Reset Kuota: {formatDate(status.next_reset)}</span>
       </div>
     </div>
   );
@@ -431,7 +443,11 @@ function VirtualTryOnContent() {
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [categories, setCategories] = useState<{ id: number; category_name: string }[]>([]);
   const [filterCat, setFilterCat] = useState("all");
+  const [filterAge, setFilterAge] = useState<"all" | "dewasa" | "anak_anak">("all");
+  const [showAllGenders, setShowAllGenders] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+
+  const userGender = (session?.user as any)?.gender || "unspecified";
 
   const [personFile, setPersonFile] = useState<File | null>(null);
   const [personPreview, setPersonPreview] = useState<string | null>(null);
@@ -494,9 +510,22 @@ function VirtualTryOnContent() {
     return () => clearInterval(interval);
   }, [activeTasks]);
 
-  const filteredOutfits = outfits.filter((o) =>
-    filterCat === "all" || String(o.outfit_category_id) === filterCat
-  );
+  const filteredOutfits = outfits.filter((o) => {
+    const matchCat = filterCat === "all" || String(o.outfit_category_id) === filterCat;
+
+    // Filter Target Umur
+    const outfitAge = o.target_age || "semua_umur";
+    const matchAge  = filterAge === "all" || outfitAge === "semua_umur" || outfitAge === filterAge;
+
+    // Filter Gender
+    let matchGender = true;
+    if (!showAllGenders && userGender && userGender !== "unspecified") {
+      const outfitGen = o.target_gender || "unisex";
+      matchGender = outfitGen === "unisex" || outfitGen === userGender;
+    }
+
+    return matchCat && matchAge && matchGender;
+  });
 
   function handlePhotoSelected(file: File, preview: string) {
     setPersonFile(file);
@@ -679,7 +708,7 @@ function VirtualTryOnContent() {
             fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#E8A89C",
             lineHeight: 1.6,
           }}>
-            ⚠️ Kuota Virtual Try-On kamu sudah habis. Kuota akan direset pada <strong>{formatDate(vtoStatus.next_reset)}</strong>, atau otomatis direset saat kamu menyelesaikan transaksi sewa baju.
+            ⚠️ Kuota Virtual Try-On kamu sudah habis. Kuota akan direset pada <strong>{formatDate(vtoStatus.next_reset)}</strong>. Selesaikan transaksi sewa baju untuk mendapatkan tambahan bonus limit kuota VTO!
           </div>
         )}
 
@@ -737,6 +766,52 @@ function VirtualTryOnContent() {
                 </button>
               ))}
             </div>
+
+            {/* Target Umur & Checkbox Gender */}
+            <div style={{ marginBottom: "16px", display: "flex", flexDirection: "column", gap: "10px", background: "rgba(255,255,255,0.03)", padding: "10px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontFamily: "'DM Sans', sans-serif" }}>Umur:</span>
+                {[
+                  { id: "all", label: "🌐 Semua" },
+                  { id: "dewasa", label: "🧑 Dewasa" },
+                  { id: "anak_anak", label: "🧒 Anak" },
+                ].map((age) => (
+                  <button
+                    key={age.id}
+                    onClick={() => setFilterAge(age.id as any)}
+                    style={{
+                      padding: "4px 10px",
+                      border: `1px solid ${filterAge === age.id ? "#C9922A" : "rgba(255,255,255,0.1)"}`,
+                      background: filterAge === age.id ? "rgba(201,146,42,0.2)" : "transparent",
+                      color: filterAge === age.id ? "#FFD700" : "rgba(255,255,255,0.6)",
+                      borderRadius: "6px",
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: "0.7rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {age.label}
+                  </button>
+                ))}
+              </div>
+
+              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", fontFamily: "'DM Sans', sans-serif", cursor: "pointer", userSelect: "none" }}>
+                <input
+                  type="checkbox"
+                  checked={showAllGenders}
+                  onChange={(e) => setShowAllGenders(e.target.checked)}
+                  style={{ accentColor: "#C9922A", width: "14px", height: "14px" }}
+                />
+                Tampilkan Semua Baju (Termasuk Gender Lain)
+              </label>
+            </div>
+
+            {/* Hint Gender */}
+            {!showAllGenders && userGender && userGender !== "unspecified" && (
+              <div style={{ marginBottom: "14px", fontSize: "0.68rem", color: "rgba(255,215,0,0.8)", fontFamily: "'DM Sans', sans-serif" }}>
+                💡 Rekomendasi baju untuk <strong>{userGender === "wanita" ? "Wanita 👩" : "Pria 👨"}</strong> & Unisex
+              </div>
+            )}
 
             {/* Grid baju */}
             {loadingData ? (

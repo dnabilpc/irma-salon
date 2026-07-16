@@ -283,6 +283,160 @@ export default function CustomerDashboard() {
     }
   }, [confirmingRentalCancelId]);
 
+  // Edit states for customer
+  const [editingBooking, setEditingBooking] = useState<any | null>(null);
+  const [editingRental, setEditingRental] = useState<any | null>(null);
+  const [bookingServicesList, setBookingServicesList] = useState<any[]>([]);
+  const [selectedBookingServices, setSelectedBookingServices] = useState<number[]>([]);
+  const [bookingEditDate, setBookingEditDate] = useState<string>("");
+  const [bookingEditTime, setBookingEditTime] = useState<string>("");
+  const [bookingAvailableSlots, setBookingAvailableSlots] = useState<string[]>([]);
+  const [savingBooking, setSavingBooking] = useState(false);
+  const [bookingError, setBookingError] = useState("");
+
+  const [outfitList, setOutfitList] = useState<any[]>([]);
+  const [rentalEditOutfitId, setRentalEditOutfitId] = useState<number>(0);
+  const [rentalEditStartDate, setRentalEditStartDate] = useState<string>("");
+  const [rentalEditDuration, setRentalEditDuration] = useState<number>(1);
+  const [savingRental, setSavingRental] = useState(false);
+  const [rentalError, setRentalError] = useState("");
+
+  // Fetch services when editing booking
+  useEffect(() => {
+    if (editingBooking) {
+      setBookingError("");
+      const isPaid = editingBooking.payment_status === "lunas" || editingBooking.payment_status === "success";
+      
+      fetch(`/api/bookings/${editingBooking.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.details) {
+            const currentIds = data.details.map((d: any) => d.service_id).filter(Boolean);
+            setSelectedBookingServices(currentIds);
+          }
+        })
+        .catch(err => console.error("Error fetching booking details:", err));
+
+      if (!isPaid) {
+        fetch("/api/services")
+          .then(res => res.json())
+          .then(data => {
+            if (Array.isArray(data)) setBookingServicesList(data);
+          })
+          .catch(err => console.error("Error fetching services:", err));
+      }
+
+      const bDate = new Date(editingBooking.booking_datetime);
+      const dateStr = bDate.getFullYear() + '-' + String(bDate.getMonth() + 1).padStart(2, '0') + '-' + String(bDate.getDate()).padStart(2, '0');
+      const timeStr = String(bDate.getHours()).padStart(2, '0') + ":" + String(bDate.getMinutes()).padStart(2, '0');
+      setBookingEditDate(dateStr);
+      setBookingEditTime(timeStr);
+    } else {
+      setBookingAvailableSlots([]);
+    }
+  }, [editingBooking]);
+
+  // Fetch available slots when editing date changes
+  useEffect(() => {
+    if (editingBooking && bookingEditDate) {
+      fetch(`/api/bookings/slots?date=${bookingEditDate}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.available) {
+            setBookingAvailableSlots(data.available);
+          }
+        })
+        .catch(err => console.error("Error fetching available slots:", err));
+    }
+  }, [editingBooking, bookingEditDate]);
+
+  // Fetch outfits when editing rental
+  useEffect(() => {
+    if (editingRental) {
+      setRentalError("");
+      fetch("/api/outfits")
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.outfits) {
+            setOutfitList(data.outfits);
+          }
+        })
+        .catch(err => console.error("Error fetching outfits:", err));
+
+      setRentalEditOutfitId(editingRental.outfit_catalogues_id);
+      
+      const sDate = new Date(editingRental.start_date);
+      const dateStr = sDate.getFullYear() + '-' + String(sDate.getMonth() + 1).padStart(2, '0') + '-' + String(sDate.getDate()).padStart(2, '0');
+      setRentalEditStartDate(dateStr);
+      setRentalEditDuration(editingRental.duration_days);
+    }
+  }, [editingRental]);
+
+  const handleSaveBookingEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBooking) return;
+    setSavingBooking(true);
+    setBookingError("");
+
+    const datetimeStr = `${bookingEditDate}T${bookingEditTime}:00`;
+
+    try {
+      const response = await fetch(`/api/bookings/${editingBooking.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          booking_datetime: datetimeStr,
+          service_ids: selectedBookingServices,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setBookingError(data.error || "Gagal memperbarui booking.");
+      } else {
+        setEditingBooking(null);
+        fetchBookings();
+      }
+    } catch (err) {
+      console.error(err);
+      setBookingError("Terjadi kesalahan koneksi.");
+    } finally {
+      setSavingBooking(false);
+    }
+  };
+
+  const handleSaveRentalEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRental) return;
+    setSavingRental(true);
+    setRentalError("");
+
+    try {
+      const response = await fetch(`/api/rentals/${editingRental.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outfit_catalogues_id: rentalEditOutfitId,
+          start_date: rentalEditStartDate,
+          duration_days: rentalEditDuration,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setRentalError(data.error || "Gagal memperbarui penyewaan.");
+      } else {
+        setEditingRental(null);
+        fetchRentals();
+      }
+    } catch (err) {
+      console.error(err);
+      setRentalError("Terjadi kesalahan koneksi.");
+    } finally {
+      setSavingRental(false);
+    }
+  };
+
   const fetchBookings = () => {
     setLoadingBookings(true);
     fetch("/api/bookings")
@@ -1095,8 +1249,34 @@ export default function CustomerDashboard() {
                             </div>
                           </div>
 
-                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                             {showInvoiceBtn && (
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              {booking.status === "pending" && (
+                                <button
+                                  onClick={() => setEditingBooking(booking)}
+                                  style={{
+                                    background: "white",
+                                    border: "1px solid #6B3A2A",
+                                    color: "#6B3A2A",
+                                    padding: "8px 14px",
+                                    borderRadius: "6px",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "#6B3A2A";
+                                    e.currentTarget.style.color = "white";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "white";
+                                    e.currentTarget.style.color = "#6B3A2A";
+                                  }}
+                                >
+                                  ✏️ Edit
+                                </button>
+                              )}
+                              {showInvoiceBtn && (
                                <button
                                  onClick={() => window.open(`/invoice/${booking.transaction_id}`, "_blank")}
                                  style={{
@@ -1335,6 +1515,32 @@ export default function CustomerDashboard() {
                     </div>
 
                     <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      {rental.status === "pending" && (
+                        <button
+                          onClick={() => setEditingRental(rental)}
+                          style={{
+                            background: "white",
+                            border: "1px solid #6B3A2A",
+                            color: "#6B3A2A",
+                            padding: "8px 14px",
+                            borderRadius: "6px",
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#6B3A2A";
+                            e.currentTarget.style.color = "white";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "white";
+                            e.currentTarget.style.color = "#6B3A2A";
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                      )}
                       {showInvoiceBtn && (
                         <button
                           onClick={() => window.open(`/invoice/${rental.transaction_id}`, "_blank")}
@@ -1695,6 +1901,303 @@ export default function CustomerDashboard() {
             📱 Hubungi via WhatsApp
           </a>
         </div>
+        {/* EDIT BOOKING MODAL */}
+        {editingBooking && (() => {
+          const isPaid = editingBooking.payment_status === "lunas" || editingBooking.payment_status === "success";
+          const currentBookingTime = new Date(editingBooking.booking_datetime).toTimeString().substring(0, 5);
+          const slotsToDisplay = [...bookingAvailableSlots];
+          if (currentBookingTime && !slotsToDisplay.includes(currentBookingTime)) {
+            slotsToDisplay.push(currentBookingTime);
+          }
+          slotsToDisplay.sort();
+
+          return (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: "rgba(44, 26, 14, 0.6)",
+                backdropFilter: "blur(4px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+                padding: "20px",
+              }}
+            >
+              <div
+                style={{
+                  background: "white",
+                  border: "1px solid #EDD8CC",
+                  borderRadius: "16px",
+                  width: "100%",
+                  maxWidth: "500px",
+                  maxHeight: "90vh",
+                  overflowY: "auto",
+                  boxShadow: "0 24px 48px rgba(107, 58, 42, 0.15)",
+                  padding: "28px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "20px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.25rem", fontWeight: 700, color: "#6B3A2A", margin: 0 }}>
+                    Edit Booking #{editingBooking.id}
+                  </h3>
+                  <button
+                    onClick={() => setEditingBooking(null)}
+                    style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#8B6A5A" }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {bookingError && (
+                  <div style={{ background: "#FDF2F2", border: "1px solid #F8B4B4", color: "#C81E1E", borderRadius: "8px", padding: "12px", fontSize: "0.8rem", fontWeight: 500 }}>
+                    ⚠️ {bookingError}
+                  </div>
+                )}
+
+                {isPaid ? (
+                  <div style={{ background: "#FDF8F2", border: "1px solid #F5DCA0", color: "#A07010", borderRadius: "8px", padding: "12px", fontSize: "0.78rem", lineHeight: 1.4 }}>
+                    ℹ️ Pembayaran sudah lunas. Anda hanya dapat mengubah jadwal (hari & jam). Pilihan layanan salon telah dikunci demi konsistensi pembayaran.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Pilih Layanan Salon</label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "150px", overflowY: "auto", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "10px" }}>
+                      {bookingServicesList.map((svc) => (
+                        <label key={svc.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8rem", color: "#2C1A0E", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedBookingServices.includes(svc.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedBookingServices([...selectedBookingServices, svc.id]);
+                              } else {
+                                setSelectedBookingServices(selectedBookingServices.filter(id => id !== svc.id));
+                              }
+                            }}
+                            style={{ accentColor: "#6B3A2A" }}
+                          />
+                          {svc.service_name} ({new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(svc.price)})
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Pilih Tanggal</label>
+                  <input
+                    type="date"
+                    value={bookingEditDate}
+                    onChange={(e) => setBookingEditDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    max={new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", fontFamily: "inherit" }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Pilih Jam Slot</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: "8px", maxHeight: "120px", overflowY: "auto", padding: "4px" }}>
+                    {slotsToDisplay.map((slot) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setBookingEditTime(slot)}
+                        style={{
+                          padding: "6px 4px",
+                          borderRadius: "6px",
+                          border: bookingEditTime === slot ? "1px solid #6B3A2A" : "1px solid #EDD8CC",
+                          background: bookingEditTime === slot ? "#6B3A2A" : "white",
+                          color: bookingEditTime === slot ? "white" : "#6B3A2A",
+                          fontSize: "0.75rem",
+                          fontFamily: "monospace",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "12px", marginTop: "10px", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingBooking(null)}
+                    style={{ padding: "10px 18px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#8B6A5A", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingBooking || selectedBookingServices.length === 0 || !bookingEditTime}
+                    onClick={handleSaveBookingEdit}
+                    style={{
+                      padding: "10px 18px",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: "#6B3A2A",
+                      color: "white",
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      cursor: savingBooking ? "not-allowed" : "pointer",
+                      opacity: savingBooking ? 0.7 : 1,
+                    }}
+                  >
+                    {savingBooking ? "Menyimpan..." : "Simpan Perubahan"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* EDIT RENTAL MODAL */}
+        {editingRental && (() => {
+          const selectedOutfit = outfitList.find(o => o.id === Number(rentalEditOutfitId));
+          const dailyPrice = selectedOutfit ? Number(selectedOutfit.price) : 0;
+          const estimatedTotal = dailyPrice * rentalEditDuration;
+
+          return (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: "rgba(44, 26, 14, 0.6)",
+                backdropFilter: "blur(4px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+                padding: "20px",
+              }}
+            >
+              <div
+                style={{
+                  background: "white",
+                  border: "1px solid #EDD8CC",
+                  borderRadius: "16px",
+                  width: "100%",
+                  maxWidth: "500px",
+                  maxHeight: "90vh",
+                  overflowY: "auto",
+                  boxShadow: "0 24px 48px rgba(107, 58, 42, 0.15)",
+                  padding: "28px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "20px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.25rem", fontWeight: 700, color: "#6B3A2A", margin: 0 }}>
+                    Edit Sewa Baju #{editingRental.id}
+                  </h3>
+                  <button
+                    onClick={() => setEditingRental(null)}
+                    style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#8B6A5A" }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {rentalError && (
+                  <div style={{ background: "#FDF2F2", border: "1px solid #F8B4B4", color: "#C81E1E", borderRadius: "8px", padding: "12px", fontSize: "0.8rem", fontWeight: 500 }}>
+                    ⚠️ {rentalError}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Pilih Baju yang Disewa</label>
+                  <select
+                    value={rentalEditOutfitId}
+                    onChange={(e) => setRentalEditOutfitId(Number(e.target.value))}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", background: "white", fontFamily: "inherit" }}
+                  >
+                    <option value={0} disabled>Pilih baju...</option>
+                    {outfitList.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.outfit_name} - {o.size} ({new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(o.price)}/hari)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Tanggal Mulai Sewa</label>
+                  <input
+                    type="date"
+                    value={rentalEditStartDate}
+                    onChange={(e) => setRentalEditStartDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", fontFamily: "inherit" }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Durasi Sewa (Hari)</label>
+                  <input
+                    type="number"
+                    value={rentalEditDuration}
+                    onChange={(e) => setRentalEditDuration(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    min={1}
+                    max={30}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", fontFamily: "inherit" }}
+                  />
+                </div>
+
+                {dailyPrice > 0 && (
+                  <div style={{ padding: "12px 16px", background: "#FAF6F4", borderRadius: "8px", border: "1px solid #EDD8CC", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.8rem", color: "#8B6A5A" }}>Estimasi Total Harga Baru:</span>
+                    <strong style={{ fontSize: "0.95rem", color: "#6B3A2A" }}>
+                      {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(estimatedTotal)}
+                    </strong>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: "12px", marginTop: "10px", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingRental(null)}
+                    style={{ padding: "10px 18px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#8B6A5A", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingRental || rentalEditOutfitId === 0 || !rentalEditStartDate}
+                    onClick={handleSaveRentalEdit}
+                    style={{
+                      padding: "10px 18px",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: "#6B3A2A",
+                      color: "white",
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      cursor: savingRental ? "not-allowed" : "pointer",
+                      opacity: savingRental ? 0.7 : 1,
+                    }}
+                  >
+                    {savingRental ? "Menyimpan..." : "Simpan Perubahan"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
     </div>

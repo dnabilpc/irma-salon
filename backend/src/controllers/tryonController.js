@@ -9,54 +9,13 @@ const replicate = new Replicate({
     useFileOutput: false
 });
 
+import { getUserVtoQuotaDetails } from './vtoController.js';
+
 async function checkUserVtoQuota(userId) {
     if (!userId) return { can_use: false, error: 'User ID context is required.' };
-
-    const settingsResult = await pool.query(
-        `SELECT key, value FROM settings WHERE key IN ('vto_limit_default', 'vto_reset_interval_days')`
-    );
-    const settingsMap = {};
-    for (const row of settingsResult.rows) {
-        settingsMap[row.key] = row.value;
-    }
-
-    const limit = parseInt(settingsMap["vto_limit_default"] ?? "5", 10);
-    const intervalDays = parseInt(settingsMap["vto_reset_interval_days"] ?? "14", 10);
-
-    const userResult = await pool.query(
-        `SELECT vto_usage, vto_reset_at FROM "user" WHERE id = $1`,
-        [userId]
-    );
-
-    if (!userResult.rows.length) {
-        return { can_use: false, error: 'User not found in database.' };
-    }
-
-    let { vto_usage, vto_reset_at } = userResult.rows[0];
-    
-    if (!vto_reset_at) {
-        await pool.query(
-            `UPDATE "user" SET vto_reset_at = NOW() WHERE id = $1`,
-            [userId]
-        );
-        vto_reset_at = new Date();
-    }
-
-    const resetAt = new Date(vto_reset_at);
-    const now = new Date();
-    const diffDays = (now.getTime() - resetAt.getTime()) / (1000 * 60 * 60 * 24);
-
-    if (diffDays >= intervalDays) {
-        await pool.query(
-            `UPDATE "user" SET vto_usage = 0, vto_reset_at = NOW() WHERE id = $1`,
-            [userId]
-        );
-        vto_usage = 0;
-    }
-
-    const usage = vto_usage ?? 0;
-    const remaining = Math.max(0, limit - usage);
-    return { can_use: remaining > 0, remaining };
+    const quota = await getUserVtoQuotaDetails(userId);
+    if (quota.error) return { can_use: false, error: quota.error };
+    return { can_use: quota.can_use, remaining: quota.remaining, limit: quota.limit };
 }
 
 // ── Exact Original Prompts ──────────────────────────────────────────────────

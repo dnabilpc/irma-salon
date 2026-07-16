@@ -53,6 +53,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Deskripsi tidak boleh lebih dari 255 karakter" }, { status: 400 });
     }
 
+    // Check for duplicate category_name
+    const dupCheck = await db.query(
+      `SELECT id FROM outfit_categories WHERE LOWER(category_name) = LOWER($1)`,
+      [category_name.trim()]
+    );
+    if (dupCheck.rows.length > 0) {
+      return NextResponse.json({ error: "Kategori baju dengan nama tersebut sudah ada" }, { status: 400 });
+    }
+
     const result = await db.query(
       `INSERT INTO outfit_categories (category_name, description)
        VALUES ($1, $2) RETURNING *`,

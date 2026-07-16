@@ -148,6 +148,9 @@ test('handleVirtualTryOn - validation failure (quota exceeded)', async () => {
                 { key: 'vto_reset_interval_days', value: '14' }
             ]
         }),
+        'SELECT COUNT(*)::int AS completed_count': () => ({
+            rows: [{ completed_count: 0, last_rental_date: null }]
+        }),
         'SELECT vto_usage, vto_reset_at FROM "user"': () => ({
             rows: [{ vto_usage: 5, vto_reset_at: new Date() }] // Max quota reached
         })

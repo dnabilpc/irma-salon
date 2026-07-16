@@ -6,8 +6,8 @@ import { fetchAdminPayments, confirmAdminPayment } from "@/actions/admin";
 import type { PaymentRow } from "@/actions/admin";
 
 type PaymentStatus = "lunas" | "pending" | "refund" | "gagal";
-type PaymentMethod = "cash" | "qris" | "midtrans" | "payment_gateway";
-type PaymentType   = "booking" | "sewa";
+type PaymentMethod = "cash" | "qris" | "transfer" | "midtrans" | "payment_gateway";
+type PaymentType   = "booking" | "sewa" | "offline";
 
 const STATUS_CONFIG: Record<PaymentStatus, { label: string; bg: string; color: string }> = {
   lunas:   { label: "Lunas",   bg: "rgba(42,140,90,0.12)",   color: "#1A7A4A" },
@@ -19,6 +19,7 @@ const STATUS_CONFIG: Record<PaymentStatus, { label: string; bg: string; color: s
 const METHOD_CONFIG: Record<PaymentMethod, { label: string; icon: string }> = {
   cash:     { label: "Tunai",     icon: "💵" },
   qris:     { label: "QRIS",      icon: "📱" },
+  transfer: { label: "Transfer",  icon: "🏦" },
   midtrans: { label: "Midtrans",  icon: "💳" },
   payment_gateway: { label: "Midtrans", icon: "💳" }
 };
@@ -26,6 +27,7 @@ const METHOD_CONFIG: Record<PaymentMethod, { label: string; icon: string }> = {
 const TYPE_CONFIG: Record<PaymentType, { label: string; bg: string; color: string }> = {
   booking: { label: "Booking", bg: "rgba(196,114,142,0.12)", color: "#C4728E" },
   sewa:    { label: "Sewa",    bg: "rgba(201,146,42,0.12)",  color: "#A07010" },
+  offline: { label: "Offline/Kasir", bg: "rgba(74,107,130,0.12)", color: "#2B5270" },
 };
 
 function formatRupiah(n: number) {
@@ -41,8 +43,73 @@ export default function PaymentsPage() {
   const [submittingRowId, setSubmittingRowId] = useState<number | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "all">("all");
   const [typeFilter, setTypeFilter] = useState<PaymentType | "all">("all");
-  const [search, setSearch]   = useState("");
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<PaymentRow | null>(null);
+
+  // Offline cashier transaction states
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
+  const [offlineCategory, setOfflineCategory] = useState<"salon" | "rental" | "manual">("salon");
+  const [offlineCustomerName, setOfflineCustomerName] = useState("");
+  const [offlineCustomerPhone, setOfflineCustomerPhone] = useState("");
+  const [offlineAmount, setOfflineAmount] = useState("");
+  const [offlineMethod, setOfflineMethod] = useState<"cash" | "qris" | "transfer">("cash");
+  const [offlineNotes, setOfflineNotes] = useState("");
+  const [offlineSubmitting, setOfflineSubmitting] = useState(false);
+  const [offlineError, setOfflineError] = useState("");
+
+  const [servicesList, setServicesList] = useState<any[]>([]);
+  const [outfitList, setOutfitList] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/services")
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setServicesList(data); })
+      .catch((err) => console.error(err));
+
+    fetch("/api/outfits")
+      .then((res) => res.json())
+      .then((data) => { if (data && data.outfits) setOutfitList(data.outfits); })
+      .catch((err) => console.error(err));
+  }, []);
+
+  const handleSaveOfflineTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOfflineSubmitting(true);
+    setOfflineError("");
+
+    try {
+      const res = await fetch("/api/admin/transactions/offline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: offlineCustomerName,
+          customer_phone: offlineCustomerPhone,
+          category_type: offlineCategory,
+          amount: Number(offlineAmount),
+          payment_method: offlineMethod,
+          notes: offlineNotes,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setOfflineError(data.error || "Gagal mencatat transaksi offline.");
+      } else {
+        setShowOfflineModal(false);
+        setOfflineCustomerName("");
+        setOfflineCustomerPhone("");
+        setOfflineAmount("");
+        setOfflineNotes("");
+        setOfflineCategory("salon");
+        loadPayments();
+      }
+    } catch (err) {
+      console.error(err);
+      setOfflineError("Terjadi kesalahan jaringan.");
+    } finally {
+      setOfflineSubmitting(false);
+    }
+  };
 
   const loadPayments = async () => {
     setLoading(true);
@@ -134,6 +201,25 @@ export default function PaymentsPage() {
           <p style={{ fontSize: "14px", color: "#B06080" }}>Pantau semua transaksi pembayaran</p>
         </div>
         <div className="no-print" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button
+            onClick={() => setShowOfflineModal(true)}
+            style={{
+              background: "#6B3A2A",
+              color: "white",
+              border: "none",
+              padding: "9px 16px",
+              borderRadius: "8px",
+              fontWeight: 600,
+              fontSize: "0.8rem",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.2s",
+            }}
+          >
+            ➕ Transaksi Offline (Kasir)
+          </button>
           <button className="btn-action" onClick={() => loadPayments()} disabled={loading}>
             🔄 Refresh
           </button>
@@ -184,8 +270,8 @@ export default function PaymentsPage() {
 
           {/* Type filter */}
           <span style={{ fontSize: "12px", color: "#B08090", fontWeight: 600, marginRight: "4px" }}>Tipe:</span>
-          {(["all", "booking", "sewa"] as const).map((key) => {
-            const labels: Record<string, string> = { all: "Semua", booking: "Booking", sewa: "Sewa" };
+          {(["all", "booking", "sewa", "offline"] as const).map((key) => {
+            const labels: Record<string, string> = { all: "Semua", booking: "Booking", sewa: "Sewa", offline: "Offline" };
             return (
               <button key={key} className={`filter-btn${typeFilter === key ? " active" : ""}`} onClick={() => setTypeFilter(key)}>
                 {labels[key]}
@@ -365,6 +451,232 @@ export default function PaymentsPage() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Offline Cashier Modal */}
+      {showOfflineModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(44, 26, 14, 0.45)",
+            backdropFilter: "blur(4px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              border: "1px solid #EDD8CC",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "500px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 24px 48px rgba(107, 58, 42, 0.15)",
+              padding: "26px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "18px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.2rem", fontWeight: 700, color: "#6B3A2A", margin: 0 }}>
+                ➕ Catat Transaksi Offline (Kasir)
+              </h3>
+              <button
+                onClick={() => setShowOfflineModal(false)}
+                style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#8B6A5A" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {offlineError && (
+              <div style={{ background: "#FDF2F2", border: "1px solid #F8B4B4", color: "#C81E1E", borderRadius: "8px", padding: "12px", fontSize: "0.8rem", fontWeight: 500 }}>
+                ⚠️ {offlineError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveOfflineTransaction} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {/* Category selector */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#6B3A2A" }}>Kategori Transaksi</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                  {[
+                    { key: "salon", label: "✂️ Layanan Salon" },
+                    { key: "rental", label: "👗 Sewa Baju" },
+                    { key: "manual", label: "💵 Kasir Manual" },
+                  ].map((cat) => (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      onClick={() => {
+                        setOfflineCategory(cat.key as any);
+                        setOfflineNotes("");
+                        setOfflineAmount("");
+                      }}
+                      style={{
+                        padding: "8px 6px",
+                        borderRadius: "8px",
+                        border: offlineCategory === cat.key ? "1.5px solid #6B3A2A" : "1px solid #EDD8CC",
+                        background: offlineCategory === cat.key ? "#6B3A2A" : "white",
+                        color: offlineCategory === cat.key ? "white" : "#6B3A2A",
+                        fontSize: "0.76rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Dynamic item selectors */}
+              {offlineCategory === "salon" && servicesList.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#8B6A5A" }}>Pilih Layanan (Opsional Fill)</label>
+                  <select
+                    onChange={(e) => {
+                      const svc = servicesList.find((s) => s.id === Number(e.target.value));
+                      if (svc) {
+                        setOfflineNotes(`Layanan Salon: ${svc.service_name}`);
+                        setOfflineAmount(String(svc.price));
+                      }
+                    }}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.82rem" }}
+                  >
+                    <option value="">Pilih dari katalog salon...</option>
+                    {servicesList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.service_name} ({formatRupiah(Number(s.price))})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {offlineCategory === "rental" && outfitList.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#8B6A5A" }}>Pilih Baju (Opsional Fill)</label>
+                  <select
+                    onChange={(e) => {
+                      const o = outfitList.find((item) => item.id === Number(e.target.value));
+                      if (o) {
+                        setOfflineNotes(`Sewa Baju: ${o.outfit_name} (Size ${o.size})`);
+                        setOfflineAmount(String(o.price));
+                      }
+                    }}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.82rem" }}
+                  >
+                    <option value="">Pilih dari katalog baju...</option>
+                    {outfitList.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.outfit_name} - {o.size} ({formatRupiah(Number(o.price))})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Customer Info */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#6B3A2A" }}>Nama Pelanggan</label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Ibu Rina"
+                    value={offlineCustomerName}
+                    onChange={(e) => setOfflineCustomerName(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem" }}
+                  />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#6B3A2A" }}>No. Telepon/WA (Opsional)</label>
+                  <input
+                    type="text"
+                    placeholder="0812xxxxxxx"
+                    value={offlineCustomerPhone}
+                    onChange={(e) => setOfflineCustomerPhone(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem" }}
+                  />
+                </div>
+              </div>
+
+              {/* Amount & Method */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#6B3A2A" }}>Nominal Pemasukan (Rp) *</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    required
+                    min={1}
+                    value={offlineAmount}
+                    onChange={(e) => setOfflineAmount(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", fontWeight: 700, color: "#1A7A4A" }}
+                  />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#6B3A2A" }}>Metode Pembayaran</label>
+                  <select
+                    value={offlineMethod}
+                    onChange={(e) => setOfflineMethod(e.target.value as any)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", background: "white" }}
+                  >
+                    <option value="cash">💵 Tunai / Cash</option>
+                    <option value="qris">📱 QRIS Offline</option>
+                    <option value="transfer">🏦 Transfer Bank</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Notes / Description */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#6B3A2A" }}>Keterangan / Detail Transaksi</label>
+                <input
+                  type="text"
+                  placeholder="Deskripsi layanan / barang..."
+                  value={offlineNotes}
+                  onChange={(e) => setOfflineNotes(e.target.value)}
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowOfflineModal(false)}
+                  style={{ padding: "10px 18px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#8B6A5A", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={offlineSubmitting || !offlineAmount}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "#6B3A2A",
+                    color: "white",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    cursor: offlineSubmitting ? "not-allowed" : "pointer",
+                    opacity: offlineSubmitting ? 0.7 : 1,
+                  }}
+                >
+                  {offlineSubmitting ? "Menyimpan..." : "Simpan Transaksi Offline"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

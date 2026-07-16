@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (isNaN(outfitId)) return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
 
     const body = await req.json();
-    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, is_active, stock } = body;
+    const { outfit_category_id, outfit_name, description, price, size, image_url, additional_image_urls, model_2d_file_link, is_active, stock, target_gender, target_age } = body;
 
     if (!outfit_category_id || !outfit_name || !price) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -58,6 +58,18 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Stok harus berupa angka bulat positif" }, { status: 400 });
     }
 
+    const validTargetGender = ["pria", "wanita", "unisex"].includes(target_gender) ? target_gender : "unisex";
+    const validTargetAge = ["dewasa", "anak_anak", "semua_umur"].includes(target_age) ? target_age : "semua_umur";
+
+    // Check for duplicate outfit_name within the same category (excluding current outfitId)
+    const dupCheck = await db.query(
+      `SELECT id FROM outfit_catalogues WHERE LOWER(outfit_name) = LOWER($1) AND outfit_category_id = $2 AND id != $3`,
+      [outfit_name.trim(), outfit_category_id, outfitId]
+    );
+    if (dupCheck.rows.length > 0) {
+      return NextResponse.json({ error: "Baju dengan nama tersebut sudah ada dalam kategori ini" }, { status: 400 });
+    }
+
     const result = await db.query(
       `UPDATE outfit_catalogues
        SET outfit_category_id = $1,
@@ -69,8 +81,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
            additional_image_urls = $7,
            model_2d_file_link = $8,
            is_active          = COALESCE($9, is_active),
-           stock              = COALESCE($10, stock)
-       WHERE id = $11
+           stock              = COALESCE($10, stock),
+           target_gender      = $11,
+           target_age         = $12
+       WHERE id = $13
        RETURNING *`,
       [
         outfit_category_id,
@@ -82,7 +96,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         additional_image_urls || [],
         model_2d_file_link || null,
         is_active === undefined ? null : !!is_active,
-        parsedStock === undefined ? null : parsedStock,
+        parsedStock !== undefined ? parsedStock : null,
+        validTargetGender,
+        validTargetAge,
         outfitId,
       ]
     );

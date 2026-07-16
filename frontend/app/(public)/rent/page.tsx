@@ -555,16 +555,23 @@ export default function SewaBajuPage() {
   const [outfits, setOutfits]       = useState<Outfit[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState("");
-  const [filterCat, setFilterCat]   = useState<string>("all");
+
+  const [search, setSearch]       = useState("");
+  const [filterCat, setFilterCat] = useState<string>("all");
+  const [filterAge, setFilterAge] = useState<"all" | "dewasa" | "anak_anak">("all");
+  const [showAllGenders, setShowAllGenders] = useState(false);
+
   const [selectedOutfit, setSelectedOutfit] = useState<Outfit | null>(null);
   const [successRentalId, setSuccessRentalId] = useState<number | null>(null);
-  const [successRedirectUrl, setSuccessRedirectUrl] = useState<string | null>(null);
   const [successPaymentMethod, setSuccessPaymentMethod] = useState<"cash" | "qris">("cash");
-  const [qrisImageError, setQrisImageError] = useState(false);
+  const [successRedirectUrl, setSuccessRedirectUrl]     = useState<string | null>(null);
+  const [successTransactionId, setSuccessTransactionId] = useState<number | null>(null);
+  const [qrisImageError, setQrisImageError]             = useState(false);
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState("center center");
+
+  const userGender = (session?.user as any)?.gender || "unspecified";
 
   useEffect(() => {
     fetch("/api/outfits")
@@ -858,6 +865,58 @@ export default function SewaBajuPage() {
             ))}
           </div>
         </div>
+
+        {/* Sub-Filter: Target Umur & Show All Genders Checkbox Toggle */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", flexWrap: "wrap", gap: "16px", background: "white", padding: "12px 18px", borderRadius: "10px", border: "1px solid #EDD8CC" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 600, color: "#6B3A2A" }}>
+              Target Umur:
+            </span>
+            <div style={{ display: "flex", gap: "6px" }}>
+              {[
+                { id: "all", label: "🌐 Semua Umur" },
+                { id: "dewasa", label: "🧑 Dewasa" },
+                { id: "anak_anak", label: "🧒 Anak-Anak" },
+              ].map((age) => (
+                <button
+                  key={age.id}
+                  onClick={() => setFilterAge(age.id as any)}
+                  style={{
+                    padding: "6px 12px",
+                    border: `1px solid ${filterAge === age.id ? "#C9922A" : "#EDD8CC"}`,
+                    background: filterAge === age.id ? "#FDF8F3" : "transparent",
+                    color: filterAge === age.id ? "#C9922A" : "#8B6A5A",
+                    borderRadius: "6px",
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: "0.75rem",
+                    fontWeight: filterAge === age.id ? 700 : 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {age.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#6B3A2A", cursor: "pointer", userSelect: "none" }}>
+            <input
+              type="checkbox"
+              checked={showAllGenders}
+              onChange={(e) => setShowAllGenders(e.target.checked)}
+              style={{ accentColor: "#C9922A", width: "16px", height: "16px", cursor: "pointer" }}
+            />
+            Tampilkan Semua Baju (Termasuk Gender Lain)
+          </label>
+        </div>
+
+        {/* Personalized Gender Hint */}
+        {!showAllGenders && userGender && userGender !== "unspecified" && (
+          <div style={{ marginBottom: "20px", fontSize: "0.78rem", fontFamily: "'DM Sans', sans-serif", color: "#6B3A2A", background: "rgba(201,146,42,0.1)", border: "1px solid rgba(201,146,42,0.3)", padding: "8px 14px", borderRadius: "8px" }}>
+            💡 Menampilkan katalog rekomendasi sesuai profil <strong>{userGender === "wanita" ? "Wanita 👩" : "Pria 👨"}</strong> & Unisex. Centang opsi di atas jika ingin melihat baju untuk gender lain/orang lain.
+          </div>
+        )}
 
         {/* Grid baju */}
         {loading ? (

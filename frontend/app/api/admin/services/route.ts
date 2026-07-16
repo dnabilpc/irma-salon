@@ -59,6 +59,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tautan gambar terlalu panjang" }, { status: 400 });
     }
 
+    // Check for duplicate service_name
+    const dupCheck = await db.query(
+      `SELECT id FROM salon_services WHERE LOWER(service_name) = LOWER($1)`,
+      [service_name.trim()]
+    );
+    if (dupCheck.rows.length > 0) {
+      return NextResponse.json({ error: "Layanan salon dengan nama tersebut sudah ada di katalog" }, { status: 400 });
+    }
+
     const result = await db.query(
       `INSERT INTO salon_services (service_name, price, hour_duration, image_url, is_price_variable)
        VALUES ($1, $2, $3, $4, $5)

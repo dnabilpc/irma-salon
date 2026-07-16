@@ -35,7 +35,8 @@ export async function registerCustomer(
   name: string,
   email: string,
   phone_number: string,
-  password: string
+  password: string,
+  gender?: string
 ): Promise<ActionResult> {
   if (!name || !email || !password) {
     return { success: false, error: "Semua kolom wajib diisi." };
@@ -49,7 +50,7 @@ export async function registerCustomer(
 
     const response = await backendFetch("/api/auth/register", {
       method: "POST",
-      body: { name, email, phone_number, hashedPassword },
+      body: { name, email, phone_number, hashedPassword, gender: gender || "unspecified" },
     });
 
     const data = await response.json();
@@ -324,7 +325,8 @@ export async function resetPasswordOTP(
 export async function updateUserProfile(
   name: string,
   phone: string,
-  imageBase64?: string | null
+  imageBase64?: string | null,
+  gender?: string
 ): Promise<ActionResult> {
   if (!name) {
     return { success: false, error: "Nama wajib diisi." };
@@ -333,7 +335,7 @@ export async function updateUserProfile(
   try {
     const response = await backendFetch("/api/auth/profile", {
       method: "PATCH",
-      body: { name, phone_number: phone, image: imageBase64 },
+      body: { name, phone_number: phone, image: imageBase64, gender },
     });
 
     const data = await response.json();

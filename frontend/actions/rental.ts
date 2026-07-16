@@ -14,6 +14,7 @@ export type RentalStatus =
 
 export interface RentalRow {
   id: number;
+  outfit_catalogues_id: number;
   customer_name: string;
   customer_phone: string | null;
   outfit_name: string;
@@ -85,7 +86,7 @@ export async function getRentalsForAdmin(filters?: {
 export async function updateRentalStatus(
   rentalId: number,
   status: RentalStatus
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   try {
     const response = await backendFetch(`/api/admin/rentals/${rentalId}/status`, {
       method: "PATCH",
@@ -98,7 +99,7 @@ export async function updateRentalStatus(
     }
 
     revalidatePath("/admin/rentals");
-    return { success: true };
+    return { success: true, data: data.penalty };
   } catch (err) {
     console.error("[updateRentalStatus]", err);
     return { success: false, error: "Gagal mengubah status." };

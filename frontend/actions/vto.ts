@@ -8,6 +8,12 @@ import { backendFetch } from "@/lib/backendClient";
 export interface VtoStatus {
   usage: number;
   limit: number;
+  base_limit?: number;
+  bonus_limit?: number;
+  completed_rentals?: number;
+  days_inactive?: number;
+  is_bonus_expired?: boolean;
+  bonus_expiry_days?: number;
   remaining: number;
   next_reset: string;
   can_use: boolean;

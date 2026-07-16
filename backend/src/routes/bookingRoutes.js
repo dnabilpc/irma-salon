@@ -9,7 +9,9 @@ import {
     getBookingsForAdmin,
     getBookingsForCustomer,
     getBookingById,
-    triggerRemindersTest
+    triggerRemindersTest,
+    updateBookingByCustomer,
+    updateBookingByAdmin
 } from '../controllers/bookingController.js';
 import { checkInternalApiKey } from '../middleware/authMiddleware.js';
 
@@ -26,5 +28,7 @@ router.get('/admin/bookings', checkInternalApiKey, getBookingsForAdmin);
 router.post('/bookings', checkInternalApiKey, createBooking);
 router.post('/bookings/:id/cancel', checkInternalApiKey, cancelBooking);
 router.patch('/admin/bookings/:id/status', checkInternalApiKey, updateBookingStatus);
+router.put('/bookings/:id', checkInternalApiKey, updateBookingByCustomer);
+router.put('/admin/bookings/:id', checkInternalApiKey, updateBookingByAdmin);
 
 export default router;

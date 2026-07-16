@@ -16,15 +16,17 @@ export async function getPaymentsForAdmin(req, res) {
         const result = await pool.query(
             `SELECT 
                 t.id,
-                u.name AS customer,
-                u.phone_number AS phone,
+                COALESCE(t.customer_name, u.name, 'Pelanggan Offline') AS customer,
+                COALESCE(t.customer_phone, u.phone_number, '—') AS phone,
                 CASE 
                     WHEN t.booking_id IS NOT NULL THEN 'booking'
-                    ELSE 'sewa'
+                    WHEN t.rental_id IS NOT NULL THEN 'sewa'
+                    ELSE 'offline'
                 END AS type,
                 CASE 
                     WHEN t.booking_id IS NOT NULL THEN 'Booking Salon'
-                    ELSE 'Sewa Pakaian'
+                    WHEN t.rental_id IS NOT NULL THEN 'Sewa Pakaian'
+                    ELSE COALESCE(t.notes, 'Kasir Manual')
                 END AS description,
                 t.payment_method AS method,
                 t.status AS status,
@@ -32,12 +34,13 @@ export async function getPaymentsForAdmin(req, res) {
                 COALESCE(
                     TO_CHAR(b.booking_datetime AT TIME ZONE 'Asia/Jakarta', 'DD Mon YYYY'),
                     TO_CHAR(r.start_date, 'DD Mon YYYY'),
-                    '—'
+                    TO_CHAR(t.created_at AT TIME ZONE 'Asia/Jakarta', 'DD Mon YYYY')
                 ) AS date,
                 TO_CHAR(t.created_at AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS payment_time,
-                t.payment_proof_sent
+                t.payment_proof_sent,
+                COALESCE(t.category_type, 'web') AS category_type
              FROM transactions t
-             JOIN "user" u ON t.user_id = u.id
+             LEFT JOIN "user" u ON t.user_id = u.id
              LEFT JOIN bookings b ON t.booking_id = b.id
              LEFT JOIN rentals r ON t.rental_id = r.id
              ORDER BY t.id DESC`
@@ -248,5 +251,68 @@ export async function uploadPaymentProof(req, res) {
     } catch (err) {
         console.error('[uploadPaymentProof]', err);
         return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+}
+
+/**
+ * Creates an offline cashier transaction (Transaksi Diluar Aplikasi)
+ */
+export async function createOfflineTransaction(req, res) {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Akses ditolak.' });
+    }
+
+    const { 
+        customer_name, 
+        customer_phone, 
+        category_type, // 'salon', 'rental', 'manual'
+        amount, 
+        payment_method, // 'cash', 'qris', 'transfer'
+        notes
+    } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+        return res.status(400).json({ error: 'Nominal transaksi wajib diisi dan harus lebih dari 0.' });
+    }
+
+    const validMethods = ['cash', 'qris', 'transfer'];
+    const selectedMethod = validMethods.includes(payment_method) ? payment_method : 'cash';
+    const cName = customer_name ? customer_name.trim() : 'Pelanggan Offline';
+    const cPhone = customer_phone ? customer_phone.trim() : null;
+    const catType = category_type || 'manual';
+    const numAmount = Number(amount);
+
+    try {
+        const insertQuery = `
+            INSERT INTO transactions (
+                user_id, booking_id, rental_id, total_amount, payment_method, status, 
+                payment_proof_url, payment_proof_sent, customer_name, customer_phone, 
+                category_type, notes, created_at
+            )
+            VALUES (
+                NULL, NULL, NULL, $1, $2, 'lunas', 
+                NULL, TRUE, $3, $4, 
+                $5, $6, NOW()
+            )
+            RETURNING id, total_amount, payment_method, created_at;
+        `;
+
+        const result = await pool.query(insertQuery, [
+            numAmount,
+            selectedMethod,
+            cName,
+            cPhone,
+            catType,
+            notes || (catType === 'salon' ? 'Transaksi Salon Offline' : catType === 'rental' ? 'Sewa Pakaian Offline' : 'Kasir Manual')
+        ]);
+
+        return res.status(201).json({
+            success: true,
+            message: 'Transaksi offline berhasil dicatat.',
+            transaction: result.rows[0]
+        });
+    } catch (err) {
+        console.error('[createOfflineTransaction]', err);
+        return res.status(500).json({ error: 'Gagal mencatat transaksi offline.' });
     }
 }

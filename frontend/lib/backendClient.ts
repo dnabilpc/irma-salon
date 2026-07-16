@@ -65,13 +65,25 @@ export async function backendFetch(path: string, options: FetchOptions = {}) {
     headersObject[key] = value;
   });
 
-  const response = await fetch(url, {
-    ...restOptions,
-    body: bodyToSend as BodyInit,
-    headers: headersObject,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...restOptions,
+      body: bodyToSend as BodyInit,
+      headers: headersObject,
+    });
+  } catch (netErr) {
+    console.error("[backendFetch] Connection error reaching backend server:", netErr);
+    return new Response(
+      JSON.stringify({ error: "Gagal terhubung ke server backend (Home Server). Pastikan koneksi atau server dalam keadaan aktif." }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
 
-  // Safe JSON wrapper to prevent SyntaxError when parsing non-JSON responses (like HTML error pages)
+  // Safe JSON wrapper to prevent SyntaxError when parsing non-JSON responses (like Cloudflare HTML error pages)
   const originalJson = response.json.bind(response);
   response.json = async () => {
     const contentType = response.headers.get("content-type");
@@ -82,9 +94,19 @@ export async function backendFetch(path: string, options: FetchOptions = {}) {
         console.error("[backendFetch] Failed to parse JSON response:", err);
       }
     }
+
     try {
       const text = await response.text();
-      return { error: text || `HTTP Error ${response.status}: ${response.statusText}` };
+      const trimmed = text.trim();
+
+      // Detect HTML error page from Cloudflare or Web Server
+      if (trimmed.startsWith("<") || trimmed.includes("<!DOCTYPE") || trimmed.toLowerCase().includes("cloudflare")) {
+        return {
+          error: `Layanan server backend/Cloudflare Tunnel sedang mengalami kendala (${response.status} ${response.statusText || 'Gateway Error'}). Silakan coba beberapa saat lagi.`
+        };
+      }
+
+      return { error: trimmed || `HTTP Error ${response.status}: ${response.statusText}` };
     } catch {
       return { error: `HTTP Error ${response.status}: ${response.statusText}` };
     }

@@ -824,9 +824,11 @@ export async function getBookingById(req, res) {
                u.email,
                JSON_AGG(
                  JSON_BUILD_OBJECT(
+                   'service_id',    ss.id,
                    'service_name',  ss.service_name,
                    'price',         bd.price_at_booking,
-                   'duration',      bd.duration_at_booking
+                   'duration',      bd.duration_at_booking,
+                   'is_price_variable', ss.is_price_variable
                  )
                ) FILTER (WHERE ss.id IS NOT NULL) AS details,
                COALESCE(t.total_amount, 0)        AS total_amount,
@@ -963,6 +965,306 @@ export async function triggerRemindersTest(req, res) {
         return res.json({ success: true, message: 'Scan reminder berhasil dijalankan.', scans });
     } catch (err) {
         console.error('[triggerRemindersTest]', err);
+        return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+}
+
+export async function updateBookingByCustomer(req, res) {
+    const userId = req.user.id;
+    const { id: bookingId } = req.params;
+    const { booking_datetime, service_ids } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ error: "Unauthorized: User ID is missing." });
+    }
+    if (!booking_datetime) {
+        return res.status(400).json({ error: "Data booking tidak lengkap." });
+    }
+
+    try {
+        // 1. Fetch existing booking and transaction payment status
+        const bookingRes = await pool.query(
+            `SELECT b.id, b.status, b.user_id, t.id AS transaction_id, t.status AS payment_status, COALESCE(t.payment_proof_sent, FALSE) AS payment_proof_sent
+             FROM bookings b
+             LEFT JOIN transactions t ON t.booking_id = b.id
+             WHERE b.id = $1`,
+            [bookingId]
+        );
+
+        if (bookingRes.rows.length === 0) {
+            return res.status(404).json({ error: "Booking tidak ditemukan." });
+        }
+
+        const bookingObj = bookingRes.rows[0];
+
+        // Otorisasi kepemilikan
+        if (bookingObj.user_id !== userId) {
+            return res.status(403).json({ error: "Anda tidak berwenang mengedit booking ini." });
+        }
+
+        // Hanya bisa edit jika status pending
+        if (bookingObj.status !== 'pending') {
+            return res.status(400).json({ error: "Booking yang sudah disetujui atau diproses tidak dapat diubah." });
+        }
+
+        // Batas waktu booking (minimal 3 jam ke depan, maksimal 3 minggu ke depan)
+        const bookingDate = new Date(booking_datetime);
+        const minBookingTime = new Date(Date.now() + 3 * 60 * 60 * 1000 - 5 * 60 * 1000);
+        
+        const targetDateJakarta = new Date(bookingDate.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const targetDateStr = targetDateJakarta.getFullYear() + '-' + 
+                              String(targetDateJakarta.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(targetDateJakarta.getDate()).padStart(2, '0');
+
+        const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const maxBookingDateObj = new Date(nowJakarta.getTime() + 21 * 24 * 60 * 60 * 1000);
+        const maxBookingDateStr = maxBookingDateObj.getFullYear() + '-' + 
+                                  String(maxBookingDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
+                                  String(maxBookingDateObj.getDate()).padStart(2, '0');
+
+        if (bookingDate < minBookingTime) {
+            return res.status(400).json({ error: "Booking harus dipesan minimal 3 jam sebelum waktu yang diinginkan." });
+        }
+        if (targetDateStr > maxBookingDateStr) {
+            return res.status(400).json({ error: "Booking tidak boleh lebih dari 3 minggu ke depan." });
+        }
+
+        const isPaid = bookingObj.payment_status === 'lunas' || bookingObj.payment_status === 'success';
+
+        // Jika sudah bayar, tolak perubahan layanan (service_ids)
+        let finalServiceIds = service_ids;
+        if (isPaid && service_ids) {
+            const currentServicesRes = await pool.query(
+                `SELECT salon_service_id FROM booking_details WHERE booking_id = $1`,
+                [bookingId]
+            );
+            const currentIds = currentServicesRes.rows.map(r => r.salon_service_id);
+            const isDifferent = service_ids.length !== currentIds.length || 
+                                !service_ids.every(id => currentIds.includes(Number(id)));
+            
+            if (isDifferent) {
+                return res.status(400).json({ error: "Anda tidak dapat mengubah Layanan Salon karena pembayaran sudah lunas." });
+            }
+            finalServiceIds = currentIds;
+        }
+
+        if (!finalServiceIds || finalServiceIds.length === 0) {
+            const currentServicesRes = await pool.query(
+                `SELECT salon_service_id FROM booking_details WHERE booking_id = $1`,
+                [bookingId]
+            );
+            finalServiceIds = currentServicesRes.rows.map(r => r.salon_service_id);
+        }
+
+        // Fetch services to calculate proposed duration & new price
+        const serviceRows = await pool.query(
+            `SELECT id, service_name, price, hour_duration
+             FROM salon_services WHERE id = ANY($1)`,
+            [finalServiceIds]
+        );
+        if (serviceRows.rows.length !== finalServiceIds.length) {
+            return res.status(400).json({ error: "Salah satu layanan tidak ditemukan." });
+        }
+
+        const proposedDurationHours = serviceRows.rows.reduce(
+            (sum, s) => sum + parseFloat(s.hour_duration || 0.5),
+            0
+        );
+        const proposedDurationMinutes = Math.round(proposedDurationHours * 60);
+
+        const proposedStart = new Date(booking_datetime);
+        const proposedEnd = new Date(proposedStart.getTime() + proposedDurationMinutes * 60 * 1000);
+
+        // Fetch all active bookings on the same day to verify overlap (using Jakarta timezone), excluding this booking
+        const tzDate = new Date(proposedStart.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const dateStr = tzDate.getFullYear() + '-' + 
+                        String(tzDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(tzDate.getDate()).padStart(2, '0');
+
+        const existingBookings = await pool.query(
+            `SELECT b.id, b.booking_datetime, COALESCE(SUM(bd.duration_at_booking), 0.5) AS total_hours
+             FROM bookings b
+             LEFT JOIN booking_details bd ON bd.booking_id = b.id
+             WHERE DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
+               AND b.status NOT IN ('rejected', 'cancelled')
+               AND b.id != $2
+             GROUP BY b.id, b.booking_datetime`,
+            [dateStr, bookingId]
+        );
+
+        for (const existing of existingBookings.rows) {
+            const start = new Date(existing.booking_datetime);
+            const durationMins = Math.round(parseFloat(existing.total_hours) * 60);
+            const end = new Date(start.getTime() + durationMins * 60 * 1000);
+
+            if (proposedStart < end && start < proposedEnd) {
+                return res.status(400).json({ error: "Slot waktu ini sudah terisi oleh booking lain. Silakan pilih waktu lain." });
+            }
+        }
+
+        const subtotal = serviceRows.rows.reduce(
+            (sum, s) => sum + parseFloat(s.price),
+            0
+        );
+        const totalAmount = subtotal;
+
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+
+            // Update booking datetime
+            await client.query(
+                `UPDATE bookings
+                 SET booking_datetime = $1
+                 WHERE id = $2`,
+                [booking_datetime, bookingId]
+            );
+
+            // Delete old details and insert new ones
+            await client.query(`DELETE FROM booking_details WHERE booking_id = $1`, [bookingId]);
+            
+            for (const svc of serviceRows.rows) {
+                await client.query(
+                    `INSERT INTO booking_details (booking_id, salon_service_id, price_at_booking, duration_at_booking)
+                     VALUES ($1, $2, $3, $4)`,
+                    [bookingId, svc.id, svc.price, Math.round(parseFloat(svc.hour_duration || 0.5) * 60)]
+                );
+            }
+
+            // Update transactions amount
+            if (bookingObj.transaction_id) {
+                await client.query(
+                    `UPDATE transactions
+                     SET subtotal = $1, total_amount = $2
+                     WHERE id = $3`,
+                    [subtotal, totalAmount, bookingObj.transaction_id]
+                );
+            }
+
+            await client.query("COMMIT");
+            return res.json({ success: true, message: "Booking berhasil diperbarui." });
+        } catch (trxErr) {
+            await client.query("ROLLBACK");
+            throw trxErr;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('[updateBookingByCustomer]', err);
+        return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+}
+
+export async function updateBookingByAdmin(req, res) {
+    const { id: bookingId } = req.params;
+    const { booking_datetime, total_amount } = req.body;
+
+    if (!booking_datetime) {
+        return res.status(400).json({ error: "Data booking tidak lengkap." });
+    }
+
+    try {
+        // 1. Fetch existing booking and check duration limit
+        const bookingRes = await pool.query(
+            `SELECT b.id, b.booking_datetime, t.id AS transaction_id, t.status AS payment_status
+             FROM bookings b
+             LEFT JOIN transactions t ON t.booking_id = b.id
+             WHERE b.id = $1`,
+            [bookingId]
+        );
+
+        if (bookingRes.rows.length === 0) {
+            return res.status(404).json({ error: "Booking tidak ditemukan." });
+        }
+
+        const bookingObj = bookingRes.rows[0];
+
+        // Pastikan waktu belum terlewat (di masa depan)
+        if (new Date(bookingObj.booking_datetime) < new Date()) {
+            return res.status(400).json({ error: "Booking yang sudah terlewat tidak dapat diedit." });
+        }
+
+        // Fetch services to calculate duration
+        const currentServicesRes = await pool.query(
+            `SELECT bd.salon_service_id, bd.duration_at_booking, ss.is_price_variable
+             FROM booking_details bd
+             JOIN salon_services ss ON bd.salon_service_id = ss.id
+             WHERE bd.booking_id = $1`,
+            [bookingId]
+        );
+
+        const proposedDurationMinutes = currentServicesRes.rows.reduce(
+            (sum, r) => sum + parseInt(r.duration_at_booking || 30, 10),
+            0
+        );
+
+        const proposedStart = new Date(booking_datetime);
+        const proposedEnd = new Date(proposedStart.getTime() + proposedDurationMinutes * 60 * 1000);
+
+        // Fetch all active bookings on the same day to verify overlap (using Jakarta timezone), excluding this booking
+        const tzDate = new Date(proposedStart.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const dateStr = tzDate.getFullYear() + '-' + 
+                        String(tzDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(tzDate.getDate()).padStart(2, '0');
+
+        const existingBookings = await pool.query(
+            `SELECT b.id, b.booking_datetime, COALESCE(SUM(bd.duration_at_booking), 0.5) AS total_hours
+             FROM bookings b
+             LEFT JOIN booking_details bd ON bd.booking_id = b.id
+             WHERE DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = $1
+               AND b.status NOT IN ('rejected', 'cancelled')
+               AND b.id != $2
+             GROUP BY b.id, b.booking_datetime`,
+            [dateStr, bookingId]
+        );
+
+        for (const existing of existingBookings.rows) {
+            const start = new Date(existing.booking_datetime);
+            const durationMins = Math.round(parseFloat(existing.total_hours) * 60);
+            const end = new Date(start.getTime() + durationMins * 60 * 1000);
+
+            if (proposedStart < end && start < proposedEnd) {
+                return res.status(400).json({ error: "Slot waktu ini sudah terisi oleh booking lain. Silakan pilih waktu lain." });
+            }
+        }
+
+        const hasVariablePrice = currentServicesRes.rows.some(r => r.is_price_variable);
+
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+
+            // Update booking
+            await client.query(
+                `UPDATE bookings
+                 SET booking_datetime = $1
+                 WHERE id = $2`,
+                [booking_datetime, bookingId]
+            );
+
+            // Jika total_amount dikirim dan ada layanan bertarif variabel, update total transaksi
+            if (total_amount !== undefined && bookingObj.transaction_id) {
+                if (!hasVariablePrice) {
+                    return res.status(400).json({ error: "Harga akhir hanya dapat diubah jika booking mengandung jasa tarif tidak tetap (variabel)." });
+                }
+                await client.query(
+                    `UPDATE transactions
+                     SET subtotal = $1, total_amount = $2
+                     WHERE id = $3`,
+                    [total_amount, total_amount, bookingObj.transaction_id]
+                );
+            }
+
+            await client.query("COMMIT");
+            return res.json({ success: true, message: "Booking berhasil diperbarui oleh Admin." });
+        } catch (trxErr) {
+            await client.query("ROLLBACK");
+            throw trxErr;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('[updateBookingByAdmin]', err);
         return res.status(500).json({ error: err.message || 'Internal Server Error' });
     }
 }

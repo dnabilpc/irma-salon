@@ -7,7 +7,9 @@ import {
     updateRentalStatus,
     cancelRental,
     syncLateRentals,
-    getRentalById
+    getRentalById,
+    updateRentalByCustomer,
+    updateRentalByAdmin
 } from '../controllers/rentalController.js';
 import { checkInternalApiKey } from '../middleware/authMiddleware.js';
 
@@ -20,5 +22,7 @@ router.get('/rentals/:id', checkInternalApiKey, getRentalById);
 router.patch('/admin/rentals/:id/status', checkInternalApiKey, updateRentalStatus);
 router.post('/rentals/:id/cancel', checkInternalApiKey, cancelRental);
 router.post('/admin/rentals/sync-late', checkInternalApiKey, syncLateRentals);
+router.put('/rentals/:id', checkInternalApiKey, updateRentalByCustomer);
+router.put('/admin/rentals/:id', checkInternalApiKey, updateRentalByAdmin);
 
 export default router;

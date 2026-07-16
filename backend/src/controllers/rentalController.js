@@ -249,6 +249,7 @@ export async function getRentalsForAdmin(req, res) {
         const result = await pool.query(
             `SELECT
                r.id,
+               r.outfit_catalogues_id,
                u.name                                                          AS customer_name,
                u.phone_number                                                  AS customer_phone,
                oc.outfit_name,
@@ -312,6 +313,7 @@ export async function getRentalsForCustomer(req, res) {
         const result = await pool.query(
             `SELECT
                r.id,
+               r.outfit_catalogues_id,
                u.name                                                          AS customer_name,
                u.phone_number                                                  AS customer_phone,
                oc.outfit_name,
@@ -527,23 +529,88 @@ export async function updateRentalStatus(req, res) {
 
         const result = await pool.query(query, queryParams);
 
+        let penaltyInfo = null;
+
+        // ── Reset VTO & Hitung Denda Keterlambatan saat transaksi selesai ──
+        if (status === "done") {
+            const userId = result.rows[0].user_id;
+
+            // Check late return penalty
+            try {
+                const rentalDetail = await pool.query(
+                    `SELECT r.id, r.start_date, r.duration_days, r.amount_to_be_paid, r.outfit_catalogues_id, oc.price AS daily_price, oc.outfit_name, u.name AS customer_name
+                     FROM rentals r
+                     JOIN outfit_catalogues oc ON oc.id = r.outfit_catalogues_id
+                     LEFT JOIN "user" u ON u.id = r.user_id
+                     WHERE r.id = $1`,
+                    [id]
+                );
+
+                if (rentalDetail.rows.length > 0) {
+                    const rData = rentalDetail.rows[0];
+                    const startDate = new Date(rData.start_date);
+                    const originalDuration = Number(rData.duration_days);
+
+                    const expectedEndDate = new Date(startDate);
+                    expectedEndDate.setDate(expectedEndDate.getDate() + originalDuration);
+                    expectedEndDate.setHours(0, 0, 0, 0);
+
+                    const currentDate = new Date();
+                    currentDate.setHours(0, 0, 0, 0);
+
+                    if (currentDate > expectedEndDate) {
+                        const diffTime = currentDate.getTime() - expectedEndDate.getTime();
+                        const lateDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+
+                        if (lateDays > 0) {
+                            const dailyPrice = Number(rData.daily_price);
+                            const penaltyAmount = lateDays * dailyPrice;
+                            const newDuration = originalDuration + lateDays;
+                            const newTotal = Number(rData.amount_to_be_paid) + penaltyAmount;
+
+                            await pool.query(
+                                `UPDATE rentals 
+                                 SET duration_days = $1, amount_to_be_paid = $2 
+                                 WHERE id = $3`,
+                                [newDuration, newTotal, id]
+                            );
+
+                            await pool.query(
+                                `UPDATE transactions 
+                                 SET total_amount = $1 
+                                 WHERE rental_id = $2`,
+                                [newTotal, id]
+                            );
+
+                            penaltyInfo = {
+                                lateDays,
+                                penaltyAmount,
+                                newTotal,
+                                newDuration
+                            };
+
+                            const formatRupiah = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+
+                            await pool.query(
+                                `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
+                                 VALUES ('return', 'Denda Keterlambatan Sewa', $1, $2, FALSE, NOW())`,
+                                [`Pengembalian Sewa Baju #${id} terlambat ${lateDays} hari. Denda sebesar ${formatRupiah(penaltyAmount)} telah ditambahkan ke tagihan.`, id]
+                            );
+                        }
+                    }
+                }
+            } catch (pErr) {
+                console.error("[updateRentalStatus] Penalty calculation error:", pErr);
+            }
+
+        }
+
         // Kirim notifikasi WhatsApp ke Pelanggan di background
         triggerRentalStatusNotification(id, status).catch((err) =>
             console.error("Failed to send rental status WA notification:", err)
         );
 
-        // ── Reset VTO saat transaksi selesai ──
-        if (status === "done") {
-            const userId = result.rows[0].user_id;
-            pool.query(
-                `UPDATE "user" SET vto_usage = 0, vto_reset_at = NOW() WHERE id = $1`,
-                [userId]
-            ).catch((err) =>
-                console.error("[updateRentalStatus] VTO reset failed:", err)
-            );
-        }
-
-        res.json({ success: true });
+        res.json({ success: true, penalty: penaltyInfo });
     } catch (err) {
         console.error("[updateRentalStatus]", err);
         res.status(500).json({ error: "Gagal mengubah status." });
@@ -700,5 +767,220 @@ export async function getRentalById(req, res) {
     } catch (err) {
         console.error("[getRentalById]", err);
         res.status(500).json({ error: "Internal Server Error" });
+    }
+}
+
+export async function updateRentalByCustomer(req, res) {
+    const userId = req.user.id;
+    const { id: rentalId } = req.params;
+    const { outfit_catalogues_id, start_date, duration_days } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ error: "Unauthorized: User ID is missing." });
+    }
+    if (!outfit_catalogues_id || !start_date || !duration_days) {
+        return res.status(400).json({ error: "Data tidak lengkap" });
+    }
+
+    // Validasi tanggal tidak boleh di masa lalu
+    if (new Date(start_date) < new Date(new Date().toDateString())) {
+        return res.status(400).json({ error: "Tanggal mulai tidak boleh di masa lalu" });
+    }
+
+    try {
+        // Fetch existing rental
+        const rentalRes = await pool.query(
+            `SELECT r.id, r.user_id, r.rental_status, t.id AS transaction_id, t.status AS payment_status
+             FROM rentals r
+             LEFT JOIN transactions t ON t.rental_id = r.id
+             WHERE r.id = $1`,
+            [rentalId]
+        );
+
+        if (rentalRes.rows.length === 0) {
+            return res.status(404).json({ error: "Data sewa tidak ditemukan" });
+        }
+
+        const rental = rentalRes.rows[0];
+
+        // Otorisasi kepemilikan
+        if (rental.user_id !== userId) {
+            return res.status(403).json({ error: "Forbidden: Anda tidak berwenang mengedit rental ini." });
+        }
+
+        // Hanya bisa edit jika status pending
+        if (rental.rental_status !== 'pending') {
+            return res.status(400).json({ error: "Penyewaan yang sudah disetujui atau diproses tidak dapat diubah." });
+        }
+
+        // Cek ketersediaan stok baju (tumpang tindih) excluding this rental
+        const overlapRes = await pool.query(
+            `SELECT COUNT(*) FROM rentals
+             WHERE outfit_catalogues_id = $1
+               AND rental_status NOT IN ('cancelled')
+               AND start_date <= $2::date + $3 * INTERVAL '1 day'
+               AND start_date + duration_days * INTERVAL '1 day' >= $2::date
+               AND id != $4`,
+            [outfit_catalogues_id, start_date, duration_days, rentalId]
+        );
+        const overlappingCount = parseInt(overlapRes.rows[0].count, 10);
+
+        // Ambil data baju
+        const outfitResult = await pool.query(
+            `SELECT id, outfit_name, price, stock FROM outfit_catalogues WHERE id = $1`,
+            [outfit_catalogues_id]
+        );
+        if (!outfitResult.rows.length) {
+            return res.status(404).json({ error: "Baju tidak ditemukan" });
+        }
+
+        const outfit = outfitResult.rows[0];
+        const stock = outfit.stock !== null ? parseInt(outfit.stock, 10) : 1;
+
+        if (overlappingCount >= stock) {
+            return res.status(400).json({
+                error: `Stok baju tidak tersedia untuk tanggal tersebut karena sudah penuh disewa. (Stok: ${stock}, Tersewa: ${overlappingCount})`
+            });
+        }
+
+        const pricePerDay = parseFloat(outfit.price);
+        const amount_to_be_paid = pricePerDay * duration_days;
+        const totalAmount = amount_to_be_paid;
+
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+
+            // Update rental
+            await client.query(
+                `UPDATE rentals
+                 SET outfit_catalogues_id = $1, start_date = $2, duration_days = $3, amount_to_be_paid = $4
+                 WHERE id = $5`,
+                [outfit_catalogues_id, start_date, duration_days, amount_to_be_paid, rentalId]
+            );
+
+            // Update transaction
+            if (rental.transaction_id) {
+                await client.query(
+                    `UPDATE transactions
+                     SET subtotal = $1, total_amount = $2
+                     WHERE id = $3`,
+                    [amount_to_be_paid, totalAmount, rental.transaction_id]
+                );
+            }
+
+            await client.query("COMMIT");
+            return res.json({ success: true, message: "Penyewaan baju berhasil diperbarui." });
+        } catch (trxErr) {
+            await client.query("ROLLBACK");
+            throw trxErr;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error("[updateRentalByCustomer]", err);
+        return res.status(500).json({ error: err.message || "Internal Server Error" });
+    }
+}
+
+export async function updateRentalByAdmin(req, res) {
+    const { id: rentalId } = req.params;
+    const { outfit_catalogues_id, start_date, duration_days } = req.body;
+
+    if (!outfit_catalogues_id || !start_date || !duration_days) {
+        return res.status(400).json({ error: "Data tidak lengkap" });
+    }
+
+    try {
+        // Fetch existing rental
+        const rentalRes = await pool.query(
+            `SELECT r.id, r.start_date, r.duration_days, t.id AS transaction_id
+             FROM rentals r
+             LEFT JOIN transactions t ON t.rental_id = r.id
+             WHERE r.id = $1`,
+            [rentalId]
+        );
+
+        if (rentalRes.rows.length === 0) {
+            return res.status(404).json({ error: "Data sewa tidak ditemukan" });
+        }
+
+        const rental = rentalRes.rows[0];
+
+        // Pastikan durasi sewa belum berakhir (belum terlewat)
+        const rentalEndDate = new Date(rental.start_date);
+        rentalEndDate.setDate(rentalEndDate.getDate() + parseInt(rental.duration_days, 10));
+        
+        if (rentalEndDate < new Date()) {
+            return res.status(400).json({ error: "Penyewaan yang durasinya sudah terlewat tidak dapat diedit." });
+        }
+
+        // Cek ketersediaan stok baju (tumpang tindih) excluding this rental
+        const overlapRes = await pool.query(
+            `SELECT COUNT(*) FROM rentals
+             WHERE outfit_catalogues_id = $1
+               AND rental_status NOT IN ('cancelled')
+               AND start_date <= $2::date + $3 * INTERVAL '1 day'
+               AND start_date + duration_days * INTERVAL '1 day' >= $2::date
+               AND id != $4`,
+            [outfit_catalogues_id, start_date, duration_days, rentalId]
+        );
+        const overlappingCount = parseInt(overlapRes.rows[0].count, 10);
+
+        // Ambil data baju
+        const outfitResult = await pool.query(
+            `SELECT id, outfit_name, price, stock FROM outfit_catalogues WHERE id = $1`,
+            [outfit_catalogues_id]
+        );
+        if (!outfitResult.rows.length) {
+            return res.status(404).json({ error: "Baju tidak ditemukan" });
+        }
+
+        const outfit = outfitResult.rows[0];
+        const stock = outfit.stock !== null ? parseInt(outfit.stock, 10) : 1;
+
+        if (overlappingCount >= stock) {
+            return res.status(400).json({
+                error: `Stok baju tidak tersedia untuk tanggal tersebut karena sudah penuh disewa. (Stok: ${stock}, Tersewa: ${overlappingCount})`
+            });
+        }
+
+        const pricePerDay = parseFloat(outfit.price);
+        const amount_to_be_paid = pricePerDay * duration_days;
+        const totalAmount = amount_to_be_paid;
+
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+
+            // Update rental
+            await client.query(
+                `UPDATE rentals
+                 SET outfit_catalogues_id = $1, start_date = $2, duration_days = $3, amount_to_be_paid = $4
+                 WHERE id = $5`,
+                [outfit_catalogues_id, start_date, duration_days, amount_to_be_paid, rentalId]
+            );
+
+            // Update transaction
+            if (rental.transaction_id) {
+                await client.query(
+                    `UPDATE transactions
+                     SET subtotal = $1, total_amount = $2
+                     WHERE id = $3`,
+                    [amount_to_be_paid, totalAmount, rental.transaction_id]
+                );
+            }
+
+            await client.query("COMMIT");
+            return res.json({ success: true, message: "Penyewaan baju berhasil diperbarui oleh Admin." });
+        } catch (trxErr) {
+            await client.query("ROLLBACK");
+            throw trxErr;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error("[updateRentalByAdmin]", err);
+        return res.status(500).json({ error: err.message || "Internal Server Error" });
     }
 }
