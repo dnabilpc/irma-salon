@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import PaymentProofUpload from "@/components/payment/PaymentProofUpload";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShoppingBag, Trash2, X } from "lucide-react";
+import { createRentalCart } from "@/actions/rental";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,17 @@ interface Outfit {
 interface Category {
   id: number;
   category_name: string;
+}
+
+export interface RentalCartItem {
+  outfitId: number;
+  outfitName: string;
+  categoryName: string;
+  imageUrl: string | null;
+  pricePerDay: number;
+  startDate: string;
+  durationDays: number;
+  subtotal: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -47,8 +59,17 @@ function getEndDate(start: string, days: number): string {
 
 // ── Outfit Card with gallery ────────────────────────────────────────────────
 
-function OutfitCard({ outfit, onRentClick, onImageClick }: { outfit: Outfit; onRentClick: () => void; onImageClick: (url: string) => void }) {
-  const router = useRouter();
+function OutfitCard({
+  outfit,
+  isInCart,
+  onAddToCartClick,
+  onImageClick
+}: {
+  outfit: Outfit;
+  isInCart: boolean;
+  onAddToCartClick: () => void;
+  onImageClick: (url: string) => void;
+}) {
   const [hovered, setHovered] = useState(false);
   const [activeImgIdx, setActiveImgIdx] = useState(0);
 
@@ -79,7 +100,7 @@ function OutfitCard({ outfit, onRentClick, onImageClick }: { outfit: Outfit; onR
       }}
       style={{
         background: "white",
-        border: "1px solid #EDD8CC",
+        border: `1px solid ${isInCart ? "#C9922A" : "#EDD8CC"}`,
         borderRadius: "12px",
         overflow: "hidden",
         boxShadow: hovered
@@ -90,8 +111,15 @@ function OutfitCard({ outfit, onRentClick, onImageClick }: { outfit: Outfit; onR
         display: "flex",
         flexDirection: "column",
         height: "100%",
+        position: "relative",
       }}
     >
+      {isInCart && (
+        <div style={{ position: "absolute", top: "10px", right: "10px", zIndex: 10, background: "#C9922A", color: "white", padding: "4px 10px", borderRadius: "12px", fontSize: "0.7rem", fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+          ✓ Di Keranjang
+        </div>
+      )}
+
       {/* Gambar Container */}
       <div
         style={{
@@ -132,187 +160,108 @@ function OutfitCard({ outfit, onRentClick, onImageClick }: { outfit: Outfit; onR
             <button
               onClick={prevImage}
               style={{
-                position: "absolute",
-                left: "8px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: "24px",
-                height: "24px",
-                borderRadius: "50%",
-                background: "rgba(255, 255, 255, 0.85)",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: "#6B3A2A",
-                zIndex: 2,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+                position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)",
+                width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,255,255,0.9)",
+                border: "none", display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", color: "#6B3A2A", boxShadow: "0 2px 6px rgba(0,0,0,0.15)", zIndex: 2
               }}
-              aria-label="Foto sebelumnya"
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={16} />
             </button>
             <button
               onClick={nextImage}
               style={{
-                position: "absolute",
-                right: "8px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: "24px",
-                height: "24px",
-                borderRadius: "50%",
-                background: "rgba(255, 255, 255, 0.85)",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: "#6B3A2A",
-                zIndex: 2,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+                position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)",
+                width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,255,255,0.9)",
+                border: "none", display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", color: "#6B3A2A", boxShadow: "0 2px 6px rgba(0,0,0,0.15)", zIndex: 2
               }}
-              aria-label="Foto berikutnya"
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={16} />
             </button>
           </>
         )}
-
-        {/* Gallery Dots Indicators inside Card */}
-        {allImages.length > 1 && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "8px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              display: "flex",
-              gap: "4px",
-              zIndex: 2,
-              background: "rgba(0,0,0,0.3)",
-              padding: "2px 6px",
-              borderRadius: "8px",
-              backdropFilter: "blur(1px)",
-            }}
-          >
-            {allImages.map((_, i) => (
-              <span
-                key={i}
-                style={{
-                  width: "4px",
-                  height: "4px",
-                  borderRadius: "50%",
-                  background: activeImgIdx === i ? "white" : "rgba(255,255,255,0.4)",
-                  transition: "all 0.2s",
-                }}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Info */}
-      <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "2px" }}>
-          {outfit.outfit_name}
-        </div>
-        <div style={{ fontSize: "0.62rem", color: "#C4788A", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "6px" }}>
-          {outfit.category_name}
-        </div>
-        {outfit.description && (
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "#8B6A5A", marginBottom: "10px", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-            {outfit.description}
+      {/* Info Content */}
+      <div style={{ padding: "16px", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: "0.72rem", color: "#8B6A5A", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px", fontFamily: "'DM Sans', sans-serif" }}>
+            {outfit.category_name} {outfit.size && `· Size ${outfit.size}`}
           </div>
-        )}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", marginTop: "auto" }}>
-          <div>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1rem", fontWeight: 700, color: "#6B3A2A" }}>
-              {formatRupiah(outfit.price)}
-            </div>
-            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.65rem", color: "#8B6A5A" }}>per hari</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.05rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
+            {outfit.outfit_name}
           </div>
-          {outfit.size && (
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#8B6A5A", background: "#F5EDE0", padding: "3px 10px", borderRadius: "6px" }}>
-              {outfit.size}
-            </span>
-          )}
         </div>
 
-        <button
-          onClick={onRentClick}
-          style={{ width: "100%", background: "#6B3A2A", color: "white", border: "none", padding: "11px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 500, letterSpacing: "0.06em", cursor: "pointer", borderRadius: "8px", transition: "background 0.2s" }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#C9922A")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "#6B3A2A")}
-        >
-          Sewa Baju Ini
-        </button>
-        {outfit.model_2d_file_link && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "14px" }}>
+            <span style={{ fontSize: "0.72rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>Harga Sewa:</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "1rem", fontWeight: 700, color: "#6B3A2A" }}>
+              {formatRupiah(outfit.price)} <span style={{ fontSize: "0.7rem", fontWeight: 400 }}>/hari</span>
+            </span>
+          </div>
+
           <button
-            onClick={() => router.push(`/virtual-try-on?outfitId=${outfit.id}`)}
-            style={{ width: "100%", background: "transparent", border: "1.5px solid #C9922A", color: "#C9922A", padding: "9px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.06em", cursor: "pointer", borderRadius: "8px", marginTop: "8px", transition: "all 0.2s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(201,146,42,0.1)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            onClick={onAddToCartClick}
+            style={{
+              width: "100%",
+              background: isInCart ? "#FDF0E6" : "#6B3A2A",
+              color: isInCart ? "#6B3A2A" : "white",
+              border: `1.5px solid ${isInCart ? "#C9922A" : "#6B3A2A"}`,
+              padding: "10px",
+              borderRadius: "8px",
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: "0.82rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              transition: "all 0.2s",
+            }}
           >
-            ✨ Virtual Try-On
+            <ShoppingBag size={15} />
+            {isInCart ? "Atur Ulang di Cart" : "+ Tambah ke Keranjang"}
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Rent Modal ─────────────────────────────────────────────────────────────
+// ── Configure Item Modal ───────────────────────────────────────────────────
 
-function RentModal({
+function ConfigureModal({
   outfit,
+  existingItem,
   onClose,
-  onSuccess,
+  onAddToCart
 }: {
   outfit: Outfit;
+  existingItem?: RentalCartItem;
   onClose: () => void;
-  onSuccess: (rentalId: number, method: "cash" | "qris", redirectUrl?: string | null, transactionId?: number) => void;
+  onAddToCart: (item: RentalCartItem) => void;
 }) {
-  const [activeImgIdx, setActiveImgIdx] = useState(0);
-  const [startDate, setStartDate]     = useState("");
-  const [durationDays, setDurationDays] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris">("cash");
-  const [submitting, setSubmitting]   = useState(false);
-  const [error, setError]             = useState("");
-  const allImages = [outfit.image_url, ...(outfit.additional_image_urls ?? [])].filter(Boolean) as string[];
+  const [startDate, setStartDate] = useState(existingItem?.startDate || getTodayString());
+  const [durationDays, setDurationDays] = useState(existingItem?.durationDays || 1);
 
-  const totalHarga = outfit.price * durationDays;
-  const totalBayar = totalHarga;
+  const pricePerDay = parseFloat(outfit.price as any);
+  const total = pricePerDay * durationDays;
 
-  async function handleSubmit() {
-    if (!startDate) { setError("Pilih tanggal mulai sewa."); return; }
-    if (durationDays < 1) { setError("Durasi minimal 1 hari."); return; }
-
-    setSubmitting(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/rentals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          outfit_catalogues_id: outfit.id,
-          start_date: startDate,
-          duration_days: durationDays,
-          payment_method: paymentMethod,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Gagal membuat pesanan sewa.");
-
-      onSuccess(data.rentalId, paymentMethod, data.redirect_url || null, data.transactionId);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan.");
-    } finally {
-      setSubmitting(false);
-    }
+  function handleSave() {
+    onAddToCart({
+      outfitId: outfit.id,
+      outfitName: outfit.outfit_name,
+      categoryName: outfit.category_name,
+      imageUrl: outfit.image_url,
+      pricePerDay,
+      startDate,
+      durationDays,
+      subtotal: total,
+    });
+    onClose();
   }
 
   return (
@@ -321,78 +270,22 @@ function RentModal({
       onClick={onClose}
     >
       <div
-        style={{ background: "white", border: "1px solid #EDD8CC", borderRadius: "12px", width: "100%", maxWidth: "480px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(107,58,42,0.15)" }}
+        style={{ background: "white", border: "1px solid #EDD8CC", borderRadius: "12px", width: "100%", maxWidth: "440px", boxShadow: "0 24px 64px rgba(107,58,42,0.15)", overflow: "hidden" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid #EDD8CC", background: "linear-gradient(135deg, #FDF8F3, #FDF0E8)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #EDD8CC", background: "linear-gradient(135deg, #FDF8F3, #FDF0E8)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
-              Sewa Baju
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: "#2C1A0E" }}>
+              Atur Detail Sewa
             </div>
             <div style={{ fontSize: "0.78rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>
               {outfit.outfit_name}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "rgba(107,58,42,0.08)", border: "1px solid #EDD8CC", color: "#6B3A2A", cursor: "pointer", width: "30px", height: "30px", borderRadius: "8px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#6B3A2A", cursor: "pointer" }}><X size={20} /></button>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
-
-          {/* Foto Slider Premium */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "10px", padding: "14px" }}>
-            <div style={{ position: "relative", width: "100%", height: "200px", background: "linear-gradient(135deg, #FDF0E8, #FDF8F3)", borderRadius: "8px", overflow: "hidden", border: "1px solid #EDD8CC", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {allImages.length > 0 ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={allImages[activeImgIdx]} alt={outfit.outfit_name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              ) : (
-                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>👗</div>
-              )}
-              
-              {/* Navigasi Gambar */}
-              {allImages.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setActiveImgIdx((prev) => (prev - 1 + allImages.length) % allImages.length)}
-                    style={{ position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)", width: "24px", height: "24px", borderRadius: "50%", background: "rgba(255,255,255,0.85)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B3A2A", boxShadow: "0 1px 4px rgba(0,0,0,0.1)", zIndex: 2 }}
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveImgIdx((prev) => (prev + 1) % allImages.length)}
-                    style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", width: "24px", height: "24px", borderRadius: "50%", background: "rgba(255,255,255,0.85)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B3A2A", boxShadow: "0 1px 4px rgba(0,0,0,0.1)", zIndex: 2 }}
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </>
-              )}
-              
-              {/* Titik Indikator */}
-              {allImages.length > 1 && (
-                <div style={{ position: "absolute", bottom: "8px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "4px", background: "rgba(0,0,0,0.25)", padding: "2px 6px", borderRadius: "8px", zIndex: 2 }}>
-                  {allImages.map((_, i) => (
-                    <span key={i} style={{ width: "4px", height: "4px", borderRadius: "50%", background: activeImgIdx === i ? "white" : "rgba(255,255,255,0.5)", transition: "all 0.2s" }} />
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            {/* Detail Baju */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: "4px" }}>
-              <div>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.95rem", fontWeight: 700, color: "#2C1A0E" }}>{outfit.outfit_name}</div>
-                <div style={{ fontSize: "0.75rem", color: "#8B6A5A", marginTop: "2px" }}>{outfit.category_name} {outfit.size && `· Size ${outfit.size}`}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.9rem", fontWeight: 700, color: "#6B3A2A" }}>{formatRupiah(outfit.price)}</div>
-                <div style={{ fontSize: "0.65rem", color: "#8B6A5A" }}>per hari</div>
-              </div>
-            </div>
-          </div>
-
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "18px" }}>
           {/* Tanggal mulai */}
           <div>
             <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
@@ -404,8 +297,6 @@ function RentModal({
               min={getTodayString()}
               onChange={(e) => setStartDate(e.target.value)}
               style={{ width: "100%", padding: "10px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", background: "#FDFAF7", outline: "none" }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
             />
           </div>
 
@@ -416,15 +307,17 @@ function RentModal({
             </label>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <button
+                type="button"
                 onClick={() => setDurationDays((d) => Math.max(1, d - 1))}
-                style={{ width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#6B3A2A", fontSize: "1.1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                style={{ width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#6B3A2A", fontSize: "1.1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
               >−</button>
               <div style={{ flex: 1, textAlign: "center", fontFamily: "'Playfair Display', serif", fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E" }}>
-                {durationDays}
+                {durationDays} hari
               </div>
               <button
+                type="button"
                 onClick={() => setDurationDays((d) => Math.min(30, d + 1))}
-                style={{ width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#6B3A2A", fontSize: "1.1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                style={{ width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#6B3A2A", fontSize: "1.1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
               >+</button>
             </div>
             {startDate && (
@@ -434,113 +327,232 @@ function RentModal({
             )}
           </div>
 
-          {/* Pilihan Metode Pembayaran */}
-          <div>
-            <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-              Metode Pembayaran
-            </label>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {([
-                { id: "cash", title: "Bayar Di Tempat", desc: "Bayar biaya sewa di salon saat ambil baju (Tunai / QRIS Statis)", icon: "💵" },
-                { id: "qris", title: "QRIS Statis", desc: "Bayar biaya sewa via scan QRIS Statis Rumah Cantik Irma", icon: "📱" }
-              ] as const).map((m) => {
-                const active = paymentMethod === m.id;
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setPaymentMethod(m.id)}
-                    type="button"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      padding: "10px 12px",
-                      background: active ? "#FDF0E6" : "white",
-                      border: `2px solid ${active ? "#C9922A" : "#EDD8CC"}`,
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      transition: "all 0.15s",
-                      width: "100%"
-                    }}
-                  >
-                    <span style={{ fontSize: "1.2rem" }}>{m.icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "0.8rem", fontWeight: 700, color: "#2C1A0E" }}>{m.title}</div>
-                      <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>{m.desc}</div>
-                    </div>
-                    <div style={{
-                      width: "14px",
-                      height: "14px",
-                      borderRadius: "50%",
-                      border: `2px solid ${active ? "#C9922A" : "#EDD8CC"}`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: active ? "#C9922A" : "transparent"
-                    }}>
-                      {active && <span style={{ color: "white", fontSize: "0.5rem" }}>✓</span>}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Price Preview */}
+          <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.8rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>Subtotal Baju Ini:</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "1rem", fontWeight: 700, color: "#6B3A2A" }}>
+              {formatRupiah(total)}
+            </span>
           </div>
-
-          {/* Ringkasan harga */}
-          <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "14px 16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "#8B6A5A" }}>
-                {formatRupiah(outfit.price)} × {durationDays} hari
-              </span>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.82rem", color: "#2C1A0E" }}>
-                {formatRupiah(totalHarga)}
-              </span>
-            </div>
-            <div style={{ borderTop: "1px solid #EDD8CC", paddingTop: "10px", display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#2C1A0E" }}>
-                Total Bayar
-              </span>
-              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "#6B3A2A" }}>
-                {formatRupiah(totalBayar)}
-              </span>
-            </div>
-          </div>
-
-          {/* Info */}
-          <div style={{ background: "rgba(201,146,42,0.07)", border: "1px solid rgba(201,146,42,0.2)", borderRadius: "8px", padding: "10px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", color: "#A07010", lineHeight: 1.6 }}>
-            <div>✦ Jaminan sewa berupa KTP asli atau uang jaminan diserahkan langsung di salon saat pengambilan baju.</div>
-            <div style={{ marginTop: "4px" }}>
-              {paymentMethod === "qris"
-                ? "✦ Silakan lakukan transfer QRIS terlebih dahulu atau scan QRIS setelah konfirmasi sewa."
-                : "✦ Biaya sewa dilunasi langsung di salon saat pengambilan baju (Tunai / QRIS Statis)."
-              }
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div style={{ background: "rgba(192,80,96,0.07)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", padding: "10px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#C05060" }}>
-              ⚠️ {error}
-            </div>
-          )}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: "16px 24px", borderTop: "1px solid #EDD8CC", display: "flex", gap: "10px" }}>
-          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: "1px solid #EDD8CC", color: "#8B6A5A", padding: "11px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", cursor: "pointer", borderRadius: "8px" }}>
+          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: "1px solid #EDD8CC", color: "#8B6A5A", padding: "11px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
             Batal
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            style={{ flex: 2, background: submitting ? "#B8896A" : "#6B3A2A", color: "white", border: "none", padding: "11px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 600, cursor: submitting ? "not-allowed" : "pointer", borderRadius: "8px", transition: "background 0.2s" }}
-            onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.background = "#C9922A"; }}
-            onMouseLeave={(e) => { if (!submitting) e.currentTarget.style.background = "#6B3A2A"; }}
+            onClick={handleSave}
+            style={{ flex: 2, background: "#6B3A2A", color: "white", border: "none", padding: "11px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: "pointer" }}
           >
-            {submitting ? "Memproses..." : "Konfirmasi Sewa"}
+            Simpan ke Keranjang 🛒
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Cart Drawer / Panel ────────────────────────────────────────────────────
+
+function CartDrawer({
+  cartItems,
+  onRemoveItem,
+  onClose,
+  onCheckoutSuccess
+}: {
+  cartItems: RentalCartItem[];
+  onRemoveItem: (outfitId: number) => void;
+  onClose: () => void;
+  onCheckoutSuccess: (transactionId: number) => void;
+}) {
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris">("qris");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const grandTotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+
+  async function handleCheckout() {
+    if (cartItems.length === 0) return;
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const payload = {
+        items: cartItems.map((i) => ({
+          outfit_catalogues_id: i.outfitId,
+          start_date: i.startDate,
+          duration_days: i.durationDays,
+        })),
+        payment_method: paymentMethod,
+        notes,
+      };
+
+      const res = await createRentalCart(payload);
+      if (res.success && res.data) {
+        onCheckoutSuccess(res.data.transactionId);
+      } else {
+        setError(res.error ?? "Gagal memproses sewa.");
+      }
+    } catch {
+      setError("Terjadi kesalahan sistem.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(44,26,14,0.4)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: "white", width: "100%", maxWidth: "480px", height: "100%", display: "flex", flexDirection: "column", boxShadow: "-8px 0 32px rgba(107,58,42,0.15)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #EDD8CC", background: "linear-gradient(135deg, #FDF8F3, #FDF0E8)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.2rem", fontWeight: 700, color: "#2C1A0E" }}>
+              Keranjang Sewa ({cartItems.length})
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>
+              Maksimal 5 baju per checkout
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#6B3A2A", cursor: "pointer" }}><X size={22} /></button>
+        </div>
+
+        {/* Cart items list */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "14px" }}>
+          {cartItems.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>
+              <ShoppingBag size={48} style={{ opacity: 0.3, marginBottom: "12px" }} />
+              <p>Keranjang sewa kamu masih kosong.</p>
+            </div>
+          ) : (
+            cartItems.map((item) => (
+              <div
+                key={item.outfitId}
+                style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "10px", padding: "14px", display: "flex", gap: "12px", alignItems: "center" }}
+              >
+                <div style={{ width: "60px", height: "60px", background: "white", border: "1px solid #EDD8CC", borderRadius: "8px", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {item.imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={item.imageUrl} alt={item.outfitName} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                  ) : (
+                    <span>👗</span>
+                  )}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.9rem", fontWeight: 700, color: "#2C1A0E" }}>
+                    {item.outfitName}
+                  </div>
+                  <div style={{ fontSize: "0.72rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>
+                    📅 {item.startDate} ({item.durationDays} hari)
+                  </div>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.82rem", fontWeight: 700, color: "#6B3A2A", marginTop: "2px" }}>
+                    {formatRupiah(item.subtotal)}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => onRemoveItem(item.outfitId)}
+                  style={{ background: "transparent", border: "none", color: "#C05060", cursor: "pointer", padding: "6px" }}
+                  title="Hapus baju ini"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))
+          )}
+
+          {cartItems.length > 0 && (
+            <>
+              {/* Payment method */}
+              <div style={{ marginTop: "12px" }}>
+                <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
+                  Metode Pembayaran
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {[
+                    { id: "qris", title: "QRIS Statis", desc: "Scan QRIS Rumah Cantik Irma", icon: "📱" },
+                    { id: "cash", title: "Bayar di Tempat (Cash)", desc: "Wajib bayar di salon maks. 3 jam setelah checkout", icon: "💵" },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setPaymentMethod(m.id as any)}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: "8px",
+                        border: `2px solid ${paymentMethod === m.id ? "#C9922A" : "#EDD8CC"}`,
+                        background: paymentMethod === m.id ? "#FDF0E6" : "white",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <span style={{ fontSize: "1.2rem" }}>{m.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.82rem", fontWeight: 700, color: "#2C1A0E" }}>{m.title}</div>
+                        <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>{m.desc}</div>
+                      </div>
+                      {paymentMethod === m.id && <span style={{ color: "#C9922A", fontWeight: 700 }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Catatan */}
+              <div>
+                <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
+                  Catatan Tambahan (opsional)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Request khusus..."
+                  rows={2}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}
+                />
+              </div>
+
+              {error && (
+                <div style={{ background: "rgba(192,80,96,0.07)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", padding: "10px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#C05060" }}>
+                  ⚠️ {error}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer / Total */}
+        {cartItems.length > 0 && (
+          <div style={{ padding: "20px 24px", borderTop: "1px solid #EDD8CC", background: "white" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A" }}>Total Keseluruhan:</span>
+              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.3rem", fontWeight: 700, color: "#6B3A2A" }}>
+                {formatRupiah(grandTotal)}
+              </span>
+            </div>
+
+            <button
+              onClick={handleCheckout}
+              disabled={submitting}
+              style={{
+                width: "100%", background: submitting ? "#B8896A" : "#6B3A2A", color: "white", border: "none", padding: "14px",
+                fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", fontWeight: 600, letterSpacing: "0.05em",
+                cursor: submitting ? "not-allowed" : "pointer", borderRadius: "8px", transition: "background 0.2s"
+              }}
+            >
+              {submitting ? "Memproses Checkout..." : `Checkout ${cartItems.length} Baju →`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -561,17 +573,52 @@ export default function SewaBajuPage() {
   const [filterAge, setFilterAge] = useState<"all" | "dewasa" | "anak_anak">("all");
   const [showAllGenders, setShowAllGenders] = useState(false);
 
-  const [selectedOutfit, setSelectedOutfit] = useState<Outfit | null>(null);
-  const [successRentalId, setSuccessRentalId] = useState<number | null>(null);
-  const [successPaymentMethod, setSuccessPaymentMethod] = useState<"cash" | "qris">("cash");
-  const [successRedirectUrl, setSuccessRedirectUrl]     = useState<string | null>(null);
-  const [successTransactionId, setSuccessTransactionId] = useState<number | null>(null);
-  const [qrisImageError, setQrisImageError]             = useState(false);
+  // Cart State
+  const [cartItems, setCartItems] = useState<RentalCartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [configuringOutfit, setConfiguringOutfit] = useState<Outfit | null>(null);
+
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState("center center");
 
   const userGender = (session?.user as any)?.gender || "unspecified";
+
+  // Load cart from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("irma_rental_cart");
+      if (saved) setCartItems(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  // Sync cart to localStorage
+  function updateCart(action: RentalCartItem[] | ((prev: RentalCartItem[]) => RentalCartItem[])) {
+    setCartItems((prev) => {
+      const next = typeof action === "function" ? action(prev) : action;
+      try {
+        localStorage.setItem("irma_rental_cart", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
+
+  function handleAddToCart(item: RentalCartItem) {
+    updateCart((prev) => {
+      const existingIdx = prev.findIndex((i) => i.outfitId === item.outfitId);
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = item;
+        return updated;
+      }
+      if (prev.length >= 5) return prev;
+      return [...prev, item];
+    });
+  }
+
+  function handleRemoveItem(outfitId: number) {
+    updateCart(cartItems.filter((i) => i.outfitId !== outfitId));
+  }
 
   useEffect(() => {
     fetch("/api/outfits")
@@ -589,8 +636,6 @@ export default function SewaBajuPage() {
     return matchSearch && matchCat;
   });
 
-  // ── Loading ──
-
   if (isPending) {
     return (
       <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>
@@ -598,8 +643,6 @@ export default function SewaBajuPage() {
       </div>
     );
   }
-
-  // ── Belum login ──
 
   if (!session) {
     return (
@@ -629,185 +672,6 @@ export default function SewaBajuPage() {
     );
   }
 
-  // ── Sukses ──
-
-  if (successRentalId) {
-    return (
-      <div style={{ minHeight: "70vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", textAlign: "center" }}>
-        <div style={{ fontSize: "3.5rem", marginBottom: "16px" }}>🎉</div>
-        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.8rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "12px" }}>
-          Pesanan Sewa Berhasil!
-        </h1>
-        <div style={{ background: "rgba(201,146,42,0.1)", border: "1px solid rgba(201,146,42,0.3)", borderRadius: "8px", padding: "8px 20px", marginBottom: "16px", fontFamily: "'DM Mono', monospace", fontSize: "0.82rem", color: "#C9922A" }}>
-          ID Sewa: #{successRentalId}
-        </div>
-        
-        {successPaymentMethod === "qris" ? (
-          <>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "440px", lineHeight: 1.7, marginBottom: "8px" }}>
-              Pesanan sewamu sudah diterima dan menunggu konfirmasi admin. Silakan lakukan pembayaran via scan QRIS Statis di bawah ini dan tunjukkan bukti transaksi kepada kasir/admin saat pengambilan baju.
-            </p>
-            
-            {/* QRIS Card */}
-            <div style={{ 
-              background: "white", 
-              border: "2px solid #EDD8CC", 
-              borderRadius: "12px", 
-              padding: "16px", 
-              margin: "12px auto 20px", 
-              maxWidth: "280px",
-              boxShadow: "0 8px 24px rgba(107,58,42,0.08)",
-              textAlign: "center"
-            }}>
-              <div style={{ background: "#004b7b", color: "white", padding: "6px", borderRadius: "6px 6px 0 0", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em" }}>
-                QRIS
-              </div>
-              <div style={{ border: "1px solid #EDD8CC", borderTop: "none", padding: "16px 12px 12px", borderRadius: "0 0 6px 6px" }}>
-                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
-                  RUMAH CANTIK IRMA
-                </div>
-                <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
-                  NMID: ID1020304050607
-                </div>
-                {!qrisImageError ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img 
-                    src="/qris.png" 
-                    alt="QRIS Rumah Cantik Irma" 
-                    onError={() => setQrisImageError(true)}
-                    style={{ width: "180px", height: "180px", objectFit: "contain", margin: "0 auto 12px", display: "block" }} 
-                  />
-                ) : (
-                  /* Mock QR Pattern in pure CSS */
-                  <div style={{ 
-                    width: "180px", 
-                    height: "180px", 
-                    background: "radial-gradient(circle, #2C1A0E 10%, transparent 11%), repeating-linear-gradient(45deg, #2C1A0E 0px, #2C1A0E 2px, transparent 2px, transparent 10px)", 
-                    border: "6px solid #2C1A0E", 
-                    borderRadius: "8px",
-                    margin: "0 auto 12px", 
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  }}>
-                    {/* Position detection patterns (corners) */}
-                    <div style={{ position: "absolute", top: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                    <div style={{ position: "absolute", top: "2px", right: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                    <div style={{ position: "absolute", bottom: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                    {/* Center branding box */}
-                    <div style={{ background: "white", padding: "4px 8px", border: "2px solid #2C1A0E", borderRadius: "4px", fontSize: "0.65rem", fontWeight: 700, color: "#C9922A", zIndex: 5 }}>
-                      IRMA
-                    </div>
-                  </div>
-                )}
-                <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontWeight: 500 }}>
-                  Scan dengan E-Wallet atau Mobile Banking
-                </div>
-              </div>
-            </div>
-            
-            <PaymentProofUpload rentalId={Number(successRentalId)} />
-            
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "32px" }}>
-              Silakan lakukan pembayaran sesuai dengan total biaya sewa menggunakan QRIS Statis, lalu simpan bukti pembayaran Anda untuk ditunjukkan ke salon saat pengambilan baju.
-            </p>
-          </>
-        ) : (
-          <>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "440px", lineHeight: 1.7, marginBottom: "8px" }}>
-              Pesanan sewamu sudah diterima dan menunggu konfirmasi admin. Pelunasan biaya sewa dilakukan langsung di salon saat kamu mengambil baju (Tunai / QRIS Statis).
-            </p>
-            
-            {/* QRIS Card */}
-            <div style={{ 
-              background: "white", 
-              border: "2px solid #EDD8CC", 
-              borderRadius: "12px", 
-              padding: "16px", 
-              margin: "12px auto 20px", 
-              maxWidth: "280px",
-              boxShadow: "0 8px 24px rgba(107,58,42,0.08)",
-              textAlign: "center"
-            }}>
-              <div style={{ background: "#004b7b", color: "white", padding: "6px", borderRadius: "6px 6px 0 0", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em" }}>
-                QRIS
-              </div>
-              <div style={{ border: "1px solid #EDD8CC", borderTop: "none", padding: "16px 12px 12px", borderRadius: "0 0 6px 6px" }}>
-                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
-                  RUMAH CANTIK IRMA
-                </div>
-                <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
-                  NMID: ID1020304050607
-                </div>
-                {!qrisImageError ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img 
-                    src="/qris.png" 
-                    alt="QRIS Rumah Cantik Irma" 
-                    onError={() => setQrisImageError(true)}
-                    style={{ width: "180px", height: "180px", objectFit: "contain", margin: "0 auto 12px", display: "block" }} 
-                  />
-                ) : (
-                  /* Mock QR Pattern in pure CSS */
-                  <div style={{ 
-                    width: "180px", 
-                    height: "180px", 
-                    background: "radial-gradient(circle, #2C1A0E 10%, transparent 11%), repeating-linear-gradient(45deg, #2C1A0E 0px, #2C1A0E 2px, transparent 2px, transparent 10px)", 
-                    border: "6px solid #2C1A0E", 
-                    borderRadius: "8px",
-                    margin: "0 auto 12px", 
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  }}>
-                    {/* Position detection patterns (corners) */}
-                    <div style={{ position: "absolute", top: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                    <div style={{ position: "absolute", top: "2px", right: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                    <div style={{ position: "absolute", bottom: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                    {/* Center branding box */}
-                    <div style={{ background: "white", padding: "4px 8px", border: "2px solid #2C1A0E", borderRadius: "4px", fontSize: "0.65rem", fontWeight: 700, color: "#C9922A", zIndex: 5 }}>
-                      IRMA
-                    </div>
-                  </div>
-                )}
-                <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontWeight: 500 }}>
-                  Scan dengan E-Wallet atau Mobile Banking
-                </div>
-              </div>
-            </div>
-            
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "32px" }}>
-              Jaminan sewa (KTP asli) diserahkan langsung di salon saat pengambilan baju. Biaya sewa dapat dibayar tunai di tempat atau via scan QRIS di atas terlebih dahulu dengan menunjukkan bukti transfer.
-            </p>
-          </>
-        )}
-
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
-          <button
-            onClick={() => router.push("/")}
-            style={{ background: "#6B3A2A", color: "white", border: "none", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
-          >
-            Kembali ke Beranda
-          </button>
-          <button
-            onClick={() => {
-              setSuccessRentalId(null);
-              setSuccessRedirectUrl(null);
-              setSuccessPaymentMethod("cash");
-            }}
-            style={{ background: "transparent", color: "#6B3A2A", border: "1.5px solid #6B3A2A", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
-          >
-            Sewa Lagi
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Main ──
-
   return (
     <div style={{ minHeight: "100vh", paddingTop: "100px", paddingBottom: "80px", background: "#FDF8F3" }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 24px" }}>
@@ -821,7 +685,7 @@ export default function SewaBajuPage() {
             Katalog Sewa Baju
           </h1>
           <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "480px", margin: "0 auto 20px", lineHeight: 1.7 }}>
-            Pilih baju favoritmu dan sewa dengan mudah. Tersedia berbagai koleksi untuk berbagai acara spesialmu.
+            Pilih baju favoritmu dan sewa hingga 5 baju sekaligus dalam satu transaksi.
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", justifyContent: "center" }}>
             <div style={{ width: "40px", height: "1px", background: "#EDD8CC" }} />
@@ -832,7 +696,6 @@ export default function SewaBajuPage() {
 
         {/* Filter + Search */}
         <div style={{ display: "flex", gap: "12px", marginBottom: "32px", flexWrap: "wrap" }}>
-          {/* Search */}
           <div style={{ position: "relative", flex: 1, minWidth: "200px" }}>
             <span style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "#C9922A", pointerEvents: "none" }}>🔍</span>
             <input
@@ -841,16 +704,13 @@ export default function SewaBajuPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: "100%", background: "white", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "11px 14px 11px 40px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", outline: "none", boxShadow: "0 1px 4px rgba(107,58,42,0.06)" }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
             />
           </div>
 
-          {/* Filter kategori */}
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <button
               onClick={() => setFilterCat("all")}
-              style={{ padding: "10px 18px", border: `1.5px solid ${filterCat === "all" ? "#6B3A2A" : "#EDD8CC"}`, background: filterCat === "all" ? "#6B3A2A" : "white", color: filterCat === "all" ? "white" : "#6B3A2A", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer", transition: "all 0.2s" }}
+              style={{ padding: "10px 18px", border: `1.5px solid ${filterCat === "all" ? "#6B3A2A" : "#EDD8CC"}`, background: filterCat === "all" ? "#6B3A2A" : "white", color: filterCat === "all" ? "white" : "#6B3A2A", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer" }}
             >
               Semua
             </button>
@@ -858,65 +718,13 @@ export default function SewaBajuPage() {
               <button
                 key={c.id}
                 onClick={() => setFilterCat(String(c.id))}
-                style={{ padding: "10px 18px", border: `1.5px solid ${filterCat === String(c.id) ? "#6B3A2A" : "#EDD8CC"}`, background: filterCat === String(c.id) ? "#6B3A2A" : "white", color: filterCat === String(c.id) ? "white" : "#6B3A2A", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer", transition: "all 0.2s" }}
+                style={{ padding: "10px 18px", border: `1.5px solid ${filterCat === String(c.id) ? "#6B3A2A" : "#EDD8CC"}`, background: filterCat === String(c.id) ? "#6B3A2A" : "white", color: filterCat === String(c.id) ? "white" : "#6B3A2A", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer" }}
               >
                 {c.category_name}
               </button>
             ))}
           </div>
         </div>
-
-        {/* Sub-Filter: Target Umur & Show All Genders Checkbox Toggle */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", flexWrap: "wrap", gap: "16px", background: "white", padding: "12px 18px", borderRadius: "10px", border: "1px solid #EDD8CC" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 600, color: "#6B3A2A" }}>
-              Target Umur:
-            </span>
-            <div style={{ display: "flex", gap: "6px" }}>
-              {[
-                { id: "all", label: "🌐 Semua Umur" },
-                { id: "dewasa", label: "🧑 Dewasa" },
-                { id: "anak_anak", label: "🧒 Anak-Anak" },
-              ].map((age) => (
-                <button
-                  key={age.id}
-                  onClick={() => setFilterAge(age.id as any)}
-                  style={{
-                    padding: "6px 12px",
-                    border: `1px solid ${filterAge === age.id ? "#C9922A" : "#EDD8CC"}`,
-                    background: filterAge === age.id ? "#FDF8F3" : "transparent",
-                    color: filterAge === age.id ? "#C9922A" : "#8B6A5A",
-                    borderRadius: "6px",
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: "0.75rem",
-                    fontWeight: filterAge === age.id ? 700 : 500,
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  {age.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#6B3A2A", cursor: "pointer", userSelect: "none" }}>
-            <input
-              type="checkbox"
-              checked={showAllGenders}
-              onChange={(e) => setShowAllGenders(e.target.checked)}
-              style={{ accentColor: "#C9922A", width: "16px", height: "16px", cursor: "pointer" }}
-            />
-            Tampilkan Semua Baju (Termasuk Gender Lain)
-          </label>
-        </div>
-
-        {/* Personalized Gender Hint */}
-        {!showAllGenders && userGender && userGender !== "unspecified" && (
-          <div style={{ marginBottom: "20px", fontSize: "0.78rem", fontFamily: "'DM Sans', sans-serif", color: "#6B3A2A", background: "rgba(201,146,42,0.1)", border: "1px solid rgba(201,146,42,0.3)", padding: "8px 14px", borderRadius: "8px" }}>
-            💡 Menampilkan katalog rekomendasi sesuai profil <strong>{userGender === "wanita" ? "Wanita 👩" : "Pria 👨"}</strong> & Unisex. Centang opsi di atas jika ingin melihat baju untuk gender lain/orang lain.
-          </div>
-        )}
 
         {/* Grid baju */}
         {loading ? (
@@ -929,32 +737,74 @@ export default function SewaBajuPage() {
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px" }}>
-            {filtered.map((outfit) => (
-              <OutfitCard
-                key={outfit.id}
-                outfit={outfit}
-                onRentClick={() => setSelectedOutfit(outfit)}
-                onImageClick={(url) => setZoomImageUrl(url)}
-              />
-            ))}
+            {filtered.map((outfit) => {
+              const inCart = cartItems.some((i) => i.outfitId === outfit.id);
+              return (
+                <OutfitCard
+                  key={outfit.id}
+                  outfit={outfit}
+                  isInCart={inCart}
+                  onAddToCartClick={() => setConfiguringOutfit(outfit)}
+                  onImageClick={(url) => setZoomImageUrl(url)}
+                />
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Rent Modal */}
-      {selectedOutfit && (
-        <RentModal
-          outfit={selectedOutfit}
-          onClose={() => setSelectedOutfit(null)}
-          onSuccess={(rentalId, method, redirectUrl, transactionId) => {
-            setSelectedOutfit(null);
-            if (transactionId) {
-              router.push(`/invoice/${transactionId}`);
-            } else {
-              setSuccessRentalId(rentalId);
-              setSuccessPaymentMethod(method);
-              setSuccessRedirectUrl(redirectUrl || null);
-            }
+      {/* Floating Cart Button */}
+      {cartItems.length > 0 && (
+        <button
+          onClick={() => setIsCartOpen(true)}
+          style={{
+            position: "fixed",
+            bottom: "32px",
+            right: "32px",
+            background: "#6B3A2A",
+            color: "white",
+            border: "2px solid #C9922A",
+            borderRadius: "50px",
+            padding: "14px 24px",
+            boxShadow: "0 10px 30px rgba(107,58,42,0.3)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            zIndex: 900,
+            fontFamily: "'DM Sans', sans-serif",
+            fontWeight: 700,
+            fontSize: "0.95rem",
+          }}
+        >
+          <ShoppingBag size={20} />
+          <span>Lihat Keranjang</span>
+          <span style={{ background: "#C9922A", color: "white", padding: "2px 8px", borderRadius: "12px", fontSize: "0.78rem" }}>
+            {cartItems.length}
+          </span>
+        </button>
+      )}
+
+      {/* Configure Item Modal */}
+      {configuringOutfit && (
+        <ConfigureModal
+          outfit={configuringOutfit}
+          existingItem={cartItems.find((i) => i.outfitId === configuringOutfit.id)}
+          onClose={() => setConfiguringOutfit(null)}
+          onAddToCart={handleAddToCart}
+        />
+      )}
+
+      {/* Cart Drawer */}
+      {isCartOpen && (
+        <CartDrawer
+          cartItems={cartItems}
+          onRemoveItem={handleRemoveItem}
+          onClose={() => setIsCartOpen(false)}
+          onCheckoutSuccess={(txId) => {
+            updateCart([]);
+            setIsCartOpen(false);
+            router.push(`/invoice/${txId}`);
           }}
         />
       )}
@@ -962,165 +812,27 @@ export default function SewaBajuPage() {
       {/* Zoom Image Modal */}
       {zoomImageUrl && (
         <div
-          onClick={() => {
-            setZoomImageUrl(null);
-            setZoomScale(1);
-            setTransformOrigin("center center");
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0, 0, 0, 0.85)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "zoom-out",
-            padding: "20px",
-          }}
+          onClick={() => { setZoomImageUrl(null); setZoomScale(1); setTransformOrigin("center center"); }}
+          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out", padding: "20px" }}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "relative",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              maxHeight: "90vh",
-              maxWidth: "90vw",
-              cursor: "default",
-            }}
-          >
+          <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", maxHeight: "90vh", maxWidth: "90vw" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={zoomImageUrl}
-              alt="Preview baju diperbesar"
+              alt="Preview baju"
               onClick={(e) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = ((e.clientX - rect.left) / rect.width) * 100;
                 const y = ((e.clientY - rect.top) / rect.height) * 100;
-                
                 if (zoomScale === 1) {
-                  setTransformOrigin(`${x}% ${y}%`);
-                  setZoomScale(2.5);
+                  setTransformOrigin(`${x}% ${y}%`); setZoomScale(2.5);
                 } else {
-                  setZoomScale(1);
-                  setTransformOrigin("center center");
+                  setZoomScale(1); setTransformOrigin("center center");
                 }
               }}
-              style={{
-                maxHeight: "80vh",
-                maxWidth: "100%",
-                objectFit: "contain",
-                transform: `scale(${zoomScale})`,
-                transformOrigin: transformOrigin,
-                transition: "transform 0.25s ease, transform-origin 0.25s ease",
-                borderRadius: "8px",
-                boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
-                userSelect: "none",
-                cursor: zoomScale === 1 ? "zoom-in" : "zoom-out",
-              }}
+              style={{ maxHeight: "80vh", maxWidth: "100%", objectFit: "contain", transform: `scale(${zoomScale})`, transformOrigin, transition: "transform 0.25s ease", borderRadius: "8px" }}
             />
-
-            {/* Floating Controls at bottom center */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-60px",
-                display: "flex",
-                gap: "12px",
-                background: "rgba(255, 255, 255, 0.12)",
-                backdropFilter: "blur(8px)",
-                padding: "8px 16px",
-                borderRadius: "30px",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-                zIndex: 10000,
-              }}
-            >
-              <button
-                onClick={() => setZoomScale((s) => Math.min(s + 0.25, 4))}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "white",
-                  fontSize: "1.1rem",
-                  cursor: "pointer",
-                  width: "32px",
-                  height: "32px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                title="Perbesar"
-              >
-                ➕
-              </button>
-              <button
-                onClick={() => setZoomScale((s) => Math.max(s - 0.25, 0.5))}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "white",
-                  fontSize: "1.1rem",
-                  cursor: "pointer",
-                  width: "32px",
-                  height: "32px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                title="Perkecil"
-              >
-                ➖
-              </button>
-              <button
-                onClick={() => {
-                  setZoomScale(1);
-                  setTransformOrigin("center center");
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "white",
-                  fontSize: "1.1rem",
-                  cursor: "pointer",
-                  width: "32px",
-                  height: "32px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                title="Reset Zoom"
-              >
-                🔄
-              </button>
-              <button
-                onClick={() => {
-                  setZoomImageUrl(null);
-                  setZoomScale(1);
-                  setTransformOrigin("center center");
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "white",
-                  fontSize: "1.1rem",
-                  cursor: "pointer",
-                  width: "32px",
-                  height: "32px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                title="Tutup"
-              >
-                ✕
-              </button>
-            </div>
           </div>
         </div>
       )}

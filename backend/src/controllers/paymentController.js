@@ -17,14 +17,16 @@ export async function getPaymentsForAdmin(req, res) {
             `SELECT 
                 t.id,
                 COALESCE(t.customer_name, u.name, 'Pelanggan Offline') AS customer,
-                COALESCE(t.customer_phone, u.phone_number, '—') AS phone,
+                COALESCE(t.customer_phone, u.phone_number, '\u2014') AS phone,
                 CASE 
                     WHEN t.booking_id IS NOT NULL THEN 'booking'
+                    WHEN t.rental_order_id IS NOT NULL THEN 'sewa_cart'
                     WHEN t.rental_id IS NOT NULL THEN 'sewa'
                     ELSE 'offline'
                 END AS type,
                 CASE 
                     WHEN t.booking_id IS NOT NULL THEN 'Booking Salon'
+                    WHEN t.rental_order_id IS NOT NULL THEN 'Sewa Pakaian (Keranjang)'
                     WHEN t.rental_id IS NOT NULL THEN 'Sewa Pakaian'
                     ELSE COALESCE(t.notes, 'Kasir Manual')
                 END AS description,
@@ -33,16 +35,19 @@ export async function getPaymentsForAdmin(req, res) {
                 t.total_amount AS amount,
                 COALESCE(
                     TO_CHAR(b.booking_datetime AT TIME ZONE 'Asia/Jakarta', 'DD Mon YYYY'),
+                    TO_CHAR(ro.created_at AT TIME ZONE 'Asia/Jakarta', 'DD Mon YYYY'),
                     TO_CHAR(r.start_date, 'DD Mon YYYY'),
                     TO_CHAR(t.created_at AT TIME ZONE 'Asia/Jakarta', 'DD Mon YYYY')
                 ) AS date,
                 TO_CHAR(t.created_at AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') AS payment_time,
                 t.payment_proof_sent,
-                COALESCE(t.category_type, 'web') AS category_type
+                COALESCE(t.category_type, 'web') AS category_type,
+                t.rental_order_id
              FROM transactions t
              LEFT JOIN "user" u ON t.user_id = u.id
              LEFT JOIN bookings b ON t.booking_id = b.id
              LEFT JOIN rentals r ON t.rental_id = r.id
+             LEFT JOIN rental_orders ro ON t.rental_order_id = ro.id
              ORDER BY t.id DESC`
         );
 
@@ -157,7 +162,7 @@ async function getAdminPhone() {
 
 export async function uploadPaymentProof(req, res) {
     try {
-        const { bookingId, rentalId, transactionId } = req.body;
+        const { bookingId, rentalId, rentalOrderId, transactionId } = req.body;
         if (!req.file) {
             return res.status(400).json({ error: 'File screenshot bukti pembayaran wajib diunggah.' });
         }
@@ -172,12 +177,13 @@ export async function uploadPaymentProof(req, res) {
             return res.status(400).json({ error: 'Ukuran file maksimal adalah 5MB.' });
         }
 
-        // Find transaction
+        // Find transaction — support rentalOrderId for cart checkouts
         let queryStr = `
-            SELECT t.id, t.total_amount, t.booking_id, t.rental_id, t.user_id,
-                   u.name AS customer_name, u.phone_number AS customer_phone
+            SELECT t.id, t.total_amount, t.booking_id, t.rental_id, t.rental_order_id, t.user_id,
+                   COALESCE(t.customer_name, u.name, 'Pelanggan') AS customer_name,
+                   COALESCE(t.customer_phone, u.phone_number) AS customer_phone
             FROM transactions t
-            JOIN "user" u ON t.user_id = u.id
+            LEFT JOIN "user" u ON t.user_id = u.id
         `;
         let params = [];
 
@@ -187,6 +193,9 @@ export async function uploadPaymentProof(req, res) {
         } else if (bookingId) {
             queryStr += ` WHERE t.booking_id = $1`;
             params = [bookingId];
+        } else if (rentalOrderId) {
+            queryStr += ` WHERE t.rental_order_id = $1`;
+            params = [rentalOrderId];
         } else if (rentalId) {
             queryStr += ` WHERE t.rental_id = $1`;
             params = [rentalId];
@@ -202,20 +211,29 @@ export async function uploadPaymentProof(req, res) {
         const transaction = trxRes.rows[0];
 
         // Format message
-        const typeStr = transaction.booking_id ? 'Booking Salon' : 'Sewa Baju';
-        const idStr = transaction.booking_id ? `#${transaction.booking_id}` : `#${transaction.rental_id}`;
+        let typeStr, idStr;
+        if (transaction.booking_id) {
+            typeStr = 'Booking Salon';
+            idStr = `#${transaction.booking_id}`;
+        } else if (transaction.rental_order_id) {
+            typeStr = 'Sewa Baju (Keranjang)';
+            idStr = `Cart #${transaction.rental_order_id}`;
+        } else {
+            typeStr = 'Sewa Baju';
+            idStr = `#${transaction.rental_id}`;
+        }
         
         // Format local date and time (Jakarta)
         const dateStr = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
 
         const caption = `Halo Admin Irma Wedding Salon,\n\n` +
             `Pelanggan telah mengirimkan bukti pembayaran QRIS Statis:\n\n` +
-            `• *Nama Pelanggan*: ${transaction.customer_name}\n` +
-            `• *No. WhatsApp*: ${transaction.customer_phone || '—'}\n` +
-            `• *Tipe Transaksi*: ${typeStr}\n` +
-            `• *ID Booking/Sewa*: ${idStr}\n` +
-            `• *Total Pembayaran*: ${formatRupiah(transaction.total_amount)}\n` +
-            `• *Waktu Pengiriman*: ${dateStr} WIB\n\n` +
+            `\u2022 *Nama Pelanggan*: ${transaction.customer_name}\n` +
+            `\u2022 *No. WhatsApp*: ${transaction.customer_phone || '\u2014'}\n` +
+            `\u2022 *Tipe Transaksi*: ${typeStr}\n` +
+            `\u2022 *ID Booking/Sewa*: ${idStr}\n` +
+            `\u2022 *Total Pembayaran*: ${formatRupiah(transaction.total_amount)}\n` +
+            `\u2022 *Waktu Pengiriman*: ${dateStr} WIB\n\n` +
             `Mohon verifikasi pembayaran ini di Dashboard Admin.`;
 
         // Get admin phone number

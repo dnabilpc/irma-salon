@@ -6,15 +6,17 @@ import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { createBooking, getSalonServices } from "@/actions/booking";
 import type { SalonService } from "@/actions/booking";
-import PaymentProofUpload from "@/components/payment/PaymentProofUpload";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-interface BookingForm {
-  serviceId: number | null;
+interface SelectedService {
+  serviceId: number;
+  serviceName: string;
+  price: number;
+  hourDuration: number;
+  isVariable: boolean;
   date: string;
   time: string;
-  notes: string;
 }
 
 interface SlotData {
@@ -64,22 +66,11 @@ function StepIndicator({
         const active = i === current;
         const isLast = i === STEPS.length - 1;
         const clickable = isStepClickable ? isStepClickable(i) : i <= current;
-
         return (
           <div key={i} style={{ display: "flex", alignItems: "center" }}>
             <div
-              onClick={() => {
-                if (clickable && onChangeStep) {
-                  onChangeStep(i);
-                }
-              }}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "6px",
-                cursor: clickable ? "pointer" : "not-allowed",
-              }}
+              onClick={() => { if (clickable && onChangeStep) onChangeStep(i); }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", cursor: clickable ? "pointer" : "not-allowed" }}
             >
               <div style={{
                 width: "36px", height: "36px", borderRadius: "50%",
@@ -114,23 +105,26 @@ function StepIndicator({
   );
 }
 
-// ── Step 1: Pilih Layanan ──────────────────────────────────────────────────
+// ── Step 1: Pilih Layanan (Multi-Select) ───────────────────────────────────
 
 function Step1({
-  selectedId, onSelect, services, loading,
+  selectedServices, onToggle, services, loading,
 }: {
-  selectedId: number | null;
-  onSelect: (id: number) => void;
+  selectedServices: SelectedService[];
+  onToggle: (svc: SalonService) => void;
   services: SalonService[];
   loading: boolean;
 }) {
   const ICONS: Record<string, string> = {
     "Hair Treatment": "✂️",
-    "Makeup & Rias":  "💄",
-    "Nail Care":      "💅",
+    "Makeup & Rias": "💄",
+    "Nail Care": "💅",
     "Facial & Skincare": "🌸",
-    "Rebonding":      "💫",
+    "Rebonding": "💫",
   };
+
+  const selectedIds = new Set(selectedServices.map((s) => s.serviceId));
+  const maxReached = selectedServices.length >= 5;
 
   if (loading) {
     return (
@@ -145,27 +139,37 @@ function Step1({
       <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>
         Pilih Layanan
       </h2>
-      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "24px" }}>
-        Pilih layanan yang ingin kamu booking
+      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "8px" }}>
+        Pilih satu atau lebih layanan (maks. 5). Tiap layanan bisa dijadwalkan di hari/jam berbeda.
       </p>
+
+      {selectedServices.length > 0 && (
+        <div style={{ background: "rgba(201,146,42,0.08)", border: "1px solid rgba(201,146,42,0.25)", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#8B6A5A" }}>
+          ✓ <strong style={{ color: "#6B3A2A" }}>{selectedServices.length} layanan</strong> dipilih
+          {maxReached && <span style={{ color: "#C9922A", marginLeft: "8px" }}>— batas maksimum tercapai</span>}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
         {services.map((svc) => {
-          const selected = selectedId === svc.id;
+          const isSelected = selectedIds.has(svc.id);
+          const isDisabled = !isSelected && maxReached;
           return (
             <button
               key={svc.id}
-              onClick={() => onSelect(svc.id)}
+              onClick={() => onToggle(svc)}
+              disabled={isDisabled}
               style={{
-                background: selected ? "#FDF0E6" : "white",
-                border: `2px solid ${selected ? "#C9922A" : "#EDD8CC"}`,
-                padding: "18px", textAlign: "left", cursor: "pointer",
+                background: isSelected ? "#FDF0E6" : isDisabled ? "#F5F0EB" : "white",
+                border: `2px solid ${isSelected ? "#C9922A" : "#EDD8CC"}`,
+                padding: "18px", textAlign: "left", cursor: isDisabled ? "not-allowed" : "pointer",
                 borderRadius: "8px", transition: "all 0.2s", position: "relative",
+                opacity: isDisabled ? 0.5 : 1,
               }}
-              onMouseEnter={(e) => { if (!selected) e.currentTarget.style.borderColor = "#C9922A"; }}
-              onMouseLeave={(e) => { if (!selected) e.currentTarget.style.borderColor = "#EDD8CC"; }}
+              onMouseEnter={(e) => { if (!isSelected && !isDisabled) e.currentTarget.style.borderColor = "#C9922A"; }}
+              onMouseLeave={(e) => { if (!isSelected && !isDisabled) e.currentTarget.style.borderColor = "#EDD8CC"; }}
             >
-              {selected && (
+              {isSelected && (
                 <div style={{ position: "absolute", top: "10px", right: "10px", width: "20px", height: "20px", borderRadius: "50%", background: "#C9922A", color: "white", fontSize: "0.65rem", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                   ✓
                 </div>
@@ -192,118 +196,182 @@ function Step1({
   );
 }
 
-// ── Step 2: Pilih Jadwal ───────────────────────────────────────────────────
+// ── Step 2: Pilih Jadwal Per Layanan ───────────────────────────────────────
 
 function Step2({
-  date, time, onDateChange, onTimeChange, slotData, slotLoading,
+  selectedServices, onUpdateSchedule,
 }: {
-  date: string;
-  time: string;
-  onDateChange: (d: string) => void;
-  onTimeChange: (t: string) => void;
-  slotData: SlotData | null;
-  slotLoading: boolean;
+  selectedServices: SelectedService[];
+  onUpdateSchedule: (serviceId: number, field: "date" | "time", value: string) => void;
 }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [slotDataMap, setSlotDataMap] = useState<Record<number, SlotData | null>>({});
+  const [slotLoadingMap, setSlotLoadingMap] = useState<Record<number, boolean>>({});
+
+  const activeSvc = selectedServices[activeIdx];
+
+  useEffect(() => {
+    if (!activeSvc?.date) return;
+    setSlotLoadingMap((prev) => ({ ...prev, [activeSvc.serviceId]: true }));
+    fetch(`/api/bookings/slots?date=${activeSvc.date}`)
+      .then((r) => r.json())
+      .then((data) => setSlotDataMap((prev) => ({
+        ...prev,
+        [activeSvc.serviceId]: {
+          available: data.available ?? [],
+          booked: data.booked ?? [],
+          closed: data.closed ?? false,
+          message: data.message,
+        },
+      })))
+      .catch(() => setSlotDataMap((prev) => ({ ...prev, [activeSvc.serviceId]: null })))
+      .finally(() => setSlotLoadingMap((prev) => ({ ...prev, [activeSvc.serviceId]: false })));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSvc?.date, activeSvc?.serviceId]);
+
   return (
     <div>
       <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "6px" }}>
-        Pilih Jadwal
+        Atur Jadwal Tiap Layanan
       </h2>
-      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "24px" }}>
-        Pilih tanggal dan jam kunjungan kamu
+      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "20px" }}>
+        Tiap layanan bisa dijadwalkan di tanggal dan jam yang berbeda.
       </p>
 
-      {/* Tanggal */}
-      <div style={{ marginBottom: "24px" }}>
-        <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-          Tanggal
-        </label>
-        <input
-          type="date"
-          value={date}
-          min={getTodayString()}
-          max={getMaxDateString()}
-          onChange={(e) => { onDateChange(e.target.value); onTimeChange(""); }}
-          style={{ width: "100%", padding: "11px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#2C1A0E", background: "#FDFAF7", outline: "none" }}
-          onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
-          onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
-        />
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
+        {selectedServices.map((svc, i) => {
+          const done = svc.date && svc.time;
+          return (
+            <button
+              key={svc.serviceId}
+              onClick={() => setActiveIdx(i)}
+              style={{
+                padding: "8px 14px",
+                borderRadius: "8px",
+                border: `2px solid ${activeIdx === i ? "#C9922A" : done ? "#6B3A2A" : "#EDD8CC"}`,
+                background: activeIdx === i ? "#FDF0E6" : done ? "rgba(107,58,42,0.06)" : "white",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                color: activeIdx === i ? "#6B3A2A" : done ? "#6B3A2A" : "#8B6A5A",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+            >
+              {done ? "✓ " : `${i + 1}. `}{svc.serviceName}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Slot jam */}
-      <div>
-        <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-          Jam Tersedia
-        </label>
-
-        {slotLoading && (
-          <div style={{ padding: "20px", textAlign: "center", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
-            Memuat slot waktu...
+      {/* Active service schedule form */}
+      {activeSvc && (
+        <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "10px", padding: "20px" }}>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "16px" }}>
+            Jadwal: {activeSvc.serviceName}
           </div>
-        )}
 
-        {!slotLoading && !date && (
-          <div style={{ padding: "20px", background: "#FDFAF7", border: "1px dashed #EDD8CC", borderRadius: "8px", textAlign: "center", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
-            Pilih tanggal terlebih dahulu
+          {/* Tanggal */}
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
+              Tanggal
+            </label>
+            <input
+              type="date"
+              value={activeSvc.date}
+              min={getTodayString()}
+              max={getMaxDateString()}
+              onChange={(e) => {
+                onUpdateSchedule(activeSvc.serviceId, "date", e.target.value);
+                onUpdateSchedule(activeSvc.serviceId, "time", "");
+              }}
+              style={{ width: "100%", padding: "11px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#2C1A0E", background: "white", outline: "none" }}
+            />
           </div>
-        )}
 
-        {!slotLoading && slotData?.closed && (
-          <div style={{ padding: "16px", background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", textAlign: "center", color: "#C05060", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
-            🚫 {slotData.message ?? "Salon tidak beroperasi pada tanggal ini"}
-          </div>
-        )}
-
-        {!slotLoading && date && slotData && !slotData.closed && (
-          <>
-            {slotData.available.length === 0 ? (
-              <div style={{ padding: "16px", background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", textAlign: "center", color: "#C05060", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
-                Semua slot sudah penuh untuk tanggal ini
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
-                {slotData.available.map((slot) => (
-                  <button
-                    key={slot}
-                    onClick={() => onTimeChange(slot)}
-                    style={{
-                      padding: "10px 6px",
-                      border: `2px solid ${time === slot ? "#C9922A" : "#EDD8CC"}`,
-                      background: time === slot ? "#FDF0E6" : "white",
-                      borderRadius: "8px",
-                      fontFamily: "'DM Mono', monospace",
-                      fontSize: "0.8rem",
-                      fontWeight: time === slot ? 600 : 400,
-                      color: time === slot ? "#6B3A2A" : "#2C1A0E",
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    {slot}
-                  </button>
-                ))}
-                {slotData.booked.map((slot) => (
-                  <button
-                    key={`booked-${slot}`}
-                    disabled
-                    style={{ padding: "10px 6px", border: "1px solid #EDD8CC", background: "#F5F0EB", borderRadius: "8px", fontFamily: "'DM Mono', monospace", fontSize: "0.8rem", color: "#C4A882", cursor: "not-allowed", textDecoration: "line-through" }}
-                  >
-                    {slot}
-                  </button>
-                ))}
+          {/* Slot jam */}
+          <div>
+            <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
+              Jam Tersedia
+            </label>
+            {slotLoadingMap[activeSvc.serviceId] && (
+              <div style={{ padding: "20px", textAlign: "center", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
+                Memuat slot waktu...
               </div>
             )}
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#B09080", marginTop: "8px" }}>
-              ✦ Slot yang dicoret sudah dipesan
-            </p>
-          </>
-        )}
-      </div>
+            {!slotLoadingMap[activeSvc.serviceId] && !activeSvc.date && (
+              <div style={{ padding: "16px", background: "white", border: "1px dashed #EDD8CC", borderRadius: "8px", textAlign: "center", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
+                Pilih tanggal terlebih dahulu
+              </div>
+            )}
+            {!slotLoadingMap[activeSvc.serviceId] && slotDataMap[activeSvc.serviceId]?.closed && (
+              <div style={{ padding: "16px", background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", textAlign: "center", color: "#C05060", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
+                🚫 {slotDataMap[activeSvc.serviceId]?.message ?? "Salon tidak beroperasi pada tanggal ini"}
+              </div>
+            )}
+            {!slotLoadingMap[activeSvc.serviceId] && activeSvc.date && slotDataMap[activeSvc.serviceId] && !slotDataMap[activeSvc.serviceId]?.closed && (
+              <>
+                {(slotDataMap[activeSvc.serviceId]?.available?.length ?? 0) === 0 ? (
+                  <div style={{ padding: "16px", background: "rgba(192,80,96,0.06)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", textAlign: "center", color: "#C05060", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem" }}>
+                    Semua slot sudah penuh untuk tanggal ini
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                    {slotDataMap[activeSvc.serviceId]?.available?.map((slot) => (
+                      <button
+                        key={slot}
+                        onClick={() => onUpdateSchedule(activeSvc.serviceId, "time", slot)}
+                        style={{
+                          padding: "10px 6px",
+                          border: `2px solid ${activeSvc.time === slot ? "#C9922A" : "#EDD8CC"}`,
+                          background: activeSvc.time === slot ? "#FDF0E6" : "white",
+                          borderRadius: "8px",
+                          fontFamily: "'DM Mono', monospace",
+                          fontSize: "0.8rem",
+                          fontWeight: activeSvc.time === slot ? 600 : 400,
+                          color: activeSvc.time === slot ? "#6B3A2A" : "#2C1A0E",
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                    {slotDataMap[activeSvc.serviceId]?.booked?.map((slot) => (
+                      <button
+                        key={`booked-${slot}`}
+                        disabled
+                        style={{ padding: "10px 6px", border: "1px solid #EDD8CC", background: "#F5F0EB", borderRadius: "8px", fontFamily: "'DM Mono', monospace", fontSize: "0.8rem", color: "#C4A882", cursor: "not-allowed", textDecoration: "line-through" }}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#B09080", marginTop: "8px" }}>
+                  ✦ Slot yang dicoret sudah dipesan
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Navigation hint */}
+          {activeIdx < selectedServices.length - 1 && activeSvc.date && activeSvc.time && (
+            <button
+              onClick={() => setActiveIdx((i) => i + 1)}
+              style={{ marginTop: "16px", padding: "10px 20px", background: "#6B3A2A", color: "white", border: "none", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+            >
+              Layanan Berikutnya →
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Step 3: Catatan Tambahan ───────────────────────────────────────────────
+// ── Step 3: Catatan ────────────────────────────────────────────────────────
 
 function Step3({
   notes, onChange, userName, userEmail,
@@ -321,26 +389,18 @@ function Step3({
       <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "#8B6A5A", marginBottom: "24px" }}>
         Booking akan tercatat atas nama akunmu
       </p>
-
-      {/* Info akun */}
       <div style={{ background: "rgba(201,146,42,0.06)", border: "1px solid rgba(201,146,42,0.2)", borderRadius: "8px", padding: "14px 16px", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px" }}>
         <div style={{ width: "38px", height: "38px", borderRadius: "50%", background: "linear-gradient(135deg, #6B3A2A, #C9922A)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "0.85rem", fontWeight: 700, flexShrink: 0 }}>
           {userName.slice(0, 1).toUpperCase()}
         </div>
         <div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#2C1A0E" }}>
-            {userName}
-          </div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#8B6A5A" }}>
-            {userEmail}
-          </div>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#2C1A0E" }}>{userName}</div>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#8B6A5A" }}>{userEmail}</div>
         </div>
         <div style={{ marginLeft: "auto", fontSize: "0.68rem", color: "#C9922A", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
           ✓ Terverifikasi
         </div>
       </div>
-
-      {/* Catatan */}
       <div>
         <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
           Catatan untuk Salon <span style={{ color: "#8B6A5A", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(opsional)</span>
@@ -350,7 +410,7 @@ function Step3({
           placeholder="Contoh: ada alergi tertentu, request khusus, dll..."
           rows={4}
           onChange={(e) => onChange(e.target.value)}
-          style={{ width: "100%", padding: "11px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", background: "#FDFAF7", outline: "none", resize: "vertical", lineHeight: 1.6, transition: "border-color 0.2s" }}
+          style={{ width: "100%", padding: "11px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", background: "#FDFAF7", outline: "none", resize: "vertical", lineHeight: 1.6 }}
           onFocus={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
           onBlur={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
         />
@@ -359,39 +419,26 @@ function Step3({
   );
 }
 
-// ── ConfirmRow (di luar Step4) ─────────────────────────────────────────────
-
-function ConfirmRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid #EDD8CC" }}>
-      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-        {label}
-      </span>
-      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: accent ? "#6B3A2A" : "#2C1A0E", fontWeight: accent ? 700 : 500, textAlign: "right", maxWidth: "65%" }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
 // ── Step 4: Konfirmasi ─────────────────────────────────────────────────────
 
 function Step4({
-  form, submitting, onSubmit, services, error, userName, userPhone, paymentMethod
+  selectedServices, notes, submitting, onSubmit, error, userName, userPhone,
 }: {
-  form: BookingForm;
+  selectedServices: SelectedService[];
+  notes: string;
   submitting: boolean;
   onSubmit: () => void;
-  services: SalonService[];
   error: string;
   userName: string;
   userPhone: string;
-  paymentMethod: "qris";
 }) {
-  const service = services.find((s) => s.id === form.serviceId);
-  const isVariable = !!service?.is_price_variable;
-  const subtotal = service?.price ?? 0;
-  const totalAmount = subtotal;
+  const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const hasVariable = selectedServices.some((s) => s.isVariable);
+
+  const formatDateTime = (date: string, time: string) => {
+    const d = new Date(`${date}T${time}:00`);
+    return d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + ` – ${time} WIB`;
+  };
 
   return (
     <div>
@@ -402,97 +449,71 @@ function Step4({
         Periksa kembali detail booking kamu
       </p>
 
-      {/* Detail */}
-      <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "0 18px", marginBottom: "18px" }}>
-        <ConfirmRow label="Layanan" value={service?.service_name ?? "-"} />
-        <ConfirmRow label="Durasi"  value={`${service?.hour_duration ?? "-"} jam`} />
-        <ConfirmRow
-          label="Tanggal"
-          value={new Date(form.date + "T00:00:00").toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-        />
-        <ConfirmRow label="Jam"   value={`${form.time} WIB`} />
-        <ConfirmRow label="Nama"  value={userName} />
-        {userPhone && <ConfirmRow label="WhatsApp" value={userPhone} />}
-        {form.notes && <ConfirmRow label="Catatan" value={form.notes} />}
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0" }}>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            Pembayaran
-          </span>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#5A9E7A", fontWeight: 600 }}>
-            QRIS Statis
-          </span>
-        </div>
+      {/* Services List */}
+      <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", overflow: "hidden", marginBottom: "16px" }}>
+        {selectedServices.map((svc, i) => (
+          <div key={svc.serviceId} style={{ padding: "14px 18px", borderBottom: i < selectedServices.length - 1 ? "1px solid #EDD8CC" : "none" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", fontWeight: 600, color: "#2C1A0E" }}>
+                {svc.serviceName}
+              </span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", fontWeight: 700, color: "#6B3A2A", whiteSpace: "nowrap", marginLeft: "12px" }}>
+                {svc.isVariable ? "Mulai " : ""}{formatRupiah(svc.price)}
+              </span>
+            </div>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#8B6A5A" }}>
+              📅 {formatDateTime(svc.date, svc.time)} · ⏱ {svc.hourDuration} jam
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Pilihan Metode Pembayaran (Locked to QRIS Statis) */}
-      <div style={{ marginBottom: "20px" }}>
-        <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "10px" }}>
-          Metode Pembayaran
-        </label>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          padding: "12px 14px",
-          background: "#FDF0E6",
-          border: "2px solid #C9922A",
-          borderRadius: "8px",
-        }}>
-          <span style={{ fontSize: "1.4rem" }}>📱</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E" }}>QRIS Statis</div>
-            <div style={{ fontSize: "0.72rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif", marginTop: "2px" }}>Pembayaran via scan QRIS Rumah Cantik Irma</div>
+      {/* Customer Info */}
+      <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "0 18px", marginBottom: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #EDD8CC" }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", textTransform: "uppercase", letterSpacing: "0.06em" }}>Nama</span>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", fontWeight: 500 }}>{userName}</span>
+        </div>
+        {userPhone && (
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #EDD8CC" }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", textTransform: "uppercase", letterSpacing: "0.06em" }}>WhatsApp</span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", fontWeight: 500 }}>{userPhone}</span>
           </div>
-          <div style={{
-            width: "16px",
-            height: "16px",
-            borderRadius: "50%",
-            border: "2px solid #C9922A",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#C9922A"
-          }}>
-            <span style={{ color: "white", fontSize: "0.6rem" }}>✓</span>
+        )}
+        {notes && (
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #EDD8CC" }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", textTransform: "uppercase", letterSpacing: "0.06em" }}>Catatan</span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>{notes}</span>
           </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0" }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#8B6A5A", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pembayaran</span>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#5A9E7A", fontWeight: 600 }}>QRIS Statis</span>
         </div>
       </div>
 
       {/* Total */}
       <div style={{ background: "#6B3A2A", padding: "14px 18px", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
         <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", color: "rgba(255,255,255,0.7)" }}>
-          {isVariable ? "Estimasi Total (Mulai Dari)" : "Estimasi Total"}
+          {hasVariable ? "Estimasi Total (Mulai Dari)" : "Estimasi Total"}
         </span>
         <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.2rem", fontWeight: 700, color: "#F5D49A" }}>
-          {formatRupiah(totalAmount)}
+          {formatRupiah(total)}
         </span>
       </div>
 
-      {/* Error */}
+      {hasVariable && (
+        <div style={{ background: "rgba(201,146,42,0.08)", border: "1px solid rgba(201,146,42,0.25)", borderRadius: "8px", padding: "11px 14px", marginBottom: "14px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "#8B6A5A", lineHeight: 1.6 }}>
+          <strong>Catatan:</strong> Terdapat layanan dengan harga bervariasi. Harga final ditentukan di salon setelah konsultasi selesai.
+        </div>
+      )}
+
       {error && (
         <div style={{ background: "rgba(192,80,96,0.07)", border: "1px solid rgba(192,80,96,0.2)", borderRadius: "8px", padding: "11px 14px", marginBottom: "14px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#C05060" }}>
           ⚠️ {error}
         </div>
       )}
 
-      {/* Catatan harga variabel */}
-      {isVariable && (
-        <div style={{ 
-          background: "rgba(201,146,42,0.08)", 
-          border: "1px solid rgba(201,146,42,0.25)", 
-          borderRadius: "8px", 
-          padding: "11px 14px", 
-          marginBottom: "18px", 
-          fontFamily: "'DM Sans', sans-serif", 
-          fontSize: "0.78rem", 
-          color: "#8B6A5A", 
-          lineHeight: 1.6 
-        }}>
-          <strong>Catatan:</strong> Anda memilih layanan dengan harga bervariasi (<strong>{service?.service_name}</strong>). Estimasi total di atas adalah harga minimum. Harga final akan ditentukan di salon setelah konsultasi/layanan selesai.
-        </div>
-      )}
-
-      {/* Info */}
       <div style={{ background: "rgba(90,158,122,0.07)", border: "1px solid rgba(90,158,122,0.2)", borderRadius: "8px", padding: "11px 14px", marginBottom: "18px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "#3A9B6A", lineHeight: 1.6 }}>
         ✓ Booking akan dikonfirmasi oleh admin setelah Anda menyelesaikan pembayaran via scan QRIS Statis.
       </div>
@@ -504,7 +525,7 @@ function Step4({
         onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.background = "#C9922A"; }}
         onMouseLeave={(e) => { if (!submitting) e.currentTarget.style.background = "#6B3A2A"; }}
       >
-        {submitting ? "Memproses..." : "Konfirmasi Booking"}
+        {submitting ? "Memproses..." : `Konfirmasi ${selectedServices.length} Booking`}
       </button>
     </div>
   );
@@ -516,28 +537,15 @@ export default function BookingPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
 
-  const [step, setStep]           = useState(0);
+  const [step, setStep]             = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess]     = useState(false);
-  const [bookingId, setBookingId] = useState<number | null>(null);
-  const [error, setError]         = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"qris">("qris");
-  const [redirectUrl, setRedirectUrl]     = useState<string | null>(null);
-  const [qrisImageError, setQrisImageError] = useState(false);
+  const [error, setError]           = useState("");
+  const [notes, setNotes]           = useState("");
+  const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
 
   const [services, setServices]           = useState<SalonService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
-  const [slotData, setSlotData]           = useState<SlotData | null>(null);
-  const [slotLoading, setSlotLoading]     = useState(false);
 
-  const [form, setForm] = useState<BookingForm>({
-    serviceId: null,
-    date: "",
-    time: "",
-    notes: "",
-  });
-
-  // Fetch layanan dari DB
   useEffect(() => {
     getSalonServices().then((res) => {
       if (res.success && res.data) setServices(res.data);
@@ -545,55 +553,59 @@ export default function BookingPage() {
     });
   }, []);
 
-  // Fetch slot saat tanggal berubah
-  useEffect(() => {
-    if (!form.date) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSlotLoading(true);
-    fetch(`/api/bookings/slots?date=${form.date}`)
-      .then((r) => r.json())
-      .then((data) => setSlotData({
-        available: data.available ?? [],
-        booked:    data.booked ?? [],
-        closed:    data.closed ?? false,
-        message:   data.message,
-      }))
-      .catch(() => setSlotData(null))
-      .finally(() => setSlotLoading(false));
-  }, [form.date]);
+  function toggleService(svc: SalonService) {
+    setSelectedServices((prev) => {
+      const exists = prev.find((s) => s.serviceId === svc.id);
+      if (exists) return prev.filter((s) => s.serviceId !== svc.id);
+      if (prev.length >= 5) return prev;
+      return [...prev, {
+        serviceId: svc.id,
+        serviceName: svc.service_name,
+        price: svc.price,
+        hourDuration: svc.hour_duration,
+        isVariable: !!svc.is_price_variable,
+        date: "",
+        time: "",
+      }];
+    });
+  }
 
-  function updateForm<K extends keyof BookingForm>(key: K, value: BookingForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  function updateSchedule(serviceId: number, field: "date" | "time", value: string) {
+    setSelectedServices((prev) =>
+      prev.map((s) => s.serviceId === serviceId ? { ...s, [field]: value } : s)
+    );
+  }
+
+  function allSchedulesFilled() {
+    return selectedServices.every((s) => s.date && s.time);
   }
 
   function canProceed(): boolean {
-    if (step === 0) return form.serviceId !== null;
-    if (step === 1) return form.date !== "" && form.time !== "";
-    if (step === 2) return true; // catatan opsional, selalu bisa lanjut
+    if (step === 0) return selectedServices.length > 0;
+    if (step === 1) return allSchedulesFilled();
+    if (step === 2) return true;
     return true;
   }
 
   async function handleSubmit() {
-    if (!form.serviceId || !form.date || !form.time) return;
+    if (!allSchedulesFilled()) return;
     setSubmitting(true);
     setError("");
 
-    const booking_datetime = `${form.date}T${form.time}:00+07:00`;
+    const service_schedules = selectedServices.map((s) => ({
+      service_id: s.serviceId,
+      booking_datetime: `${s.date}T${s.time}:00+07:00`,
+    }));
 
     try {
       const result = await createBooking({
-        booking_datetime,
-        service_ids: [form.serviceId],
-        payment_method: paymentMethod,
+        service_schedules,
+        payment_method: "qris",
       });
 
       if (result.success && result.data) {
         if (result.data.transactionId) {
           router.push(`/invoice/${result.data.transactionId}`);
-        } else {
-          setBookingId(result.data.bookingId);
-          setRedirectUrl(result.data.redirect_url || null);
-          setSuccess(true);
         }
       } else {
         setError(result.error ?? "Gagal membuat booking. Silakan coba lagi.");
@@ -605,8 +617,6 @@ export default function BookingPage() {
     }
   }
 
-  // ── Loading ──
-
   if (isPending) {
     return (
       <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif", color: "#8B6A5A" }}>
@@ -614,8 +624,6 @@ export default function BookingPage() {
       </div>
     );
   }
-
-  // ── Belum login ──
 
   if (!session) {
     return (
@@ -635,9 +643,7 @@ export default function BookingPage() {
             Login
           </button>
           <Link href="/register">
-            <button
-              style={{ background: "transparent", color: "#6B3A2A", border: "1.5px solid #6B3A2A", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
-            >
+            <button style={{ background: "transparent", color: "#6B3A2A", border: "1.5px solid #6B3A2A", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}>
               Daftar Akun
             </button>
           </Link>
@@ -646,122 +652,9 @@ export default function BookingPage() {
     );
   }
 
-  // ── Sukses ──
-
-  if (success) {
-    return (
-      <div style={{ minHeight: "70vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", textAlign: "center" }}>
-        <div style={{ fontSize: "3.5rem", marginBottom: "16px" }}>🎉</div>
-        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.8rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "12px" }}>
-          Booking Berhasil!
-        </h1>
-        {bookingId && (
-          <div style={{ background: "rgba(201,146,42,0.1)", border: "1px solid rgba(201,146,42,0.3)", borderRadius: "8px", padding: "8px 20px", marginBottom: "14px", fontFamily: "'DM Mono', monospace", fontSize: "0.82rem", color: "#C9922A" }}>
-            ID Booking: #{bookingId}
-          </div>
-        )}
-        
-        <>
-          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", color: "#8B6A5A", maxWidth: "440px", lineHeight: 1.7, marginBottom: "8px" }}>
-            Booking kamu sudah diterima dan menunggu konfirmasi admin. Silakan lakukan pembayaran via scan QRIS Statis di bawah ini dan tunjukkan bukti transaksi kepada petugas saat kedatangan.
-          </p>
-          
-          {/* QRIS Card */}
-          <div style={{ 
-            background: "white", 
-            border: "2px solid #EDD8CC", 
-            borderRadius: "12px", 
-            padding: "16px", 
-            margin: "12px auto 20px", 
-            maxWidth: "280px",
-            boxShadow: "0 8px 24px rgba(107,58,42,0.08)",
-            textAlign: "center"
-          }}>
-            <div style={{ background: "#004b7b", color: "white", padding: "6px", borderRadius: "6px 6px 0 0", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em" }}>
-              QRIS
-            </div>
-            <div style={{ border: "1px solid #EDD8CC", borderTop: "none", padding: "16px 12px 12px", borderRadius: "0 0 6px 6px" }}>
-              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
-                RUMAH CANTIK IRMA
-              </div>
-              <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
-                NMID: ID1020304050607
-              </div>
-              {!qrisImageError ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img 
-                  src="/qris.png" 
-                  alt="QRIS Rumah Cantik Irma" 
-                  onError={() => setQrisImageError(true)}
-                  style={{ width: "180px", height: "180px", objectFit: "contain", margin: "0 auto 12px", display: "block" }} 
-                />
-              ) : (
-                /* Mock QR Pattern in pure CSS */
-                <div style={{ 
-                  width: "180px", 
-                  height: "180px", 
-                  background: "radial-gradient(circle, #2C1A0E 10%, transparent 11%), repeating-linear-gradient(45deg, #2C1A0E 0px, #2C1A0E 2px, transparent 2px, transparent 10px)", 
-                  border: "6px solid #2C1A0E", 
-                  borderRadius: "8px",
-                  margin: "0 auto 12px", 
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}>
-                  {/* Position detection patterns (corners) */}
-                  <div style={{ position: "absolute", top: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                  <div style={{ position: "absolute", top: "2px", right: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                  <div style={{ position: "absolute", bottom: "2px", left: "2px", width: "36px", height: "36px", border: "8px solid #2C1A0E", background: "white", boxSizing: "border-box" }} />
-                  {/* Center branding box */}
-                  <div style={{ background: "white", padding: "4px 8px", border: "2px solid #2C1A0E", borderRadius: "4px", fontSize: "0.65rem", fontWeight: 700, color: "#C9922A", zIndex: 5 }}>
-                    IRMA
-                  </div>
-                </div>
-              )}
-              <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontWeight: 500 }}>
-                Scan dengan E-Wallet atau Mobile Banking
-              </div>
-            </div>
-          </div>
-          
-          <PaymentProofUpload bookingId={Number(bookingId)} />
-          
-          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "#8B6A5A", maxWidth: "400px", lineHeight: 1.7, marginBottom: "32px" }}>
-            Silakan lakukan pembayaran sesuai dengan total biaya booking di atas menggunakan QRIS Statis, lalu simpan bukti pembayaran Anda untuk ditunjukkan ke salon saat kedatangan.
-          </p>
-        </>
-
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
-          <button
-            onClick={() => router.push("/")}
-            style={{ background: "#6B3A2A", color: "white", border: "none", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
-          >
-            Kembali ke Beranda
-          </button>
-          <button
-            onClick={() => {
-              setSuccess(false);
-              setStep(0);
-              setForm({ serviceId: null, date: "", time: "", notes: "" });
-              setError("");
-              setPaymentMethod("qris");
-              setRedirectUrl(null);
-            }}
-            style={{ background: "transparent", color: "#6B3A2A", border: "1.5px solid #6B3A2A", padding: "12px 28px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", borderRadius: "8px" }}
-          >
-            Booking Lagi
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const userName  = session.user.name ?? "";
   const userEmail = session.user.email ?? "";
   const userPhone = (session.user as { phone_number?: string }).phone_number ?? "";
-
-  // ── Form ──
 
   return (
     <div style={{ minHeight: "100vh", paddingTop: "100px", paddingBottom: "80px", background: "#FDF8F3" }}>
@@ -787,9 +680,9 @@ export default function BookingPage() {
           onChangeStep={(s) => setStep(s)}
           isStepClickable={(i) => {
             if (i === 0) return true;
-            if (i === 1) return form.serviceId !== null;
-            if (i === 2) return form.serviceId !== null && form.date !== "" && form.time !== "";
-            if (i === 3) return form.serviceId !== null && form.date !== "" && form.time !== "";
+            if (i === 1) return selectedServices.length > 0;
+            if (i === 2) return selectedServices.length > 0 && allSchedulesFilled();
+            if (i === 3) return selectedServices.length > 0 && allSchedulesFilled();
             return false;
           }}
         />
@@ -798,43 +691,35 @@ export default function BookingPage() {
         <div style={{ background: "white", border: "1px solid #EDD8CC", borderRadius: "12px", padding: "32px", boxShadow: "0 4px 24px rgba(107,58,42,0.06)" }}>
           {step === 0 && (
             <Step1
-              selectedId={form.serviceId}
-              onSelect={(id) => updateForm("serviceId", id)}
+              selectedServices={selectedServices}
+              onToggle={toggleService}
               services={services}
               loading={servicesLoading}
             />
           )}
           {step === 1 && (
             <Step2
-              date={form.date}
-              time={form.time}
-              onDateChange={(d) => {
-                updateForm("date", d);
-                if (!d) setSlotData(null);
-              }}
-              onTimeChange={(t) => updateForm("time", t)}
-              slotData={slotData}
-              slotLoading={slotLoading}
+              selectedServices={selectedServices}
+              onUpdateSchedule={updateSchedule}
             />
           )}
           {step === 2 && (
             <Step3
-              notes={form.notes}
-              onChange={(notes) => updateForm("notes", notes)}
+              notes={notes}
+              onChange={setNotes}
               userName={userName}
               userEmail={userEmail}
             />
           )}
           {step === 3 && (
             <Step4
-              form={form}
+              selectedServices={selectedServices}
+              notes={notes}
               submitting={submitting}
               onSubmit={handleSubmit}
-              services={services}
               error={error}
               userName={userName}
               userPhone={userPhone}
-              paymentMethod={paymentMethod}
             />
           )}
 
@@ -844,7 +729,7 @@ export default function BookingPage() {
               {step > 0 && (
                 <button
                   onClick={() => setStep((s) => s - 1)}
-                  style={{ background: "transparent", border: "1px solid #EDD8CC", color: "#8B6A5A", padding: "10px 22px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", cursor: "pointer", borderRadius: "8px", transition: "border-color 0.2s" }}
+                  style={{ background: "transparent", border: "1px solid #EDD8CC", color: "#8B6A5A", padding: "10px 22px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", cursor: "pointer", borderRadius: "8px" }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#C9922A")}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#EDD8CC")}
                 >

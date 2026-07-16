@@ -218,6 +218,50 @@ async function runMigrations() {
             ADD COLUMN IF NOT EXISTS target_age VARCHAR(20) DEFAULT 'semua_umur';
         `);
         console.log('[Migration] Gender, target_gender, target_age, offline transactions, and VTO settings ready.');
+
+        // ── Multi-Item Cart Migrations ───────────────────────────────────────
+        // 1. rental_orders: parent "cart order" for grouping multiple rentals in 1 transaction
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS rental_orders (
+                id             SERIAL PRIMARY KEY,
+                user_id        TEXT REFERENCES "user"(id) ON DELETE SET NULL,
+                created_at     TIMESTAMPTZ DEFAULT NOW(),
+                notes          TEXT,
+                customer_name  VARCHAR(255),
+                customer_phone VARCHAR(50)
+            )
+        `);
+        console.log('[Migration] rental_orders table ready.');
+
+        // 2. rentals: add rental_order_id FK (nullable for backward compat with single-item rentals)
+        await pool.query(`
+            ALTER TABLE rentals
+            ADD COLUMN IF NOT EXISTS rental_order_id INTEGER REFERENCES rental_orders(id) ON DELETE SET NULL
+        `);
+        console.log('[Migration] rentals.rental_order_id column ready.');
+
+        // 3. transactions: add rental_order_id FK (nullable; new cart checkouts use this, legacy use rental_id)
+        await pool.query(`
+            ALTER TABLE transactions
+            ADD COLUMN IF NOT EXISTS rental_order_id INTEGER REFERENCES rental_orders(id) ON DELETE SET NULL
+        `);
+        console.log('[Migration] transactions.rental_order_id column ready.');
+
+        // 4. booking_details: add booking_datetime per item (each service can have its own schedule)
+        await pool.query(`
+            ALTER TABLE booking_details
+            ADD COLUMN IF NOT EXISTS booking_datetime TIMESTAMPTZ
+        `);
+        // Back-fill existing booking_details rows from parent bookings.booking_datetime
+        await pool.query(`
+            UPDATE booking_details bd
+            SET booking_datetime = b.booking_datetime
+            FROM bookings b
+            WHERE b.id = bd.booking_id
+              AND bd.booking_datetime IS NULL
+        `);
+        console.log('[Migration] booking_details.booking_datetime column ready (back-filled from bookings).');
+        // ── End Multi-Item Cart Migrations ──────────────────────────────────
     } catch (err) {
         console.error('[Migration] Failed:', err.message);
     }

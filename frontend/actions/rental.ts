@@ -167,3 +167,39 @@ export async function cancelRental(rentalId: number): Promise<ActionResult> {
     return { success: false, error: "Gagal membatalkan sewa." };
   }
 }
+
+// ── CREATE RENTAL CART (Customer) ───────────────────────────────────────────
+
+export interface RentalCartItemInput {
+  outfit_catalogues_id: number;
+  start_date: string;
+  duration_days: number;
+}
+
+export interface CreateRentalCartInput {
+  items: RentalCartItemInput[];
+  payment_method: string;
+  notes?: string;
+}
+
+export async function createRentalCart(
+  input: CreateRentalCartInput
+): Promise<ActionResult<{ rentalOrderId: number; rentalIds: number[]; transactionId: number }>> {
+  try {
+    const response = await backendFetch("/api/rentals/cart", {
+      method: "POST",
+      body: input,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || "Gagal membuat pesanan sewa." };
+    }
+
+    revalidatePath("/rent");
+    return { success: true, data };
+  } catch (err) {
+    console.error("[createRentalCart]", err);
+    return { success: false, error: "Terjadi kesalahan sistem." };
+  }
+}

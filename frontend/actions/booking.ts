@@ -19,9 +19,15 @@ export interface BookingRow {
   transaction_id: number | null;
 }
 
-export interface CreateBookingInput {
+export interface ServiceScheduleInput {
+  service_id: number;
   booking_datetime: string;
-  service_ids: number[];
+}
+
+export interface CreateBookingInput {
+  booking_datetime?: string;
+  service_ids?: number[];
+  service_schedules?: ServiceScheduleInput[];
   payment_method?: string;
 }
 

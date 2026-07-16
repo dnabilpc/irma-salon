@@ -391,10 +391,198 @@ export async function getAvailableSlots(req, res) {
 }
 
 // ── CREATE BOOKING (Customer) ──────────────────────────────────────────────
+// Accepts two input modes:
+// NEW: { service_schedules: [{service_id, booking_datetime}], payment_method }
+// LEGACY: { service_ids: [number], booking_datetime, payment_method }
 
 export async function createBooking(req, res) {
     const userId = req.user.id;
-    const { booking_datetime, service_ids, payment_method = 'cash' } = req.body;
+    const { service_schedules, service_ids, booking_datetime, payment_method = 'cash' } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ error: "Unauthorized: User ID is missing." });
+    }
+
+    // Normalise into unified schedule array regardless of input mode
+    let schedules; // [{ service_id, booking_datetime }]
+    if (service_schedules?.length) {
+        schedules = service_schedules;
+    } else if (service_ids?.length && booking_datetime) {
+        // Legacy: wrap single datetime for all services
+        schedules = service_ids.map((id) => ({ service_id: id, booking_datetime }));
+    } else {
+        return res.status(400).json({ error: "Data booking tidak lengkap." });
+    }
+
+    if (schedules.length === 0) {
+        return res.status(400).json({ error: "Pilih minimal 1 layanan untuk di-booking." });
+    }
+    if (schedules.length > 5) {
+        return res.status(400).json({ error: "Maksimal 5 layanan per booking dalam sekali transaksi." });
+    }
+
+    const validMethods = ['qris'];
+    if (!validMethods.includes(payment_method)) {
+        return res.status(400).json({ error: "Metode pembayaran tidak valid. Booking salon hanya menerima QRIS Statis." });
+    }
+
+    // Validate each schedule datetime
+    const minBookingTime = new Date(Date.now() + 3 * 60 * 60 * 1000 - 5 * 60 * 1000);
+    const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const maxBookingDateObj = new Date(nowJakarta.getTime() + 21 * 24 * 60 * 60 * 1000);
+    const maxBookingDateStr = maxBookingDateObj.getFullYear() + '-' +
+        String(maxBookingDateObj.getMonth() + 1).padStart(2, '0') + '-' +
+        String(maxBookingDateObj.getDate()).padStart(2, '0');
+
+    for (const sched of schedules) {
+        const dt = new Date(sched.booking_datetime);
+        if (isNaN(dt)) {
+            return res.status(400).json({ error: "Format tanggal/waktu tidak valid." });
+        }
+        if (dt < minBookingTime) {
+            return res.status(400).json({ error: "Booking harus dipesan minimal 3 jam sebelum waktu yang diinginkan." });
+        }
+        const dtJakarta = new Date(dt.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const dtStr = dtJakarta.getFullYear() + '-' +
+            String(dtJakarta.getMonth() + 1).padStart(2, '0') + '-' +
+            String(dtJakarta.getDate()).padStart(2, '0');
+        if (dtStr > maxBookingDateStr) {
+            return res.status(400).json({ error: "Booking tidak boleh lebih dari 3 minggu ke depan." });
+        }
+    }
+
+    try {
+        const serviceIdList = schedules.map((s) => s.service_id);
+
+        // Fetch all requested services
+        const serviceRows = await pool.query(
+            `SELECT id, service_name, price, hour_duration
+             FROM salon_services WHERE id = ANY($1)`,
+            [serviceIdList]
+        );
+        if (serviceRows.rows.length !== serviceIdList.length) {
+            return res.status(400).json({ error: "Salah satu layanan tidak ditemukan atau tidak aktif." });
+        }
+        const serviceMap = Object.fromEntries(serviceRows.rows.map((s) => [s.id, s]));
+
+        // Validate slot overlap per schedule (each service can be on different day/time)
+        for (const sched of schedules) {
+            const svc = serviceMap[sched.service_id];
+            const proposedStart = new Date(sched.booking_datetime);
+            const proposedDurationMins = Math.round(parseFloat(svc.hour_duration || 0.5) * 60);
+            const proposedEnd = new Date(proposedStart.getTime() + proposedDurationMins * 60 * 1000);
+
+            const tzDate = new Date(proposedStart.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+            const dateStr = tzDate.getFullYear() + '-' +
+                String(tzDate.getMonth() + 1).padStart(2, '0') + '-' +
+                String(tzDate.getDate()).padStart(2, '0');
+
+            const existingBookings = await pool.query(
+                `SELECT bd.booking_datetime, bd.duration_at_booking
+                 FROM booking_details bd
+                 JOIN bookings b ON b.id = bd.booking_id
+                 WHERE DATE((COALESCE(bd.booking_datetime, b.booking_datetime)) AT TIME ZONE 'Asia/Jakarta') = $1
+                   AND b.status NOT IN ('rejected', 'cancelled')`,
+                [dateStr]
+            );
+
+            for (const ex of existingBookings.rows) {
+                const exDt = ex.booking_datetime || ex.booking_datetime;
+                if (!exDt) continue;
+                const start = new Date(exDt);
+                const durMins = Math.round(parseFloat(ex.duration_at_booking || 0.5) * 60);
+                const end = new Date(start.getTime() + durMins * 60 * 1000);
+                if (proposedStart < end && start < proposedEnd) {
+                    return res.status(400).json({
+                        error: `Slot waktu untuk layanan "${svc.service_name}" sudah terisi. Silakan pilih waktu lain.`
+                    });
+                }
+            }
+        }
+
+        // Calculate totals
+        const subtotal = schedules.reduce((sum, sched) => {
+            const svc = serviceMap[sched.service_id];
+            return sum + parseFloat(svc.price);
+        }, 0);
+
+        // Earliest datetime for bookings.booking_datetime (summary field)
+        const earliestDatetime = schedules.reduce((earliest, sched) => {
+            const dt = new Date(sched.booking_datetime);
+            return dt < earliest ? dt : earliest;
+        }, new Date(schedules[0].booking_datetime));
+
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+
+            const bookingResult = await client.query(
+                `INSERT INTO bookings (user_id, booking_datetime, status)
+                 VALUES ($1, $2, 'pending')
+                 RETURNING id`,
+                [userId, earliestDatetime.toISOString()]
+            );
+            const bookingId = bookingResult.rows[0].id;
+
+            // Insert each service with its own booking_datetime into booking_details
+            for (const sched of schedules) {
+                const svc = serviceMap[sched.service_id];
+                await client.query(
+                    `INSERT INTO booking_details
+                       (booking_id, salon_service_id, price_at_booking, duration_at_booking, booking_datetime)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [bookingId, svc.id, svc.price, svc.hour_duration, sched.booking_datetime]
+                );
+            }
+
+            // Fetch user info for WA notification
+            const userRes = await client.query(
+                `SELECT name, phone_number, email FROM "user" WHERE id = $1`,
+                [userId]
+            );
+            const dbUser = userRes.rows[0];
+
+            const txResult = await client.query(
+                `INSERT INTO transactions
+                   (user_id, booking_id, subtotal, total_amount, payment_method, status)
+                 VALUES ($1, $2, $3, $4, $5, 'pending')
+                 RETURNING id`,
+                [userId, bookingId, subtotal, subtotal, payment_method]
+            );
+            const transactionId = txResult.rows[0].id;
+
+            // Insert system notification for Admin
+            const servicesList = schedules.map((s) => serviceMap[s.service_id].service_name).join(", ");
+            await client.query(
+                `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
+                 VALUES ('booking', 'Booking Baru', $1, $2, FALSE, NOW())`,
+                [`Booking baru dari ${dbUser.name} – ${servicesList}`, bookingId]
+            );
+
+            await client.query("COMMIT");
+
+            // Dispatch WhatsApp notifications asynchronously
+            sendBookingNotifications(bookingId, dbUser, earliestDatetime.toISOString(), servicesList).catch((err) =>
+                console.error("Failed sending booking WA notification:", err)
+            );
+
+            res.status(201).json({
+                bookingId,
+                transactionId,
+                token: null,
+                redirect_url: null
+            });
+        } catch (err) {
+            await client.query("ROLLBACK");
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error("[createBooking]", err);
+        res.status(500).json({ error: err.message || "Terjadi kesalahan sistem. Silakan coba lagi." });
+    }
+}
 
     if (!userId) {
         return res.status(401).json({ error: "Unauthorized: User ID is missing." });

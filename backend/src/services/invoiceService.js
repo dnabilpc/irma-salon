@@ -37,21 +37,22 @@ export async function getInvoiceData(transactionId) {
             t.id, 
             t.booking_id, 
             t.rental_id, 
+            t.rental_order_id,
             t.total_amount::numeric AS total_amount, 
             t.subtotal::numeric AS subtotal,
             t.payment_method,
             t.created_at,
             t.status AS payment_status,
             t.user_id,
-            u.name AS customer_name,
-            u.phone_number AS customer_phone,
+            COALESCE(t.customer_name, u.name) AS customer_name,
+            COALESCE(t.customer_phone, u.phone_number) AS customer_phone,
             u.email AS customer_email,
             b.booking_datetime,
             r.start_date,
             r.duration_days,
             oc.outfit_name
          FROM transactions t
-         JOIN "user" u ON t.user_id = u.id
+         LEFT JOIN "user" u ON t.user_id = u.id
          LEFT JOIN bookings b ON t.booking_id = b.id
          LEFT JOIN rentals r ON t.rental_id = r.id
          LEFT JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
@@ -76,6 +77,18 @@ export async function getInvoiceData(transactionId) {
             [transaction.booking_id]
         );
         items = servicesRes.rows;
+    } else if (transaction.rental_order_id) {
+        const rentalsRes = await pool.query(
+            `SELECT oc.outfit_name, r.duration_days, r.amount_to_be_paid::numeric AS price, r.start_date
+             FROM rentals r
+             JOIN outfit_catalogues oc ON oc.id = r.outfit_catalogues_id
+             WHERE r.rental_order_id = $1`,
+            [transaction.rental_order_id]
+        );
+        items = rentalsRes.rows.map((row) => ({
+            name: `Sewa Baju: ${row.outfit_name} (${row.duration_days} hari)`,
+            price: row.price,
+        }));
     } else if (transaction.rental_id) {
         items = [
             {

@@ -11,10 +11,16 @@ import {
     updateRentalByCustomer,
     updateRentalByAdmin
 } from '../controllers/rentalController.js';
+import { createRentalCart, getRentalCartOrder } from '../controllers/rentalCartController.js';
 import { checkInternalApiKey } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+// ── Cart routes (must be before /:id to avoid param conflicts) ──────────────
+router.post('/rentals/cart', checkInternalApiKey, createRentalCart);
+router.get('/rentals/cart/:orderId', checkInternalApiKey, getRentalCartOrder);
+
+// ── Existing rental routes ──────────────────────────────────────────────────
 router.get('/rentals', checkInternalApiKey, getRentalsForCustomer);
 router.get('/admin/rentals', checkInternalApiKey, getRentalsForAdmin);
 router.post('/rentals', checkInternalApiKey, createRental);
@@ -26,3 +32,4 @@ router.put('/rentals/:id', checkInternalApiKey, updateRentalByCustomer);
 router.put('/admin/rentals/:id', checkInternalApiKey, updateRentalByAdmin);
 
 export default router;
+
