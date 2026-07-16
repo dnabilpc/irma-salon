@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import PaymentProofUpload from "@/components/payment/PaymentProofUpload";
 import QRCode from "qrcode";
-import { generateDynamicQrisPayload } from "@/lib/qris";
+import { generateDynamicQrisPayload, parseQrisPayloadInfo } from "@/lib/qris";
 
 interface Transaction {
   id: number;
@@ -35,6 +35,8 @@ export default function InvoicePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [qrisPayloadDataUrl, setQrisPayloadDataUrl] = useState<string>("");
+  const [qrisMerchantName, setQrisMerchantName] = useState<string>("Irma Wedding Salon");
+  const [qrisNmid, setQrisNmid] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -81,6 +83,10 @@ export default function InvoicePage() {
       .then((res) => res.json())
       .then((settings) => {
         const staticPayload = settings.qris_payload || "";
+        const parsed = parseQrisPayloadInfo(staticPayload);
+        if (parsed.merchantName) setQrisMerchantName(parsed.merchantName);
+        if (parsed.nmid) setQrisNmid(parsed.nmid);
+
         const dynamicPayload = generateDynamicQrisPayload(staticPayload, Number(data.transaction.total_amount));
 
         QRCode.toDataURL(dynamicPayload, {
@@ -94,6 +100,10 @@ export default function InvoicePage() {
       .catch((err) => {
         console.error("Error fetching settings for QRIS:", err);
         const dynamicPayload = generateDynamicQrisPayload("", Number(data.transaction.total_amount));
+        const parsed = parseQrisPayloadInfo("");
+        if (parsed.merchantName) setQrisMerchantName(parsed.merchantName);
+        if (parsed.nmid) setQrisNmid(parsed.nmid);
+
         QRCode.toDataURL(dynamicPayload, { margin: 1, width: 300 })
           .then((url) => setQrisPayloadDataUrl(url))
           .catch(() => {});
@@ -118,7 +128,8 @@ export default function InvoicePage() {
       return diff > 0 ? diff : 0;
     };
 
-    setTimeLeft(calculateTimeLeft());
+    // Use setTimeout(0) to avoid synchronous setState inside effect body
+    const initTimeout = setTimeout(() => setTimeLeft(calculateTimeLeft()), 0);
 
     const timer = setInterval(() => {
       const remaining = calculateTimeLeft();
@@ -129,7 +140,10 @@ export default function InvoicePage() {
       }
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initTimeout);
+      clearInterval(timer);
+    };
   }, [data]);
 
   if (loading) {
@@ -334,7 +348,7 @@ export default function InvoicePage() {
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "30px" }}>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.6rem", fontWeight: "bold", color: "#6B3A2A", marginBottom: "4px" }}>
-            Rumah Cantik Irma
+            Irma Wedding Salon
           </div>
           <div style={{ fontSize: "0.72rem", letterSpacing: "0.2em", color: "#C9922A", textTransform: "uppercase", marginBottom: "15px" }}>
             Wedding Salon & Sewa Baju
@@ -470,23 +484,25 @@ export default function InvoicePage() {
                   </div>
                   <div style={{ border: "1px solid #EDD8CC", borderTop: "none", padding: "16px 12px 12px", borderRadius: "0 0 6px 6px" }}>
                     <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "4px" }}>
-                      RUMAH CANTIK IRMA
+                      {qrisMerchantName}
                     </div>
-                    <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
-                      NMID: ID1020304050607
-                    </div>
+                    {qrisNmid && (
+                      <div style={{ fontSize: "0.6rem", color: "#8B6A5A", marginBottom: "14px" }}>
+                        NMID: {qrisNmid}
+                      </div>
+                    )}
                     {qrisPayloadDataUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img 
                         src={qrisPayloadDataUrl} 
-                        alt="QRIS Dinamis Rumah Cantik Irma" 
+                        alt="QRIS" 
                         style={{ width: "190px", height: "190px", objectFit: "contain", margin: "0 auto 10px", display: "block", borderRadius: "8px" }} 
                       />
                     ) : !qrisImageError ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img 
                         src="/qris.png" 
-                        alt="QRIS Rumah Cantik Irma" 
+                        alt="QRIS" 
                         onError={() => setQrisImageError(true)}
                         style={{ width: "180px", height: "180px", objectFit: "contain", margin: "0 auto 12px", display: "block" }} 
                       />
@@ -513,8 +529,6 @@ export default function InvoicePage() {
                       </div>
                     )}
                     <div style={{ background: "rgba(42,140,90,0.08)", border: "1px solid rgba(42,140,90,0.25)", color: "#1A7A4A", padding: "6px 10px", borderRadius: "8px", fontSize: "0.72rem", fontWeight: 600, margin: "0 auto 8px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                      <span>🔒 QRIS Dinamis</span>
-                      <span>•</span>
                       <span>Total: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(transaction.total_amount)}</span>
                     </div>
                     <div style={{ fontSize: "0.68rem", color: "#8B6A5A", fontWeight: 500 }}>
@@ -539,7 +553,7 @@ export default function InvoicePage() {
         )}
 
         <div style={{ textAlign: "center", fontSize: "0.78rem", color: "#B09080", marginTop: "40px" }}>
-          Terima kasih atas kunjungan Anda di Rumah Cantik Irma! ✨
+          Terima kasih atas kunjungan Anda di Irma Wedding Salon! ✨
         </div>
       </div>
 

@@ -79,3 +79,75 @@ export function generateDynamicQrisPayload(staticPayload: string, amount: number
 
   return payloadToSign + crc;
 }
+
+export interface QrisParsedInfo {
+  merchantName: string;
+  nmid: string | null;
+}
+
+/**
+ * Parses Merchant Name (Tag 59) and NMID (Tag 26/51 sub-tags or pattern match) from EMVCo QRIS string
+ */
+export function parseQrisPayloadInfo(rawPayload: string): QrisParsedInfo {
+  let merchantName = "RUMAH CANTIK IRMA";
+  let nmid: string | null = null;
+
+  if (!rawPayload || typeof rawPayload !== "string") {
+    return { merchantName, nmid };
+  }
+
+  const payload = rawPayload.trim();
+  let i = 0;
+
+  while (i < payload.length - 4) {
+    const tag = payload.substring(i, i + 2);
+    const lenStr = payload.substring(i + 2, i + 4);
+    const len = parseInt(lenStr, 10);
+
+    if (isNaN(len) || len < 0 || i + 4 + len > payload.length) {
+      break;
+    }
+
+    const value = payload.substring(i + 4, i + 4 + len);
+
+    // Tag 59: Merchant Name
+    if (tag === "59" && value) {
+      merchantName = value.trim();
+    }
+
+    // Tag 26 or Tag 51: Merchant Account Information
+    if (tag === "26" || tag === "51") {
+      let subI = 0;
+      while (subI < value.length - 4) {
+        const subTag = value.substring(subI, subI + 2);
+        const subLenStr = value.substring(subI + 2, subI + 4);
+        const subLen = parseInt(subLenStr, 10);
+
+        if (isNaN(subLen) || subLen < 0 || subI + 4 + subLen > value.length) {
+          break;
+        }
+
+        const subValue = value.substring(subI + 4, subI + 4 + subLen);
+
+        // NMID in Indonesia starts with ID1, ID2, or ID followed by numbers
+        if (/^ID[12]?\d{9,15}$/i.test(subValue)) {
+          nmid = subValue;
+        }
+
+        subI += 4 + subLen;
+      }
+    }
+
+    i += 4 + len;
+  }
+
+  // Fallback regex search for NMID in the entire payload string if sub-TLV parser didn't catch it
+  if (!nmid) {
+    const match = payload.match(/ID[12]?\d{9,15}/i);
+    if (match) {
+      nmid = match[0];
+    }
+  }
+
+  return { merchantName, nmid };
+}
