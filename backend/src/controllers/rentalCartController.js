@@ -1,4 +1,4 @@
-﻿// backend/src/controllers/rentalCartController.js
+// backend/src/controllers/rentalCartController.js
 // Handles multi-item rental cart: group multiple outfits in 1 transaction.
 
 import pool from '../services/db.js';
@@ -130,7 +130,8 @@ export async function createRentalCart(req, res) {
         }
         const outfitMap = Object.fromEntries(outfitRows.rows.map((o) => [o.id, o]));
 
-        for (const item of items) {
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
             const outfit = outfitMap[item.outfit_catalogues_id];
             const stock = outfit.stock !== null ? parseInt(outfit.stock, 10) : 1;
 
@@ -142,10 +143,30 @@ export async function createRentalCart(req, res) {
                    AND start_date + duration_days * INTERVAL '1 day' >= $2::date`,
                 [item.outfit_catalogues_id, item.start_date, item.duration_days]
             );
-            const overlappingCount = parseInt(overlapRes.rows[0].count, 10);
-            if (overlappingCount >= stock) {
+            const dbOverlappingCount = parseInt(overlapRes.rows[0].count, 10);
+
+            // Count overlapping items for the same outfit within this request
+            let cartOverlapCount = 0;
+            const startA = new Date(item.start_date);
+            const endA = new Date(startA.getTime() + parseInt(item.duration_days, 10) * 86400000);
+
+            for (let j = 0; j < items.length; j++) {
+                if (i === j) continue;
+                const other = items[j];
+                if (other.outfit_catalogues_id === item.outfit_catalogues_id) {
+                    const startB = new Date(other.start_date);
+                    const endB = new Date(startB.getTime() + parseInt(other.duration_days, 10) * 86400000);
+
+                    if (startA <= endB && startB <= endA) {
+                        cartOverlapCount++;
+                    }
+                }
+            }
+
+            const totalOverlapping = dbOverlappingCount + cartOverlapCount;
+            if (totalOverlapping >= stock) {
                 return res.status(400).json({
-                    error: `Stok "${outfit.outfit_name}" tidak tersedia pada tanggal yang dipilih. (Stok: ${stock}, Tersewa: ${overlappingCount})`
+                    error: `Stok "${outfit.outfit_name}" tidak mencukupi untuk tanggal tersebut. (Stok: ${stock}, Tersewa di DB: ${dbOverlappingCount}, Di Keranjang: ${cartOverlapCount + 1})`
                 });
             }
         }

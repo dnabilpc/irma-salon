@@ -318,26 +318,56 @@ function Step2({
                   </div>
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
-                    {slotDataMap[activeSvc.serviceId]?.available?.map((slot) => (
-                      <button
-                        key={slot}
-                        onClick={() => onUpdateSchedule(activeSvc.serviceId, "time", slot)}
-                        style={{
-                          padding: "10px 6px",
-                          border: `2px solid ${activeSvc.time === slot ? "#C9922A" : "#EDD8CC"}`,
-                          background: activeSvc.time === slot ? "#FDF0E6" : "white",
-                          borderRadius: "8px",
-                          fontFamily: "'DM Mono', monospace",
-                          fontSize: "0.8rem",
-                          fontWeight: activeSvc.time === slot ? 600 : 400,
-                          color: activeSvc.time === slot ? "#6B3A2A" : "#2C1A0E",
-                          cursor: "pointer",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {slot}
-                      </button>
-                    ))}
+                    {slotDataMap[activeSvc.serviceId]?.available?.map((slot) => {
+                      // Helper to convert "HH:MM" to minutes from midnight
+                      const toMins = (t: string) => {
+                        const [h, m] = t.split(":").map(Number);
+                        return h * 60 + m;
+                      };
+
+                      const activeStart = toMins(slot);
+                      const activeEnd = activeStart + (activeSvc.hourDuration || 0.5) * 60;
+
+                      const isOverlapping = selectedServices.some((svc) => {
+                        if (svc.serviceId === activeSvc.serviceId || svc.date !== activeSvc.date || !svc.time) {
+                          return false;
+                        }
+                        const otherStart = toMins(svc.time);
+                        const otherEnd = otherStart + (svc.hourDuration || 0.5) * 60;
+                        return activeStart < otherEnd && otherStart < activeEnd;
+                      });
+
+                      return (
+                        <button
+                          key={slot}
+                          disabled={isOverlapping}
+                          title={isOverlapping ? "Dipilih di keranjang" : undefined}
+                          onClick={() => !isOverlapping && onUpdateSchedule(activeSvc.serviceId, "time", slot)}
+                          style={{
+                            padding: "10px 6px",
+                            border: isOverlapping 
+                              ? "1px dashed #D4B8C0"
+                              : `2px solid ${activeSvc.time === slot ? "#C9922A" : "#EDD8CC"}`,
+                            background: isOverlapping
+                              ? "rgba(220, 200, 205, 0.2)"
+                              : activeSvc.time === slot ? "#FDF0E6" : "white",
+                            borderRadius: "8px",
+                            fontFamily: "'DM Mono', monospace",
+                            fontSize: "0.8rem",
+                            fontWeight: activeSvc.time === slot ? 600 : 400,
+                            color: isOverlapping
+                              ? "#A08088"
+                              : activeSvc.time === slot ? "#6B3A2A" : "#2C1A0E",
+                            cursor: isOverlapping ? "not-allowed" : "pointer",
+                            textDecoration: isOverlapping ? "line-through" : "none",
+                            opacity: isOverlapping ? 0.6 : 1,
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          {slot}
+                        </button>
+                      );
+                    })}
                     {slotDataMap[activeSvc.serviceId]?.booked?.map((slot) => (
                       <button
                         key={`booked-${slot}`}
@@ -350,7 +380,7 @@ function Step2({
                   </div>
                 )}
                 <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#B09080", marginTop: "8px" }}>
-                  ✦ Slot yang dicoret sudah dipesan
+                  ✦ Slot yang dicoret sudah dipesan atau dipilih di keranjang
                 </p>
               </>
             )}

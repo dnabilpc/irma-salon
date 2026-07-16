@@ -23,6 +23,11 @@ export const auth = betterAuth({
         required: false,
         defaultValue: "ACTIVE",
       },
+      gender: {
+        type: "string",
+        required: false,
+        defaultValue: "unspecified",
+      },
     },
   },
   session: {

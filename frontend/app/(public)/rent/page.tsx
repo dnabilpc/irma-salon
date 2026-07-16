@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import PaymentProofUpload from "@/components/payment/PaymentProofUpload";
-import { ChevronLeft, ChevronRight, ShoppingBag, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShoppingBag, Trash2, Edit2, X } from "lucide-react";
 import { createRentalCart } from "@/actions/rental";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -20,6 +20,8 @@ interface Outfit {
   model_2d_file_link: string | null;
   outfit_category_id: number;
   category_name: string;
+  target_gender?: string;
+  target_age?: string;
 }
 
 interface Category {
@@ -28,6 +30,7 @@ interface Category {
 }
 
 export interface RentalCartItem {
+  id: string;
   outfitId: number;
   outfitName: string;
   categoryName: string;
@@ -47,7 +50,8 @@ function formatRupiah(n: number) {
 }
 
 function getTodayString() {
-  return new Date().toISOString().split("T")[0];
+  const d = new Date();
+  return d.toISOString().split("T")[0];
 }
 
 function getEndDate(start: string, days: number): string {
@@ -61,132 +65,96 @@ function getEndDate(start: string, days: number): string {
 
 function OutfitCard({
   outfit,
-  isInCart,
+  countInCart,
   onAddToCartClick,
-  onImageClick
+  onImageClick,
 }: {
   outfit: Outfit;
-  isInCart: boolean;
+  countInCart: number;
   onAddToCartClick: () => void;
   onImageClick: (url: string) => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const [activeImgIdx, setActiveImgIdx] = useState(0);
-
   const allImages = [outfit.image_url, ...(outfit.additional_image_urls ?? [])].filter(Boolean) as string[];
-
-  const nextImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (allImages.length > 1) {
-      setActiveImgIdx((prev) => (prev + 1) % allImages.length);
-    }
-  };
-
-  const prevImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (allImages.length > 1) {
-      setActiveImgIdx((prev) => (prev - 1 + allImages.length) % allImages.length);
-    }
-  };
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => {
-        setHovered(false);
-        setActiveImgIdx(0);
-      }}
       style={{
         background: "white",
-        border: `1px solid ${isInCart ? "#C9922A" : "#EDD8CC"}`,
+        border: "1px solid #EDD8CC",
         borderRadius: "12px",
         overflow: "hidden",
-        boxShadow: hovered
-          ? "0 12px 32px rgba(107,58,42,0.12)"
-          : "0 2px 12px rgba(107,58,42,0.06)",
-        transform: hovered ? "translateY(-4px)" : "translateY(0)",
-        transition: "all 0.25s",
+        boxShadow: "0 4px 16px rgba(107,58,42,0.06)",
         display: "flex",
         flexDirection: "column",
-        height: "100%",
-        position: "relative",
       }}
     >
-      {isInCart && (
-        <div style={{ position: "absolute", top: "10px", right: "10px", zIndex: 10, background: "#C9922A", color: "white", padding: "4px 10px", borderRadius: "12px", fontSize: "0.7rem", fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
-          ✓ Di Keranjang
-        </div>
-      )}
-
-      {/* Gambar Container */}
-      <div
-        style={{
-          height: "220px",
-          background: "linear-gradient(135deg, #FDF0E8, #FDF8F3)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
+      {/* Gambar utama */}
+      <div style={{ position: "relative", width: "100%", aspectRatio: "3/4", background: "#FDF8F3" }}>
         {allImages.length > 0 ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={allImages[activeImgIdx]}
             alt={`${outfit.outfit_name} - ${activeImgIdx + 1}`}
+            style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer" }}
             onClick={() => onImageClick(allImages[activeImgIdx])}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              transform: hovered ? "scale(1.03)" : "scale(1)",
-              transition: "transform 0.5s ease",
-              cursor: "zoom-in",
-            }}
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
           />
         ) : (
-          <span style={{ fontSize: "4rem" }}>👗</span>
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>
+            👗
+          </div>
         )}
 
-        {/* Navigation Arrows for Card Gallery */}
-        {hovered && allImages.length > 1 && (
+        {/* Navigation arrows */}
+        {allImages.length > 1 && (
           <>
             <button
-              onClick={prevImage}
+              onClick={() => setActiveImgIdx((prev) => (prev === 0 ? allImages.length - 1 : prev - 1))}
               style={{
-                position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)",
-                width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,255,255,0.9)",
-                border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", color: "#6B3A2A", boxShadow: "0 2px 6px rgba(0,0,0,0.15)", zIndex: 2
+                position: "absolute", top: "50%", left: "8px", transform: "translateY(-50%)",
+                background: "rgba(255,255,255,0.75)", border: "none", borderRadius: "50%",
+                width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", backdropFilter: "blur(4px)",
               }}
             >
               <ChevronLeft size={16} />
             </button>
             <button
-              onClick={nextImage}
+              onClick={() => setActiveImgIdx((prev) => (prev === allImages.length - 1 ? 0 : prev + 1))}
               style={{
-                position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)",
-                width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,255,255,0.9)",
-                border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", color: "#6B3A2A", boxShadow: "0 2px 6px rgba(0,0,0,0.15)", zIndex: 2
+                position: "absolute", top: "50%", right: "8px", transform: "translateY(-50%)",
+                background: "rgba(255,255,255,0.75)", border: "none", borderRadius: "50%",
+                width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", backdropFilter: "blur(4px)",
               }}
             >
               <ChevronRight size={16} />
             </button>
           </>
         )}
+
+        {/* Thumbnail dots */}
+        {allImages.length > 1 && (
+          <div style={{ position: "absolute", bottom: "8px", left: 0, right: 0, display: "flex", justifyContent: "center", gap: "4px" }}>
+            {allImages.map((_, idx) => (
+              <span
+                key={idx}
+                onClick={() => setActiveImgIdx(idx)}
+                style={{
+                  width: "6px", height: "6px", borderRadius: "50%",
+                  background: idx === activeImgIdx ? "#6B3A2A" : "rgba(255,255,255,0.7)",
+                  cursor: "pointer",
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Info Content */}
-      <div style={{ padding: "16px", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
+      {/* Detail info */}
+      <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontSize: "0.72rem", color: "#8B6A5A", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px", fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ fontSize: "0.72rem", color: "#C9922A", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "4px" }}>
             {outfit.category_name} {outfit.size && `· Size ${outfit.size}`}
           </div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.05rem", fontWeight: 700, color: "#2C1A0E", marginBottom: "8px" }}>
@@ -194,38 +162,29 @@ function OutfitCard({
           </div>
         </div>
 
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "14px" }}>
-            <span style={{ fontSize: "0.72rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>Harga Sewa:</span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "1rem", fontWeight: 700, color: "#6B3A2A" }}>
-              {formatRupiah(outfit.price)} <span style={{ fontSize: "0.7rem", fontWeight: 400 }}>/hari</span>
-            </span>
-          </div>
-
-          <button
-            onClick={onAddToCartClick}
-            style={{
-              width: "100%",
-              background: isInCart ? "#FDF0E6" : "#6B3A2A",
-              color: isInCart ? "#6B3A2A" : "white",
-              border: `1.5px solid ${isInCart ? "#C9922A" : "#6B3A2A"}`,
-              padding: "10px",
-              borderRadius: "8px",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: "0.82rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              transition: "all 0.2s",
-            }}
-          >
-            <ShoppingBag size={15} />
-            {isInCart ? "Atur Ulang di Cart" : "+ Tambah ke Keranjang"}
-          </button>
-        </div>
+        <button
+          onClick={onAddToCartClick}
+          style={{
+            width: "100%",
+            background: countInCart > 0 ? "#FDF0E6" : "#6B3A2A",
+            color: countInCart > 0 ? "#6B3A2A" : "white",
+            border: `1.5px solid ${countInCart > 0 ? "#C9922A" : "#6B3A2A"}`,
+            padding: "10px",
+            borderRadius: "8px",
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: "0.82rem",
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            transition: "all 0.2s",
+          }}
+        >
+          <ShoppingBag size={15} />
+          {countInCart > 0 ? `+ Tambah Lagi (${countInCart} di Cart)` : "+ Tambah ke Keranjang"}
+        </button>
       </div>
     </div>
   );
@@ -252,6 +211,7 @@ function ConfigureModal({
 
   function handleSave() {
     onAddToCart({
+      id: existingItem?.id || Math.random().toString(36).substring(2, 9),
       outfitId: outfit.id,
       outfitName: outfit.outfit_name,
       categoryName: outfit.category_name,
@@ -288,63 +248,69 @@ function ConfigureModal({
         <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "18px" }}>
           {/* Tanggal mulai */}
           <div>
-            <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
+            <label style={{ fontSize: "0.78rem", color: "#6B3A2A", fontWeight: 600, display: "block", marginBottom: "6px" }}>
               Tanggal Mulai Sewa
             </label>
             <input
               type="date"
-              value={startDate}
               min={getTodayString()}
+              value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              style={{ width: "100%", padding: "10px 14px", border: "1px solid #EDD8CC", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", color: "#2C1A0E", background: "#FDFAF7", outline: "none" }}
+              style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.88rem", fontFamily: "'DM Sans', sans-serif" }}
             />
           </div>
 
-          {/* Durasi */}
+          {/* Durasi sewa */}
           <div>
-            <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "#6B3A2A", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-              Durasi Sewa (hari)
+            <label style={{ fontSize: "0.78rem", color: "#6B3A2A", fontWeight: 600, display: "block", marginBottom: "6px" }}>
+              Durasi Sewa (Hari)
             </label>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => setDurationDays((d) => Math.max(1, d - 1))}
-                style={{ width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#6B3A2A", fontSize: "1.1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >−</button>
-              <div style={{ flex: 1, textAlign: "center", fontFamily: "'Playfair Display', serif", fontSize: "1.4rem", fontWeight: 700, color: "#2C1A0E" }}>
-                {durationDays} hari
-              </div>
-              <button
-                type="button"
-                onClick={() => setDurationDays((d) => Math.min(30, d + 1))}
-                style={{ width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #EDD8CC", background: "white", color: "#6B3A2A", fontSize: "1.1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >+</button>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              {[1, 2, 3, 5, 7].map((days) => (
+                <button
+                  key={days}
+                  onClick={() => setDurationDays(days)}
+                  style={{
+                    flex: 1,
+                    padding: "8px",
+                    borderRadius: "6px",
+                    border: `1.5px solid ${durationDays === days ? "#C9922A" : "#EDD8CC"}`,
+                    background: durationDays === days ? "#FDF0E6" : "white",
+                    color: durationDays === days ? "#6B3A2A" : "#2C1A0E",
+                    fontWeight: durationDays === days ? 700 : 400,
+                    cursor: "pointer",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {days} Hari
+                </button>
+              ))}
             </div>
-            {startDate && (
-              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", color: "#8B6A5A", marginTop: "6px", textAlign: "center" }}>
-                Pengembalian: <strong>{getEndDate(startDate, durationDays)}</strong>
-              </p>
-            )}
           </div>
 
-          {/* Price Preview */}
-          <div style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "8px", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.8rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>Subtotal Baju Ini:</span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "1rem", fontWeight: 700, color: "#6B3A2A" }}>
+          {/* Total */}
+          <div style={{ borderTop: "1px solid #EDD8CC", paddingTop: "14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.85rem", color: "#8B6A5A" }}>Total Estimasi:</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#6B3A2A" }}>
               {formatRupiah(total)}
             </span>
           </div>
-        </div>
 
-        <div style={{ padding: "16px 24px", borderTop: "1px solid #EDD8CC", display: "flex", gap: "10px" }}>
-          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: "1px solid #EDD8CC", color: "#8B6A5A", padding: "11px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
-            Batal
-          </button>
           <button
             onClick={handleSave}
-            style={{ flex: 2, background: "#6B3A2A", color: "white", border: "none", padding: "11px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: "pointer" }}
+            style={{
+              width: "100%",
+              background: "#6B3A2A",
+              color: "white",
+              border: "none",
+              padding: "12px",
+              borderRadius: "8px",
+              fontWeight: 700,
+              fontSize: "0.9rem",
+              cursor: "pointer",
+            }}
           >
-            Simpan ke Keranjang 🛒
+            {existingItem ? "Simpan Perubahan" : "Masukkan ke Keranjang"}
           </button>
         </div>
       </div>
@@ -352,16 +318,18 @@ function ConfigureModal({
   );
 }
 
-// ── Cart Drawer / Panel ────────────────────────────────────────────────────
+// ── Cart Panel ─────────────────────────────────────────────────────────────
 
-function CartDrawer({
+function CartPanel({
   cartItems,
   onRemoveItem,
+  onEditItem,
   onClose,
   onCheckoutSuccess
 }: {
   cartItems: RentalCartItem[];
-  onRemoveItem: (outfitId: number) => void;
+  onRemoveItem: (cartItemId: string) => void;
+  onEditItem: (item: RentalCartItem) => void;
   onClose: () => void;
   onCheckoutSuccess: (transactionId: number) => void;
 }) {
@@ -416,9 +384,6 @@ function CartDrawer({
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.2rem", fontWeight: 700, color: "#2C1A0E" }}>
               Keranjang Sewa ({cartItems.length})
             </div>
-            <div style={{ fontSize: "0.75rem", color: "#8B6A5A", fontFamily: "'DM Sans', sans-serif" }}>
-              Maksimal 5 baju per checkout
-            </div>
           </div>
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#6B3A2A", cursor: "pointer" }}><X size={22} /></button>
         </div>
@@ -433,13 +398,13 @@ function CartDrawer({
           ) : (
             cartItems.map((item) => (
               <div
-                key={item.outfitId}
+                key={item.id}
                 style={{ background: "#FDFAF7", border: "1px solid #EDD8CC", borderRadius: "10px", padding: "14px", display: "flex", gap: "12px", alignItems: "center" }}
               >
                 <div style={{ width: "60px", height: "60px", background: "white", border: "1px solid #EDD8CC", borderRadius: "8px", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {item.imageUrl ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={item.imageUrl} alt={item.outfitName} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    <img src={item.imageUrl} alt={item.outfitName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
                     <span>👗</span>
                   )}
@@ -457,11 +422,6 @@ function CartDrawer({
                   </div>
                 </div>
 
-                <button
-                  onClick={() => onRemoveItem(item.outfitId)}
-                  style={{ background: "transparent", border: "none", color: "#C05060", cursor: "pointer", padding: "6px" }}
-                  title="Hapus baju ini"
-                >
                   <Trash2 size={18} />
                 </button>
               </div>
@@ -577,6 +537,7 @@ export default function SewaBajuPage() {
   const [cartItems, setCartItems] = useState<RentalCartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [configuringOutfit, setConfiguringOutfit] = useState<Outfit | null>(null);
+  const [editingCartItem, setEditingCartItem] = useState<RentalCartItem | null>(null);
 
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
@@ -588,7 +549,9 @@ export default function SewaBajuPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("irma_rental_cart");
-      if (saved) setCartItems(JSON.parse(saved));
+      if (saved) {
+        setCartItems(JSON.parse(saved));
+      }
     } catch {}
   }, []);
 
@@ -605,7 +568,7 @@ export default function SewaBajuPage() {
 
   function handleAddToCart(item: RentalCartItem) {
     updateCart((prev) => {
-      const existingIdx = prev.findIndex((i) => i.outfitId === item.outfitId);
+      const existingIdx = prev.findIndex((i) => i.id === item.id);
       if (existingIdx >= 0) {
         const updated = [...prev];
         updated[existingIdx] = item;
@@ -616,8 +579,17 @@ export default function SewaBajuPage() {
     });
   }
 
-  function handleRemoveItem(outfitId: number) {
-    updateCart(cartItems.filter((i) => i.outfitId !== outfitId));
+  function handleRemoveItem(cartItemId: string) {
+    updateCart(cartItems.filter((i) => i.id !== cartItemId));
+  }
+
+  function handleEditItem(item: RentalCartItem) {
+    const outfit = outfits.find((o) => o.id === item.outfitId);
+    if (outfit) {
+      setEditingCartItem(item);
+      setConfiguringOutfit(outfit);
+      setIsCartOpen(false);
+    }
   }
 
   useEffect(() => {
@@ -738,13 +710,16 @@ export default function SewaBajuPage() {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px" }}>
             {filtered.map((outfit) => {
-              const inCart = cartItems.some((i) => i.outfitId === outfit.id);
+              const countInCart = cartItems.filter((i) => i.outfitId === outfit.id).length;
               return (
                 <OutfitCard
                   key={outfit.id}
                   outfit={outfit}
-                  isInCart={inCart}
-                  onAddToCartClick={() => setConfiguringOutfit(outfit)}
+                  countInCart={countInCart}
+                  onAddToCartClick={() => {
+                    setEditingCartItem(null);
+                    setConfiguringOutfit(outfit);
+                  }}
                   onImageClick={(url) => setZoomImageUrl(url)}
                 />
               );
@@ -789,8 +764,11 @@ export default function SewaBajuPage() {
       {configuringOutfit && (
         <ConfigureModal
           outfit={configuringOutfit}
-          existingItem={cartItems.find((i) => i.outfitId === configuringOutfit.id)}
-          onClose={() => setConfiguringOutfit(null)}
+          existingItem={editingCartItem || undefined}
+          onClose={() => {
+            setConfiguringOutfit(null);
+            setEditingCartItem(null);
+          }}
           onAddToCart={handleAddToCart}
         />
       )}
