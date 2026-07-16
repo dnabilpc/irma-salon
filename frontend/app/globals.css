@@ -45,3 +45,13 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Hilangkan panah native untuk input number (gunakan custom ± buttons) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}

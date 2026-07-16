@@ -264,28 +264,79 @@ function ConfigureModal({
           <div>
             <label style={{ fontSize: "0.78rem", color: "#6B3A2A", fontWeight: 600, display: "block", marginBottom: "6px" }}>
               Durasi Sewa (Hari)
+              <span style={{ fontWeight: 400, color: "#B09080", marginLeft: "6px" }}>(maks. 10 hari)</span>
             </label>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              {[1, 2, 3, 5, 7].map((days) => (
-                <button
-                  key={days}
-                  onClick={() => setDurationDays(days)}
-                  style={{
-                    flex: 1,
-                    padding: "8px",
-                    borderRadius: "6px",
-                    border: `1.5px solid ${durationDays === days ? "#C9922A" : "#EDD8CC"}`,
-                    background: durationDays === days ? "#FDF0E6" : "white",
-                    color: durationDays === days ? "#6B3A2A" : "#2C1A0E",
-                    fontWeight: durationDays === days ? 700 : 400,
-                    cursor: "pointer",
-                    fontSize: "0.82rem",
-                  }}
-                >
-                  {days} Hari
-                </button>
-              ))}
+            <div style={{
+              display: "flex", alignItems: "center",
+              border: `1.5px solid ${durationDays < 1 || durationDays > 10 ? "#C05060" : "#EDD8CC"}`,
+              borderRadius: "8px", overflow: "hidden", background: "white",
+            }}>
+              <button
+                type="button"
+                disabled={durationDays <= 1}
+                onClick={() => setDurationDays(Math.max(1, durationDays - 1))}
+                style={{
+                  width: "42px", height: "42px", flexShrink: 0,
+                  background: "none", border: "none", borderRight: "1px solid #EDD8CC",
+                  fontSize: "1.2rem", color: durationDays <= 1 ? "#D4B8AE" : "#6B3A2A",
+                  cursor: durationDays <= 1 ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontWeight: 700, transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => { if (durationDays > 1) e.currentTarget.style.background = "#FDF0E6"; }}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={durationDays}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") { setDurationDays(1); return; }
+                  const v = parseInt(raw, 10);
+                  if (!isNaN(v)) setDurationDays(Math.min(10, Math.max(1, v)));
+                }}
+                onBlur={() => setDurationDays(Math.min(10, Math.max(1, durationDays)))}
+                style={{
+                  flex: 1, textAlign: "center", border: "none", outline: "none",
+                  fontFamily: "'DM Mono', monospace", fontSize: "1rem",
+                  fontWeight: 700, color: "#2C1A0E", background: "transparent",
+                  padding: "8px 4px",
+                }}
+              />
+              <button
+                type="button"
+                disabled={durationDays >= 10}
+                onClick={() => setDurationDays(Math.min(10, durationDays + 1))}
+                style={{
+                  width: "42px", height: "42px", flexShrink: 0,
+                  background: "none", border: "none", borderLeft: "1px solid #EDD8CC",
+                  fontSize: "1.2rem", color: durationDays >= 10 ? "#D4B8AE" : "#6B3A2A",
+                  cursor: durationDays >= 10 ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontWeight: 700, transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => { if (durationDays < 10) e.currentTarget.style.background = "#FDF0E6"; }}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+              >
+                +
+              </button>
             </div>
+            {/* Pesan error validasi */}
+            {(durationDays < 1 || durationDays > 10) && (
+              <div style={{ fontSize: "0.72rem", color: "#C05060", marginTop: "4px", fontFamily: "'DM Sans', sans-serif" }}>
+                ⚠️ Durasi sewa harus antara 1–10 hari.
+              </div>
+            )}
+            {/* Tanggal pengembalian */}
+            {startDate && durationDays >= 1 && durationDays <= 10 && (
+              <div style={{ fontSize: "0.72rem", color: "#8B6A5A", marginTop: "5px", fontFamily: "'DM Sans', sans-serif" }}>
+                📅 Pengembalian: <strong style={{ color: "#6B3A2A" }}>{getEndDate(startDate, durationDays)}</strong>
+              </div>
+            )}
           </div>
 
           {/* Total */}
@@ -298,16 +349,18 @@ function ConfigureModal({
 
           <button
             onClick={handleSave}
+            disabled={durationDays < 1 || durationDays > 10}
             style={{
               width: "100%",
-              background: "#6B3A2A",
+              background: durationDays < 1 || durationDays > 10 ? "#C4A882" : "#6B3A2A",
               color: "white",
               border: "none",
               padding: "12px",
               borderRadius: "8px",
               fontWeight: 700,
               fontSize: "0.9rem",
-              cursor: "pointer",
+              cursor: durationDays < 1 || durationDays > 10 ? "not-allowed" : "pointer",
+              transition: "background 0.2s",
             }}
           >
             {existingItem ? "Simpan Perubahan" : "Masukkan ke Keranjang"}
