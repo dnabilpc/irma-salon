@@ -314,7 +314,7 @@ function DetailModal({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", fontSize: "0.82rem" }}>
                 <span style={{ color: "#B09080" }}>Bukti Transfer:</span>
                 <a
-                  href={`http://localhost:5000${booking.payment_proof_url}`}
+                  href={`${backendUrl}${booking.payment_proof_url}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -584,7 +584,7 @@ function MiniStat({
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-export default function AdminBookingsClient() {
+export default function AdminBookingsClient({ backendUrl }: { backendUrl: string }) {
   const { getCache, setCache, invalidateCache, setRevalidating, revalidatingKeys } = useAdminCache();
   const [filter, setFilter] = useState<BookingStatusDB | "ALL">("ALL");
   const cacheKey = `admin_bookings_${filter}`;

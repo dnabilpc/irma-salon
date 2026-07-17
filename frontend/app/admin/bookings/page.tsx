@@ -7,5 +7,6 @@ export const metadata: Metadata = {
 };
 
 export default function BookingsPage() {
-  return <AdminBookingsClient />;
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:5000";
+  return <AdminBookingsClient backendUrl={backendUrl} />;
 }

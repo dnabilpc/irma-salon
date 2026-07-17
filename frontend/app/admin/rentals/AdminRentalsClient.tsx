@@ -144,7 +144,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit }: Detai
               <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #F0D9E0" }}>
                 <span style={{ fontSize: "13px", color: "#B08090" }}>Bukti Transfer</span>
                 <a
-                  href={`http://localhost:5000${rental.payment_proof_url}`}
+                  href={`${backendUrl}${rental.payment_proof_url}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -305,7 +305,7 @@ function MiniStat({ label, value, color }: { label: string; value: string | numb
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
-export default function AdminRentalsClient() {
+export default function AdminRentalsClient({ backendUrl }: { backendUrl: string }) {
   const { getCache, setCache, invalidateCache, setRevalidating, revalidatingKeys } = useAdminCache();
   const [filter, setFilter]         = useState<RentalStatus | "ALL">("ALL");
   const cacheKey = `admin_rentals_${filter}`;
