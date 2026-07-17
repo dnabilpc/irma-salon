@@ -117,12 +117,16 @@ async function runMigrations() {
             ALTER TABLE bookings
             ADD COLUMN IF NOT EXISTS reminder_3h_sent BOOLEAN NOT NULL DEFAULT FALSE
         `);
-        // Add payment_proof_sent column to transactions table if it doesn't exist
+        // Add payment_proof_sent and payment_proof_url columns to transactions table if they don't exist
         await pool.query(`
             ALTER TABLE transactions
             ADD COLUMN IF NOT EXISTS payment_proof_sent BOOLEAN NOT NULL DEFAULT FALSE
         `);
-        console.log('[Migration] transactions.payment_proof_sent column ready.');
+        await pool.query(`
+            ALTER TABLE transactions
+            ADD COLUMN IF NOT EXISTS payment_proof_url VARCHAR(255)
+        `);
+        console.log('[Migration] transactions.payment_proof columns ready.');
 
         // Rename model_3d_file_link to model_2d_file_link in outfit_catalogues table
         try {
