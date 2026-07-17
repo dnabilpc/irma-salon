@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 
 interface CacheEntry<T = any> {
   data: T;
@@ -19,30 +19,23 @@ interface AdminCacheContextType {
 const AdminCacheContext = createContext<AdminCacheContextType | undefined>(undefined);
 
 export function AdminCacheProvider({ children }: { children: React.ReactNode }) {
-  const [store, setStore] = useState<Record<string, CacheEntry>>({});
+  const storeRef = useRef<Record<string, CacheEntry>>({});
   const [revalidatingKeys, setRevalidatingKeys] = useState<Set<string>>(new Set());
 
   const getCache = useCallback(<T,>(key: string): T | null => {
-    return (store[key]?.data as T) ?? null;
-  }, [store]);
+    return (storeRef.current[key]?.data as T) ?? null;
+  }, []);
 
   const setCache = useCallback(<T,>(key: string, data: T) => {
-    setStore((prev) => ({
-      ...prev,
-      [key]: { data, timestamp: Date.now() },
-    }));
+    storeRef.current[key] = { data, timestamp: Date.now() };
   }, []);
 
   const invalidateCache = useCallback((key: string) => {
-    setStore((prev) => {
-      const copy = { ...prev };
-      delete copy[key];
-      return copy;
-    });
+    delete storeRef.current[key];
   }, []);
 
   const invalidateAll = useCallback(() => {
-    setStore({});
+    storeRef.current = {};
   }, []);
 
   const setRevalidating = useCallback((key: string, isRevalidating: boolean) => {
