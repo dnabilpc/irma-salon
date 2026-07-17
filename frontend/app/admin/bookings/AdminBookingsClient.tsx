@@ -141,6 +141,7 @@ function DetailModal({
   rejectError,
   setRejectError,
   onEdit,
+  backendUrl,
 }: {
   booking: BookingRow;
   onClose: () => void;
@@ -156,6 +157,7 @@ function DetailModal({
   rejectError: string;
   setRejectError: (val: string) => void;
   onEdit: (booking: BookingRow) => void;
+  backendUrl: string;
 }) {
   const dt = new Date(booking.booking_datetime);
   const jadwal =
@@ -615,16 +617,19 @@ export default function AdminBookingsClient({ backendUrl }: { backendUrl: string
     revenue: 0,
   });
 
-  // Load initial edit values when editingBooking changes
   useEffect(() => {
     if (editingBooking) {
       const bDate = new Date(editingBooking.booking_datetime);
       const dateStr = bDate.getFullYear() + '-' + String(bDate.getMonth() + 1).padStart(2, '0') + '-' + String(bDate.getDate()).padStart(2, '0');
       const timeStr = String(bDate.getHours()).padStart(2, '0') + ":" + String(bDate.getMinutes()).padStart(2, '0');
-      setBookingEditDate(dateStr);
-      setBookingEditTime(timeStr);
-      setBookingEditPrice(Number(editingBooking.total_amount));
-      setHasVariablePriceService(false);
+      
+      // Use setTimeout to avoid synchronous setState inside effect body
+      const initTimeout = setTimeout(() => {
+        setBookingEditDate(dateStr);
+        setBookingEditTime(timeStr);
+        setBookingEditPrice(Number(editingBooking.total_amount));
+        setHasVariablePriceService(false);
+      }, 0);
 
       fetch(`/api/bookings/${editingBooking.id}`)
         .then(res => res.json())
@@ -635,6 +640,8 @@ export default function AdminBookingsClient({ backendUrl }: { backendUrl: string
           }
         })
         .catch(err => console.error("Error loading booking details for edit:", err));
+
+      return () => clearTimeout(initTimeout);
     } else {
       setBookingAvailableSlots([]);
     }
@@ -1008,6 +1015,7 @@ export default function AdminBookingsClient({ backendUrl }: { backendUrl: string
           rejectError={rejectError}
           setRejectError={setRejectError}
           onEdit={setEditingBooking}
+          backendUrl={backendUrl}
         />
       )}
 
