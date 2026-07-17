@@ -78,6 +78,9 @@ interface DetailModalProps {
 }
 
 function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backendUrl }: DetailModalProps) {
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [transformOrigin, setTransformOrigin] = useState("center center");
 
   return (
     <div
@@ -142,22 +145,49 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
               </div>
             ))}
             {rental.payment_proof_sent && rental.payment_proof_url && (
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #F0D9E0" }}>
-                <span style={{ fontSize: "13px", color: "#B08090" }}>Bukti Transfer</span>
-                <a
-                  href={`${backendUrl}${rental.payment_proof_url}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                <span style={{ fontSize: "13px", color: "#B08090", fontWeight: 500 }}>Bukti Pembayaran (Scan/Upload)</span>
+                <div 
+                  onClick={() => setZoomImageUrl(`${backendUrl}${rental.payment_proof_url}`)}
                   style={{
-                    fontSize: "13px",
-                    color: "#C9922A",
-                    fontWeight: 600,
-                    textDecoration: "underline",
-                    cursor: "pointer",
+                    width: "100%",
+                    height: "140px",
+                    borderRadius: "8px",
+                    border: "1px dashed #F0D9E0",
+                    overflow: "hidden",
+                    cursor: "zoom-in",
+                    position: "relative",
+                    background: "#FDF8F5",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "all 0.2s"
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = "#C4728E"}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = "#F0D9E0"}
                 >
-                  👁️ Lihat Bukti Pembayaran
-                </a>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={`${backendUrl}${rental.payment_proof_url}`} 
+                    alt="Bukti Transfer" 
+                    style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "8px" }} 
+                  />
+                  <div style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    background: "rgba(0,0,0,0.45)",
+                    color: "white",
+                    fontSize: "11px",
+                    textAlign: "center",
+                    padding: "4px 0",
+                    fontWeight: 500,
+                    width: "100%"
+                  }}>
+                    🔍 Klik untuk memperbesar
+                  </div>
+                </div>
               </div>
             )}
             <div style={{ padding: "8px 0" }} />
@@ -287,6 +317,33 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
           })()}
         </div>
       </div>
+      {/* Zoom Image Modal */}
+      {zoomImageUrl && (
+        <div
+          onClick={() => { setZoomImageUrl(null); setZoomScale(1); setTransformOrigin("center center"); }}
+          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out", padding: "20px" }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", maxHeight: "90vh", maxWidth: "90vw" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={zoomImageUrl}
+              alt="Preview Bukti Transfer"
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                if (zoomScale === 1) {
+                  setTransformOrigin(`${x}% ${y}%`); setZoomScale(2.5);
+                } else {
+                  setZoomScale(1); setTransformOrigin("center center");
+                }
+              }}
+              style={{ maxHeight: "80vh", maxWidth: "100%", objectFit: "contain", transform: `scale(${zoomScale})`, transformOrigin, transition: "transform 0.25s ease", borderRadius: "8px" }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

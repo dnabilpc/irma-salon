@@ -247,7 +247,7 @@ export async function uploadPaymentProof(req, res) {
             `Mohon verifikasi pembayaran ini di Dashboard Admin.`;
 
         // Save file locally to server
-        const uploadDir = path.join(__dirname, '../public/uploads/proofs');
+        const uploadDir = path.join(__dirname, '../../public/uploads/proofs');
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
