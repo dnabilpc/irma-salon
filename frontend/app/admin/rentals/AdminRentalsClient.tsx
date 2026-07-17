@@ -320,7 +320,12 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
       {/* Zoom Image Modal */}
       {zoomImageUrl && (
         <div
-          onClick={() => { setZoomImageUrl(null); setZoomScale(1); setTransformOrigin("center center"); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setZoomImageUrl(null);
+            setZoomScale(1);
+            setTransformOrigin("center center");
+          }}
           style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out", padding: "20px" }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", maxHeight: "90vh", maxWidth: "90vw" }}>
