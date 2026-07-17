@@ -29,6 +29,8 @@ export interface RentalRow {
   payment_method: string;
   payment_proof_sent?: boolean;
   payment_proof_url?: string | null;
+  rental_code?: string | null;
+  created_at?: string | null;
 }
 
 export interface ActionResult<T = void> {

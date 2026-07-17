@@ -3,6 +3,7 @@
 
 import pool from '../services/db.js';
 import { sendWaMessage } from '../services/whatsappService.js';
+import { generateInvoiceCode } from '../utils/transaction.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 async function getAdminPhone() {
@@ -192,12 +193,13 @@ export async function createRentalCart(req, res) {
 
             const createdRentalIds = [];
             for (const item of enrichedItems) {
+                const rentalCode = generateRentalCode();
                 const rentalResult = await client.query(
                     `INSERT INTO rentals
-                       (user_id, outfit_catalogues_id, start_date, duration_days, amount_to_be_paid, rental_status, rental_order_id)
-                     VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+                       (user_id, outfit_catalogues_id, start_date, duration_days, amount_to_be_paid, rental_status, rental_order_id, code)
+                     VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
                      RETURNING id`,
-                    [userId, item.outfit_catalogues_id, item.start_date, item.duration_days, item.amount_to_be_paid, rentalOrderId]
+                    [userId, item.outfit_catalogues_id, item.start_date, item.duration_days, item.amount_to_be_paid, rentalOrderId, rentalCode]
                 );
                 createdRentalIds.push(rentalResult.rows[0].id);
             }
@@ -208,14 +210,15 @@ export async function createRentalCart(req, res) {
             );
             const dbUser = userRes.rows[0];
 
+            const invoiceCode = generateInvoiceCode();
             const txResult = await client.query(
                 `INSERT INTO transactions
-                   (user_id, rental_order_id, subtotal, total_amount, payment_method, status)
-                 VALUES ($1, $2, $3, $4, $5, 'pending')
-                 RETURNING id`,
-                [userId, rentalOrderId, totalAmount, totalAmount, payment_method]
+                   (user_id, rental_order_id, subtotal, total_amount, payment_method, status, uuid)
+                 VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+                 RETURNING id, uuid`,
+                [userId, rentalOrderId, totalAmount, totalAmount, payment_method, invoiceCode]
             );
-            const transactionId = txResult.rows[0].id;
+            const transactionId = txResult.rows[0].uuid;
 
             const outfitNameList = enrichedItems.map((i) => i.outfit_name).join(", ");
             await client.query(
@@ -254,7 +257,7 @@ export async function getRentalCartOrder(req, res) {
 
     try {
         const orderRes = await pool.query(
-            `SELECT ro.*, t.id AS transaction_id, t.status AS payment_status,
+            `SELECT ro.*, COALESCE(t.uuid::text, t.id::text) AS transaction_id, t.status AS payment_status,
                     t.payment_method, t.total_amount, t.payment_proof_sent, t.payment_proof_url
              FROM rental_orders ro
              LEFT JOIN transactions t ON t.rental_order_id = ro.id

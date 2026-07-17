@@ -14,8 +14,10 @@ import { sendWaMessage, MessageMedia } from '../services/whatsappService.js';
 export async function getPaymentsForAdmin(req, res) {
     try {
         const result = await pool.query(
-            `SELECT 
+             SELECT 
                 t.id,
+                t.uuid AS transaction_uuid,
+                t.created_at,
                 COALESCE(t.customer_name, u.name, 'Pelanggan Offline') AS customer,
                 COALESCE(t.customer_phone, u.phone_number, '\u2014') AS phone,
                 CASE 
@@ -48,7 +50,7 @@ export async function getPaymentsForAdmin(req, res) {
              LEFT JOIN bookings b ON t.booking_id = b.id
              LEFT JOIN rentals r ON t.rental_id = r.id
              LEFT JOIN rental_orders ro ON t.rental_order_id = ro.id
-             ORDER BY t.id DESC`
+             ORDER BY t.created_at DESC, t.id DESC`
         );
 
         return res.json({ payments: result.rows });

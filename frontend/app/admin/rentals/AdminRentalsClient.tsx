@@ -95,7 +95,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #F0D9E0", background: "#FAEAF0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "sticky", top: 0 }}>
           <div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: "#7A2848", marginBottom: "6px" }}>
-              Detail Sewa #{rental.id}
+              Detail Sewa {rental.rental_code || `#${rental.id}`}
             </div>
             <StatusBadge status={rental.status as RentalStatus} />
           </div>
@@ -628,15 +628,29 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
         onRefresh={fetchData}
         isRevalidating={revalidatingKeys.has(cacheKey)}
         searchPlaceholder="Cari nama pelanggan, telp, atau nama baju..."
-        searchableKeys={["customer_name", "customer_phone", "outfit_name", "category_name", "id"]}
+        searchableKeys={["customer_name", "customer_phone", "outfit_name", "category_name", "rental_code", "id"]}
         emptyMessage="Tidak ada data sewa baju yang ditemukan 🌸"
         columns={[
           {
-            key: "id",
-            header: "ID",
+            key: "rental_code",
+            header: "Kode Sewa",
             sortable: true,
-            width: "60px",
-            render: (r) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B08090" }}>#{r.id}</span>,
+            width: "150px",
+            render: (r) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B08090", fontWeight: 600 }}>{r.rental_code || `#${r.id}`}</span>,
+          },
+          {
+            key: "created_at",
+            header: "Tanggal Order",
+            sortable: true,
+            sortValue: (r) => new Date(r.created_at || r.start_date).getTime(),
+            render: (r) => {
+              const dt = new Date(r.created_at || r.start_date);
+              return (
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#8A4060" }}>
+                  {dt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </span>
+              );
+            }
           },
           {
             key: "customer_name",

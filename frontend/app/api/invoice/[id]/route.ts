@@ -9,8 +9,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const transactionId = parseInt(id, 10);
-  if (isNaN(transactionId)) {
+  const isUuid = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|TRX-\d{8}-[A-Z0-9]{6})$/i.test(id);
+  const transactionId = !isUuid ? parseInt(id, 10) : null;
+  
+  if (!isUuid && isNaN(transactionId!)) {
     return NextResponse.json({ error: "ID Transaksi tidak valid" }, { status: 400 });
   }
 
@@ -25,6 +27,7 @@ export async function GET(
     const trxQuery = await db.query(
       `SELECT 
         t.id, 
+        t.uuid,
         t.booking_id, 
         t.rental_id, 
         t.total_amount, 
@@ -46,8 +49,8 @@ export async function GET(
        LEFT JOIN bookings b ON t.booking_id = b.id
        LEFT JOIN rentals r ON t.rental_id = r.id
        LEFT JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
-       WHERE t.id = $1`,
-      [transactionId]
+       WHERE ${isUuid ? "t.uuid = $1" : "t.id = $1"}`,
+      [isUuid ? id : transactionId]
     );
 
     if (trxQuery.rows.length === 0) {

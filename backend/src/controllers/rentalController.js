@@ -2,6 +2,7 @@
 import pool from '../services/db.js';
 import { sendWaMessage } from '../services/whatsappService.js';
 import { sendInvoiceReceipt } from './paymentController.js';
+import { generateInvoiceCode } from '../utils/transaction.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 async function getAdminPhone() {
@@ -257,6 +258,8 @@ export async function getRentalsForAdmin(req, res) {
         const result = await pool.query(
             `SELECT
                r.id,
+               r.code                                                          AS rental_code,
+               r.created_at,
                r.outfit_catalogues_id,
                u.name                                                          AS customer_name,
                u.phone_number                                                  AS customer_phone,
@@ -278,7 +281,7 @@ export async function getRentalsForAdmin(req, res) {
              JOIN outfit_categories cat ON cat.id = oc.outfit_category_id
              LEFT JOIN transactions t   ON t.rental_id = r.id
              ${where}
-             ORDER BY r.id DESC
+             ORDER BY r.created_at DESC
              ${limitClause}`,
             queryParams
         );
@@ -334,7 +337,7 @@ export async function getRentalsForCustomer(req, res) {
                r.amount_to_be_paid,
                r.rental_status,
                r.rental_status                                                 AS status,
-               t.id                                                            AS transaction_id,
+               COALESCE(t.uuid::text, t.id::text)                              AS transaction_id,
                COALESCE(t.payment_method, 'cash')                             AS payment_method,
                COALESCE(t.status, 'pending')                                   AS payment_status
              FROM rentals r
@@ -416,14 +419,15 @@ export async function createRental(req, res) {
         try {
             await client.query("BEGIN");
 
+            const rentalCode = generateRentalCode();
             // Insert rental
             const rentalResult = await client.query(
                 `INSERT INTO rentals
                    (user_id, outfit_catalogues_id, start_date, duration_days,
-                    amount_to_be_paid, rental_status)
-                 VALUES ($1, $2, $3, $4, $5, 'pending')
-                 RETURNING id`,
-                [userId, outfit_catalogues_id, start_date, duration_days, amount_to_be_paid]
+                    amount_to_be_paid, rental_status, code)
+                 VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+                 RETURNING id, code`,
+                [userId, outfit_catalogues_id, start_date, duration_days, amount_to_be_paid, rentalCode]
             );
             const rentalId = rentalResult.rows[0].id;
 
@@ -434,15 +438,16 @@ export async function createRental(req, res) {
             );
             const dbUser = userRes.rows[0];
 
+            const invoiceCode = generateInvoiceCode();
             // Insert transaksi
             const txResult = await client.query(
                 `INSERT INTO transactions
-                   (user_id, rental_id, subtotal, total_amount, payment_method, status)
-                 VALUES ($1, $2, $3, $4, $5, 'pending')
-                 RETURNING id`,
-                [userId, rentalId, amount_to_be_paid, totalAmount, payment_method]
+                   (user_id, rental_id, subtotal, total_amount, payment_method, status, uuid)
+                 VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+                 RETURNING id, uuid`,
+                [userId, rentalId, amount_to_be_paid, totalAmount, payment_method, invoiceCode]
             );
-            const transactionId = txResult.rows[0].id;
+            const transactionId = txResult.rows[0].uuid;
 
             // Tambahkan notifikasi sistem untuk Admin
             await client.query(

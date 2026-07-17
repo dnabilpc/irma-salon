@@ -304,15 +304,15 @@ export default function PaymentsPage() {
         onRefresh={loadPayments}
         isRevalidating={revalidatingKeys.has(cacheKey)}
         searchPlaceholder="Cari nama pelanggan, telp, deskripsi, atau ID TRX..."
-        searchableKeys={["customer", "description", "id", "phone", "date"]}
+        searchableKeys={["customer", "description", "transaction_uuid", "id", "phone", "date"]}
         emptyMessage="Tidak ada transaksi yang ditemukan 🌸"
         columns={[
           {
-            key: "id",
-            header: "ID TRX",
+            key: "transaction_uuid",
+            header: "Kode Transaksi",
             sortable: true,
-            width: "80px",
-            render: (p) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B08090" }}>TRX-{p.id}</span>,
+            width: "165px",
+            render: (p) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B08090", fontWeight: 600 }}>{p.transaction_uuid || `TRX-${p.id}`}</span>,
           },
           {
             key: "customer",
@@ -330,7 +330,7 @@ export default function PaymentsPage() {
             header: "Tipe",
             sortable: true,
             render: (p) => {
-              const tc = TYPE_CONFIG[p.type] || { label: p.type, bg: "rgba(100,100,100,0.1)", color: "#555" };
+              const tc = TYPE_CONFIG[p.type as PaymentType] || { label: p.type, bg: "rgba(100,100,100,0.1)", color: "#555" };
               return (
                 <span style={{ display: "inline-flex", background: tc.bg, color: tc.color, fontSize: "0.72rem", fontWeight: 600, padding: "3px 10px", borderRadius: "20px" }}>
                   {tc.label}
@@ -343,7 +343,7 @@ export default function PaymentsPage() {
             header: "Metode",
             sortable: true,
             render: (p) => {
-              const mc = METHOD_CONFIG[p.method] || { label: p.method, icon: "💳" };
+              const mc = METHOD_CONFIG[p.method as PaymentMethod] || { label: p.method, icon: "💳" };
               return <span style={{ fontSize: "0.78rem", color: "#8A4060" }}>{mc.icon} {mc.label}</span>;
             },
           },
@@ -448,7 +448,7 @@ export default function PaymentsPage() {
                 <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: "#7A2848" }}>
                   Detail Transaksi
                 </div>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#B06080" }}>TRX-{selected.id}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#B06080" }}>{selected.transaction_uuid || `TRX-${selected.id}`}</span>
               </div>
               <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", color: "#B08090", cursor: "pointer" }}>✕</button>
             </div>
@@ -457,9 +457,9 @@ export default function PaymentsPage() {
               {[
                 { label: "Pelanggan",  value: selected.customer },
                 { label: "WhatsApp",   value: selected.phone || "—" },
-                { label: "Jenis",      value: (TYPE_CONFIG[selected.type] || { label: selected.type }).label },
+                { label: "Jenis",      value: (TYPE_CONFIG[selected.type as PaymentType] || { label: selected.type }).label },
                 { label: "Layanan",    value: selected.description },
-                { label: "Metode",     value: `${(METHOD_CONFIG[selected.method] || { icon: "💳", label: selected.method }).icon} ${(METHOD_CONFIG[selected.method] || { label: selected.method }).label}` },
+                { label: "Metode",     value: `${(METHOD_CONFIG[selected.method as PaymentMethod] || { icon: "💳", label: selected.method }).icon} ${(METHOD_CONFIG[selected.method as PaymentMethod] || { label: selected.method }).label}` },
                 { label: "Tanggal",    value: selected.date     },
                 { label: "Status",     value: (STATUS_CONFIG[selected.status] || { label: selected.status }).label },
                 { label: "Bukti QRIS",  value: selected.payment_proof_sent ? "Sudah Dikirim (WhatsApp Admin) 📱" : "Belum Dikirim" },

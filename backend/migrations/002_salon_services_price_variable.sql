@@ -1,0 +1,2 @@
+ALTER TABLE salon_services
+ADD COLUMN IF NOT EXISTS is_price_variable BOOLEAN NOT NULL DEFAULT FALSE;

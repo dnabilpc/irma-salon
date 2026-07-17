@@ -19,14 +19,16 @@ export interface PaymentRow {
   id: number;
   customer: string;
   phone: string;
-  type: 'booking' | 'sewa';
+  type: string;
   description: string;
-  method: 'cash' | 'qris' | 'midtrans' | 'payment_gateway';
+  method: string;
   status: 'lunas' | 'pending' | 'gagal';
   amount: number;
   date: string;
   payment_time?: string;
   payment_proof_sent?: boolean;
+  transaction_uuid?: string | null;
+  created_at?: string | null;
 }
 
 export async function fetchSidebarCounts(): Promise<ActionResult<SidebarCounts>> {

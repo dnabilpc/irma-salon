@@ -2,6 +2,7 @@
 import pool from '../services/db.js';
 import { sendWaMessage, getWhatsappStatus } from '../services/whatsappService.js';
 import { sendInvoiceReceipt } from './paymentController.js';
+import { generateInvoiceCode } from '../utils/transaction.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 
@@ -561,11 +562,12 @@ export async function createBooking(req, res) {
         try {
             await client.query("BEGIN");
 
+            const bookingCode = generateBookingCode();
             const bookingResult = await client.query(
-                `INSERT INTO bookings (user_id, booking_datetime, status)
-                 VALUES ($1, $2, 'pending')
-                 RETURNING id`,
-                [userId, earliestDatetime.toISOString()]
+                `INSERT INTO bookings (user_id, booking_datetime, status, code)
+                 VALUES ($1, $2, 'pending', $3)
+                 RETURNING id, code`,
+                [userId, earliestDatetime.toISOString(), bookingCode]
             );
             const bookingId = bookingResult.rows[0].id;
 
@@ -587,14 +589,15 @@ export async function createBooking(req, res) {
             );
             const dbUser = userRes.rows[0];
 
+            const invoiceCode = generateInvoiceCode();
             const txResult = await client.query(
                 `INSERT INTO transactions
-                   (user_id, booking_id, subtotal, total_amount, payment_method, status)
-                 VALUES ($1, $2, $3, $4, $5, 'pending')
-                 RETURNING id`,
-                [userId, bookingId, subtotal, subtotal, payment_method]
+                   (user_id, booking_id, subtotal, total_amount, payment_method, status, uuid)
+                 VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+                 RETURNING id, uuid`,
+                [userId, bookingId, subtotal, subtotal, payment_method, invoiceCode]
             );
-            const transactionId = txResult.rows[0].id;
+            const transactionId = txResult.rows[0].uuid;
 
             // Insert system notification for Admin
             const servicesList = schedules.map((s) => serviceMap[s.service_id].service_name).join(", ");
@@ -816,6 +819,8 @@ export async function getBookingsForAdmin(req, res) {
         const result = await pool.query(
             `SELECT
                b.id,
+               b.code              AS booking_code,
+               b.created_at,
                u.name              AS customer_name,
                u.email             AS phone_number,
                b.booking_datetime,
@@ -833,9 +838,9 @@ export async function getBookingsForAdmin(req, res) {
              LEFT JOIN salon_services ss  ON ss.id = bd.salon_service_id
              LEFT JOIN transactions t     ON t.booking_id = b.id
              ${where}
-             GROUP BY b.id, u.name, u.email, b.booking_datetime, b.status,
+             GROUP BY b.id, b.code, b.created_at, u.name, u.email, b.booking_datetime, b.status,
                       t.total_amount, t.payment_method, t.id, t.payment_proof_sent, t.payment_proof_url, t.status
-             ORDER BY b.booking_datetime DESC
+             ORDER BY b.created_at DESC
              ${limitClause}`,
             queryParams
         );
@@ -889,7 +894,7 @@ export async function getBookingsForCustomer(req, res) {
                COALESCE(STRING_AGG(ss.service_name, ', '), '-') AS services,
                COALESCE(t.total_amount, 0)        AS total_amount,
                COALESCE(t.payment_method, 'cash') AS payment_method,
-               t.id AS transaction_id,
+               COALESCE(t.uuid::text, t.id::text) AS transaction_id,
                COALESCE(t.status, 'pending')      AS payment_status
              FROM bookings b
              LEFT JOIN booking_details bd ON bd.booking_id = b.id

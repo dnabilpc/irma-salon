@@ -221,7 +221,7 @@ function DetailModal({
                 color: "#2C1A0E",
                 marginBottom: "6px",
               }}>
-              Detail Booking #{booking.id}
+              Detail Booking {booking.booking_code || `#${booking.id}`}
             </div>
             <StatusBadge status={booking.status} />
           </div>
@@ -975,15 +975,29 @@ export default function AdminBookingsClient({ backendUrl }: { backendUrl: string
         onRefresh={fetchData}
         isRevalidating={revalidatingKeys.has(cacheKey)}
         searchPlaceholder="Cari nama pelanggan, nomor telp, atau layanan..."
-        searchableKeys={["customer_name", "phone_number", "services", "id"]}
+        searchableKeys={["customer_name", "phone_number", "services", "booking_code", "id"]}
         emptyMessage="Tidak ada data booking yang ditemukan 🌸"
         columns={[
           {
-            key: "id",
-            header: "ID",
+            key: "booking_code",
+            header: "Kode Booking",
             sortable: true,
-            width: "60px",
-            render: (b) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B09080" }}>#{b.id}</span>,
+            width: "150px",
+            render: (b) => <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#B09080", fontWeight: 600 }}>{b.booking_code || `#${b.id}`}</span>,
+          },
+          {
+            key: "created_at",
+            header: "Tanggal Order",
+            sortable: true,
+            sortValue: (b) => new Date(b.created_at || b.booking_datetime).getTime(),
+            render: (b) => {
+              const dt = new Date(b.created_at || b.booking_datetime);
+              return (
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#7A5C50" }}>
+                  {dt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </span>
+              );
+            }
           },
           {
             key: "customer_name",
