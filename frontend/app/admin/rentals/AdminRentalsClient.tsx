@@ -74,9 +74,10 @@ interface DetailModalProps {
   onStatusChange: (id: number, status: RentalStatus, confirmPayment?: boolean) => void;
   loading: boolean;
   onEdit: (rental: RentalRow) => void;
+  backendUrl: string;
 }
 
-function DetailModal({ rental, onClose, onStatusChange, loading, onEdit }: DetailModalProps) {
+function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backendUrl }: DetailModalProps) {
 
   return (
     <div
@@ -668,6 +669,7 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
           onStatusChange={handleStatusChange}
           loading={actionLoading}
           onEdit={setEditingRental}
+          backendUrl={backendUrl}
         />
       )}
 
