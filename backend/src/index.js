@@ -1,5 +1,6 @@
 // backend/src/index.js
 import 'dotenv/config';
+import pool from './services/db.js';
 import express from 'express';
 import cors from 'cors';
 import tryonRoutes from './routes/tryonRoutes.js';

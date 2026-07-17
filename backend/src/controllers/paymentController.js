@@ -13,7 +13,7 @@ import { sendWaMessage, MessageMedia } from '../services/whatsappService.js';
  */
 export async function getPaymentsForAdmin(req, res) {
     try {
-        const result = await pool.query(
+        const result = await pool.query(`
              SELECT 
                 t.id,
                 t.uuid AS transaction_uuid,
