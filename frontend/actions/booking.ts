@@ -19,6 +19,7 @@ export interface BookingRow {
   transaction_id: number | null;
   payment_proof_sent?: boolean;
   payment_proof_url?: string | null;
+  payment_status?: string | null;
 }
 
 export interface ServiceScheduleInput {

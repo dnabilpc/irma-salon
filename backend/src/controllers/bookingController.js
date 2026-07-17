@@ -646,7 +646,10 @@ export async function updateBookingStatus(req, res) {
 
     try {
         const checkRes = await pool.query(
-            `SELECT booking_datetime, status FROM bookings WHERE id = $1`,
+            `SELECT b.booking_datetime, b.status, t.status AS payment_status 
+             FROM bookings b
+             LEFT JOIN transactions t ON t.booking_id = b.id
+             WHERE b.id = $1`,
             [id]
         );
         if (!checkRes.rows.length) {
@@ -656,6 +659,10 @@ export async function updateBookingStatus(req, res) {
 
         if (status === "confirmed" && new Date(booking.booking_datetime) < new Date()) {
             return res.status(400).json({ error: "Tidak dapat menyetujui booking yang jadwalnya sudah terlewati (kedaluwarsa)." });
+        }
+
+        if (status === "rejected" && booking.payment_status === "lunas") {
+            return res.status(400).json({ error: "Booking tidak dapat ditolak karena pelanggan sudah membayar (Lunas)." });
         }
 
         let query;
@@ -818,7 +825,8 @@ export async function getBookingsForAdmin(req, res) {
                COALESCE(t.payment_method, 'cash') AS payment_method,
                t.id                AS transaction_id,
                t.payment_proof_sent,
-               t.payment_proof_url
+               t.payment_proof_url,
+               t.status            AS payment_status
              FROM bookings b
              JOIN "user" u ON b.user_id = u.id
              LEFT JOIN booking_details bd ON bd.booking_id = b.id
@@ -826,7 +834,7 @@ export async function getBookingsForAdmin(req, res) {
              LEFT JOIN transactions t     ON t.booking_id = b.id
              ${where}
              GROUP BY b.id, u.name, u.email, b.booking_datetime, b.status,
-                      t.total_amount, t.payment_method, t.id, t.payment_proof_sent, t.payment_proof_url
+                      t.total_amount, t.payment_method, t.id, t.payment_proof_sent, t.payment_proof_url, t.status
              ORDER BY b.booking_datetime DESC
              ${limitClause}`,
             queryParams

@@ -367,30 +367,40 @@ function DetailModal({
           {/* Action — PENDING */}
           {booking.status === "pending" && (
             <>
-              <div style={{ background: "rgba(201,146,42,0.06)", border: "1px solid rgba(201,146,42,0.2)", borderRadius: "8px", padding: "10px 12px", fontSize: "0.78rem", color: "#8B6A5A" }}>
-                Metode Bayar: <strong style={{ color: "#2C1A0E" }}>{booking.payment_method?.toUpperCase()}</strong>
-              </div>
-
-              <textarea
-                placeholder="Masukkan alasan penolakan (opsional jika menolak)..."
-                value={rejectReason}
-                onChange={(e) => {
-                  setRejectReason(e.target.value);
-                  if (rejectError) setRejectError("");
-                }}
-                style={{
-                  width: "100%",
-                  marginTop: "6px",
-                  padding: "10px",
-                  border: `1px solid ${rejectError ? "#C05060" : "#F0E0E6"}`,
-                  borderRadius: "8px",
-                  fontSize: "0.8rem",
-                }}
-              />
-              {rejectError && (
-                <div style={{ color: "#C05060", fontSize: "0.7rem", marginTop: "4px", fontWeight: 500 }}>
-                  {rejectError}
+              {booking.payment_status === "lunas" ? (
+                <div style={{ background: "rgba(42,140,90,0.07)", border: "1px solid rgba(42,140,90,0.2)", borderRadius: "8px", padding: "10px 12px", fontSize: "0.78rem", color: "#1A7A4A", marginBottom: "8px" }}>
+                  Status Pembayaran: <strong>LUNAS ({booking.payment_method?.toUpperCase()})</strong>. Booking ini tidak dapat ditolak karena pelanggan sudah melakukan pembayaran.
                 </div>
+              ) : (
+                <div style={{ background: "rgba(201,146,42,0.06)", border: "1px solid rgba(201,146,42,0.2)", borderRadius: "8px", padding: "10px 12px", fontSize: "0.78rem", color: "#8B6A5A" }}>
+                  Metode Bayar: <strong style={{ color: "#2C1A0E" }}>{booking.payment_method?.toUpperCase()}</strong>
+                </div>
+              )}
+
+              {booking.payment_status !== "lunas" && (
+                <>
+                  <textarea
+                    placeholder="Masukkan alasan penolakan (opsional jika menolak)..."
+                    value={rejectReason}
+                    onChange={(e) => {
+                      setRejectReason(e.target.value);
+                      if (rejectError) setRejectError("");
+                    }}
+                    style={{
+                      width: "100%",
+                      marginTop: "6px",
+                      padding: "10px",
+                      border: `1px solid ${rejectError ? "#C05060" : "#F0E0E6"}`,
+                      borderRadius: "8px",
+                      fontSize: "0.8rem",
+                    }}
+                  />
+                  {rejectError && (
+                    <div style={{ color: "#C05060", fontSize: "0.7rem", marginTop: "4px", fontWeight: 500 }}>
+                      {rejectError}
+                    </div>
+                  )}
+                </>
               )}
 
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -415,50 +425,52 @@ function DetailModal({
                   🟢 Terima & Konfirmasi Pembayaran (Lunas)
                 </button>
 
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    disabled={loading}
-                    onClick={() => onStatusChange(booking.id, "confirmed", undefined, false)}
-                    style={{
-                      flex: 1,
-                      background: "rgba(201,146,42,0.1)",
-                      border: "1.5px solid rgba(201,146,42,0.4)",
-                      color: "#A07010",
-                      padding: "10px",
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: "0.78rem",
-                      fontWeight: 600,
-                      cursor: loading ? "not-allowed" : "pointer",
-                      borderRadius: "8px",
-                    }}
-                  >
-                    🟡 Terima Saja (Bayar di Salon)
-                  </button>
-                  <button
-                    disabled={loading}
-                    onClick={() => {
-                      if (!rejectReason.trim()) {
-                        setRejectError("Alasan penolakan wajib diisi.");
-                        return;
-                      }
-                      onStatusChange(booking.id, "rejected", rejectReason);
-                    }}
-                    style={{
-                      flex: 1,
-                      background: "rgba(192,80,96,0.08)",
-                      border: "1.5px solid rgba(192,80,96,0.3)",
-                      color: "#C05060",
-                      padding: "10px",
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: "0.78rem",
-                      fontWeight: 600,
-                      cursor: loading ? "not-allowed" : "pointer",
-                      borderRadius: "8px",
-                    }}
-                  >
-                    🔴 Tolak Booking
-                  </button>
-                </div>
+                {booking.payment_status !== "lunas" && (
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      disabled={loading}
+                      onClick={() => onStatusChange(booking.id, "confirmed", undefined, false)}
+                      style={{
+                        flex: 1,
+                        background: "rgba(201,146,42,0.1)",
+                        border: "1.5px solid rgba(201,146,42,0.4)",
+                        color: "#A07010",
+                        padding: "10px",
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        cursor: loading ? "not-allowed" : "pointer",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      🟡 Terima Saja (Bayar di Salon)
+                    </button>
+                    <button
+                      disabled={loading}
+                      onClick={() => {
+                        if (!rejectReason.trim()) {
+                          setRejectError("Alasan penolakan wajib diisi.");
+                          return;
+                        }
+                        onStatusChange(booking.id, "rejected", rejectReason);
+                      }}
+                      style={{
+                        flex: 1,
+                        background: "rgba(192,80,96,0.08)",
+                        border: "1.5px solid rgba(192,80,96,0.3)",
+                        color: "#C05060",
+                        padding: "10px",
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        cursor: loading ? "not-allowed" : "pointer",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      🔴 Tolak Booking
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}
