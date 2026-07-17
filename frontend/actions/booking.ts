@@ -17,6 +17,8 @@ export interface BookingRow {
   total_amount: number;
   payment_method: string;
   transaction_id: number | null;
+  payment_proof_sent?: boolean;
+  payment_proof_url?: string | null;
 }
 
 export interface ServiceScheduleInput {

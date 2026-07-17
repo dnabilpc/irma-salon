@@ -163,6 +163,13 @@ async function getAdminPhone() {
     return null;
 }
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export async function uploadPaymentProof(req, res) {
     try {
         const { bookingId, rentalId, rentalOrderId, transactionId } = req.body;
@@ -239,6 +246,19 @@ export async function uploadPaymentProof(req, res) {
             `\u2022 *Waktu Pengiriman*: ${dateStr} WIB\n\n` +
             `Mohon verifikasi pembayaran ini di Dashboard Admin.`;
 
+        // Save file locally to server
+        const uploadDir = path.join(__dirname, '../public/uploads/proofs');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const fileExt = path.extname(req.file.originalname) || '.png';
+        const fileName = `proof_${transaction.id}_${Date.now()}${fileExt}`;
+        const filePath = path.join(uploadDir, fileName);
+        
+        fs.writeFileSync(filePath, req.file.buffer);
+        const fileUrlPath = `/uploads/proofs/${fileName}`;
+
         // Get admin phone number
         const adminPhone = await getAdminPhone();
         if (!adminPhone) {
@@ -263,9 +283,10 @@ export async function uploadPaymentProof(req, res) {
         // Update database status
         await pool.query(
             `UPDATE transactions 
-             SET payment_proof_sent = TRUE 
-             WHERE id = $1`,
-            [transaction.id]
+             SET payment_proof_sent = TRUE,
+                 payment_proof_url = $1
+             WHERE id = $2`,
+            [fileUrlPath, transaction.id]
         );
 
         return res.json({ success: true });

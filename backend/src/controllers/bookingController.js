@@ -816,7 +816,9 @@ export async function getBookingsForAdmin(req, res) {
                COALESCE(STRING_AGG(ss.service_name, ', '), '-') AS services,
                COALESCE(t.total_amount, 0)     AS total_amount,
                COALESCE(t.payment_method, 'cash') AS payment_method,
-               t.id                AS transaction_id
+               t.id                AS transaction_id,
+               t.payment_proof_sent,
+               t.payment_proof_url
              FROM bookings b
              JOIN "user" u ON b.user_id = u.id
              LEFT JOIN booking_details bd ON bd.booking_id = b.id
@@ -824,7 +826,7 @@ export async function getBookingsForAdmin(req, res) {
              LEFT JOIN transactions t     ON t.booking_id = b.id
              ${where}
              GROUP BY b.id, u.name, u.email, b.booking_datetime, b.status,
-                      t.total_amount, t.payment_method, t.id
+                      t.total_amount, t.payment_method, t.id, t.payment_proof_sent, t.payment_proof_url
              ORDER BY b.booking_datetime DESC
              ${limitClause}`,
             queryParams

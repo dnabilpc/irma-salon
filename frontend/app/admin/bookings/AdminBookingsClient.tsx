@@ -310,6 +310,24 @@ function DetailModal({
                 value={`#${booking.transaction_id}`}
               />
             )}
+            {booking.payment_proof_sent && booking.payment_proof_url && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", fontSize: "0.82rem" }}>
+                <span style={{ color: "#B09080" }}>Bukti Transfer:</span>
+                <a
+                  href={`http://localhost:5000${booking.payment_proof_url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#C9922A",
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  👁️ Lihat Bukti Pembayaran
+                </a>
+              </div>
+            )}
           </div>
 
           {/* Action — PENDING */}

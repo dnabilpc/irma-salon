@@ -140,6 +140,25 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit }: Detai
                 </span>
               </div>
             ))}
+            {rental.payment_proof_sent && rental.payment_proof_url && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #F0D9E0" }}>
+                <span style={{ fontSize: "13px", color: "#B08090" }}>Bukti Transfer</span>
+                <a
+                  href={`http://localhost:5000${rental.payment_proof_url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: "13px",
+                    color: "#C9922A",
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  👁️ Lihat Bukti Pembayaran
+                </a>
+              </div>
+            )}
             <div style={{ padding: "8px 0" }} />
           </div>
 

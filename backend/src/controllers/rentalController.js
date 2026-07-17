@@ -269,7 +269,9 @@ export async function getRentalsForAdmin(req, res) {
                r.rental_status,
                r.rental_status                                                 AS status,
                t.id                                                            AS transaction_id,
-               COALESCE(t.payment_method, 'cash')                             AS payment_method
+               COALESCE(t.payment_method, 'cash')                             AS payment_method,
+               t.payment_proof_sent,
+               t.payment_proof_url
              FROM rentals r
              JOIN "user" u              ON u.id   = r.user_id
              JOIN outfit_catalogues oc  ON oc.id  = r.outfit_catalogues_id

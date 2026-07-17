@@ -27,6 +27,8 @@ export interface RentalRow {
   status: RentalStatus;
   transaction_id: number | null;
   payment_method: string;
+  payment_proof_sent?: boolean;
+  payment_proof_url?: string | null;
 }
 
 export interface ActionResult<T = void> {

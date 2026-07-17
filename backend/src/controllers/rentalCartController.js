@@ -255,7 +255,7 @@ export async function getRentalCartOrder(req, res) {
     try {
         const orderRes = await pool.query(
             `SELECT ro.*, t.id AS transaction_id, t.status AS payment_status,
-                    t.payment_method, t.total_amount, t.payment_proof_sent
+                    t.payment_method, t.total_amount, t.payment_proof_sent, t.payment_proof_url
              FROM rental_orders ro
              LEFT JOIN transactions t ON t.rental_order_id = ro.id
              WHERE ro.id = $1`,
@@ -292,6 +292,7 @@ export async function getRentalCartOrder(req, res) {
                 payment_method: order.payment_method,
                 total_amount: order.total_amount,
                 payment_proof_sent: order.payment_proof_sent,
+                payment_proof_url: order.payment_proof_url,
             },
             items: itemsRes.rows,
         });
