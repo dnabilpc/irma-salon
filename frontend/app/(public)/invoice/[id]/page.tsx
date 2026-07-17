@@ -128,15 +128,40 @@ export default function InvoicePage() {
       return diff > 0 ? diff : 0;
     };
 
+    const initialTime = calculateTimeLeft();
+    if (initialTime <= 0) {
+      setTimeLeft(0);
+      setData((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          transaction: {
+            ...prev.transaction,
+            status: "cancelled",
+          },
+        };
+      });
+      return;
+    }
+
     // Use setTimeout(0) to avoid synchronous setState inside effect body
-    const initTimeout = setTimeout(() => setTimeLeft(calculateTimeLeft()), 0);
+    const initTimeout = setTimeout(() => setTimeLeft(initialTime), 0);
 
     const timer = setInterval(() => {
       const remaining = calculateTimeLeft();
       setTimeLeft(remaining);
       if (remaining <= 0) {
         clearInterval(timer);
-        window.location.reload();
+        setData((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            transaction: {
+              ...prev.transaction,
+              status: "cancelled",
+            },
+          };
+        });
       }
     }, 1000);
 
