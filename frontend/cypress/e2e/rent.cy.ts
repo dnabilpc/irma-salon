@@ -41,8 +41,8 @@ describe("Alur Penyewaan Busana (Rental Flow)", () => {
   beforeEach(() => {
     // Login sebagai user sebelum setiap test sewa
     cy.visit("/login");
-    cy.get('input[id="email"]').type(testEmail);
-    cy.get('input[id="password"]').type(testPassword);
+    cy.get('input[id="email"]').clear().type(testEmail);
+    cy.get('input[id="password"]').clear().type(testPassword);
     cy.get('button[type="submit"]').click();
     cy.url({ timeout: EXTENDED_TIMEOUT }).should("include", "/dashboard");
   });

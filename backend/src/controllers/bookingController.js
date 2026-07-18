@@ -94,7 +94,7 @@ export async function autoUpdateBookingStates() {
 
 // ── WhatsApp Notification Triggers ──────────────────────────────────────────
 
-async function sendBookingNotifications(bookingId, customer, datetimeStr, servicesList) {
+async function sendBookingNotifications(bookingId, customer, datetimeStr, servicesList, bookingCode) {
     const bookingDate = new Date(datetimeStr);
     const formattedDate = bookingDate.toLocaleDateString("id-ID", {
         weekday: "long",
@@ -129,6 +129,7 @@ async function sendBookingNotifications(bookingId, customer, datetimeStr, servic
             const adminMsg = `📢 *NOTIFIKASI BOOKING BARU* 📢\n\n` +
                 `Pelanggan *${customer.name}* (${customer.phone_number || customer.email}) telah membuat booking baru:\n\n` +
                 `🆔 *Booking ID:* #${bookingId}\n` +
+                `Kode Booking: ${bookingCode}\n` +
                 `📅 *Jadwal:* ${timeStr} WIB\n` +
                 `💇‍♀️ *Layanan:* ${servicesList}\n\n` +
                 `Silakan cek Halaman Admin Bookings untuk memproses persetujuan.`;
@@ -604,13 +605,13 @@ export async function createBooking(req, res) {
             await client.query(
                 `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
                  VALUES ('booking', 'Booking Baru', $1, $2, FALSE, NOW())`,
-                [`Booking baru dari ${dbUser.name} – ${servicesList}`, bookingId]
+                [`Booking baru dari ${dbUser.name} – ${servicesList}\nKode Booking: ${bookingCode}`, bookingId]
             );
 
             await client.query("COMMIT");
 
             // Dispatch WhatsApp notifications asynchronously
-            sendBookingNotifications(bookingId, dbUser, earliestDatetime.toISOString(), servicesList).catch((err) =>
+            sendBookingNotifications(bookingId, dbUser, earliestDatetime.toISOString(), servicesList, bookingCode).catch((err) =>
                 console.error("Failed sending booking WA notification:", err)
             );
 

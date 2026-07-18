@@ -40,10 +40,10 @@ describe("Alur AI Virtual Try-On (Mocked API)", () => {
   beforeEach(() => {
     // Login sebagai user sebelum pengujian VTO
     cy.visit("/login");
-    cy.get('input[id="email"]').type(testEmail);
-    cy.get('input[id="password"]').type(testPassword);
+    cy.get('input[id="email"]').clear().type(testEmail);
+    cy.get('input[id="password"]').clear().type(testPassword);
     cy.get('button[type="submit"]').click();
-    cy.url().should("include", "/dashboard");
+    cy.url({ timeout: EXTENDED_TIMEOUT }).should("include", "/dashboard");
   });
 
   it("Mengunggah Foto Selfie, Memilih Baju, dan Menjalankan VTO AI (Hasil Mocked)", () => {

@@ -182,7 +182,7 @@ function Step1({
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "10px", borderTop: "1px solid #EDD8CC" }}>
                 <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "#6B3A2A" }}>
-                  {svc.is_price_variable ? "Mulai dari " : ""}{formatRupiah(svc.price)}
+                  {svc.is_price_variable ? "Mulai dari " : ""}{formatRupiah(Number(svc.price))}
                 </span>
                 <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", color: "#8B6A5A" }}>
                   ⏱ {svc.hour_duration} jam
@@ -462,7 +462,7 @@ function Step4({
   userName: string;
   userPhone: string;
 }) {
-  const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const total = selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
   const hasVariable = selectedServices.some((s) => s.isVariable);
 
   const formatDateTime = (date: string, time: string) => {
@@ -591,8 +591,8 @@ export default function BookingPage() {
       return [...prev, {
         serviceId: svc.id,
         serviceName: svc.service_name,
-        price: svc.price,
-        hourDuration: svc.hour_duration,
+        price: Number(svc.price),
+        hourDuration: Number(svc.hour_duration),
         isVariable: !!svc.is_price_variable,
         date: "",
         time: "",
