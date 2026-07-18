@@ -722,7 +722,7 @@ export async function cancelBooking(req, res) {
 
     try {
         const check = await pool.query(
-            `SELECT b.id, b.status, t.status AS payment_status 
+            `SELECT b.id, b.code, b.status, t.status AS payment_status 
              FROM bookings b
              LEFT JOIN transactions t ON t.booking_id = b.id
              WHERE b.id = $1 AND b.user_id = $2`,
@@ -758,7 +758,7 @@ export async function cancelBooking(req, res) {
         await pool.query(
             `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
              VALUES ('booking', 'Booking Dibatalkan', $1, $2, FALSE, NOW())`,
-            [`Booking #${id} telah dibatalkan oleh pelanggan`, id]
+            [`Booking ${booking.code || '#' + id} telah dibatalkan oleh pelanggan`, id]
         );
 
         // WhatsApp notification (async)

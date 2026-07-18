@@ -192,16 +192,18 @@ export async function createRentalCart(req, res) {
             const rentalOrderId = orderResult.rows[0].id;
 
             const createdRentalIds = [];
+            const createdRentalCodes = [];
             for (const item of enrichedItems) {
                 const rentalCode = generateRentalCode();
                 const rentalResult = await client.query(
                     `INSERT INTO rentals
                        (user_id, outfit_catalogues_id, start_date, duration_days, amount_to_be_paid, rental_status, rental_order_id, code)
                      VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
-                     RETURNING id`,
+                     RETURNING id, code`,
                     [userId, item.outfit_catalogues_id, item.start_date, item.duration_days, item.amount_to_be_paid, rentalOrderId, rentalCode]
                 );
                 createdRentalIds.push(rentalResult.rows[0].id);
+                createdRentalCodes.push(rentalResult.rows[0].code);
             }
 
             const userRes = await client.query(
@@ -221,10 +223,11 @@ export async function createRentalCart(req, res) {
             const transactionId = txResult.rows[0].uuid;
 
             const outfitNameList = enrichedItems.map((i) => i.outfit_name).join(", ");
+            const codesList = createdRentalCodes.join(", ");
             await client.query(
                 `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
                  VALUES ('booking', 'Sewa Baju Baru (Keranjang)', $1, $2, FALSE, NOW())`,
-                [`Sewa baru dari ${dbUser.name} - ${outfitNameList}`, rentalOrderId]
+                [`Sewa baru dari ${dbUser.name} - ${outfitNameList}\nKode Sewa: ${codesList}`, rentalOrderId]
             );
 
             await client.query("COMMIT");

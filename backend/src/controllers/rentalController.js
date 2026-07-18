@@ -450,11 +450,13 @@ export async function createRental(req, res) {
             );
             const transactionId = txResult.rows[0].uuid;
 
+            const rentalCodeReturned = rentalResult.rows[0].code;
+
             // Tambahkan notifikasi sistem untuk Admin
             await client.query(
                 `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
                  VALUES ('booking', 'Sewa Baju Baru', $1, $2, FALSE, NOW())`,
-                [`Sewa baru dari ${dbUser.name} – ${outfit.outfit_name}`, rentalId]
+                [`Sewa baru dari ${dbUser.name} – ${outfit.outfit_name}\nKode Sewa: ${rentalCodeReturned}`, rentalId]
             );
 
             await client.query("COMMIT");
@@ -506,7 +508,7 @@ export async function updateRentalStatus(req, res) {
     try {
         // Fetch current rental details to check start_date
         const checkRes = await pool.query(
-            `SELECT start_date, rental_status, rental_order_id FROM rentals WHERE id = $1`,
+            `SELECT start_date, rental_status, rental_order_id, code FROM rentals WHERE id = $1`,
             [id]
         );
         if (!checkRes.rows.length) {
@@ -644,7 +646,7 @@ export async function updateRentalStatus(req, res) {
                             await pool.query(
                                 `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
                                  VALUES ('return', 'Denda Keterlambatan Sewa', $1, $2, FALSE, NOW())`,
-                                [`Pengembalian Sewa Baju #${id} terlambat ${lateDays} hari. Denda sebesar ${formatRupiah(penaltyAmount)} telah ditambahkan ke tagihan.`, id]
+                                [`Pengembalian Sewa Baju ${rental.code || '#' + id} terlambat ${lateDays} hari. Denda sebesar ${formatRupiah(penaltyAmount)} telah ditambahkan ke tagihan.`, id]
                             );
                         }
                     }
@@ -678,7 +680,7 @@ export async function cancelRental(req, res) {
 
     try {
         const check = await pool.query(
-            `SELECT r.id, r.rental_status, t.status AS payment_status 
+            `SELECT r.id, r.code, r.rental_status, t.status AS payment_status 
              FROM rentals r
              LEFT JOIN transactions t ON t.rental_id = r.id
              WHERE r.id = $1 AND r.user_id = $2`,
@@ -718,7 +720,7 @@ export async function cancelRental(req, res) {
         await pool.query(
             `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
              VALUES ('booking', 'Sewa Baju Dibatalkan', $1, $2, FALSE, NOW())`,
-            [`Sewa Baju #${id} telah dibatalkan oleh pelanggan ${userName}`, id]
+            [`Sewa Baju ${rental.code || '#' + id} telah dibatalkan oleh pelanggan ${userName}`, id]
         );
 
         // Kirim notifikasi pembatalan sewa ke Pelanggan dan Admin via WhatsApp
@@ -745,7 +747,7 @@ export async function syncLateRentals(req, res) {
              SET rental_status = 'terlambat'
              WHERE rental_status = 'ongoing'
                AND (start_date + duration_days * INTERVAL '1 day')::date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date
-             RETURNING id`
+             RETURNING id, code`
         );
 
         if (result.rows.length > 0) {
@@ -753,7 +755,7 @@ export async function syncLateRentals(req, res) {
                 await pool.query(
                     `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
                      VALUES ('return', 'Keterlambatan Pengembalian', $1, $2, FALSE, NOW())`,
-                    [`Sewa Baju #${row.id} terlambat dikembalikan`, row.id]
+                    [`Sewa Baju ${row.code || '#' + row.id} terlambat dikembalikan`, row.id]
                 );
             }
         }
