@@ -2,7 +2,7 @@
 import pool from '../services/db.js';
 import { sendWaMessage, getWhatsappStatus } from '../services/whatsappService.js';
 import { sendInvoiceReceipt } from './paymentController.js';
-import { generateInvoiceCode } from '../utils/transaction.js';
+import { generateInvoiceCode, generateBookingCode } from '../utils/transaction.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 

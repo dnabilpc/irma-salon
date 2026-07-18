@@ -123,7 +123,7 @@ export interface DashboardStats {
     amount: number;
   }[];
   recentRentals: {
-    id: number;
+    id: string;
     customer: string;
     item: string;
     rent_date: string;

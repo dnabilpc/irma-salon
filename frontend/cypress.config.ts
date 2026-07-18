@@ -37,6 +37,13 @@ export default defineConfig({
             );
             if (userRes.rows.length > 0) {
               const userId = userRes.rows[0].id;
+              // Clean up referencing rows first
+              await client.query('DELETE FROM transactions WHERE user_id = $1', [userId]);
+              await client.query('DELETE FROM booking_details WHERE booking_id IN (SELECT id FROM bookings WHERE user_id = $1)', [userId]);
+              await client.query('DELETE FROM bookings WHERE user_id = $1', [userId]);
+              await client.query('DELETE FROM rentals WHERE user_id = $1', [userId]);
+              await client.query('DELETE FROM rental_orders WHERE user_id = $1', [userId]);
+              await client.query('DELETE FROM session WHERE "userId" = $1', [userId]);
               await client.query('DELETE FROM account WHERE "userId" = $1', [userId]);
               await client.query('DELETE FROM "user" WHERE id = $1', [userId]);
               await client.query('DELETE FROM verification WHERE identifier = $1', [

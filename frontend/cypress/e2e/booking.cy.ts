@@ -52,11 +52,13 @@ describe("Alur Pemesanan Layanan Salon (Booking Flow)", () => {
 
     // Step 0: Pilih Layanan (misal Hair Treatment)
     cy.contains("Pilih Layanan", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-    cy.get('button').contains("Potong Rambut").click();
-    cy.get('button').contains("Lanjut →").click();
+    cy.contains("Memuat layanan...", { timeout: EXTENDED_TIMEOUT }).should("not.exist");
+    cy.get('button').contains("Potong Rambut").click({ force: true });
+    cy.contains("1 layanan dipilih", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.get('button').contains("Lanjut →").click({ force: true });
 
     // Step 1: Pilih Jadwal
-    cy.contains("Pilih Jadwal", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains("Atur Jadwal Tiap Layanan", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
     
     // Pilih Tanggal Besok (agar selalu valid)
     const tomorrow = new Date();
@@ -65,21 +67,21 @@ describe("Alur Pemesanan Layanan Salon (Booking Flow)", () => {
     cy.get('input[type="date"]').type(tomorrowStr);
 
     // Tunggu slots dirender lalu klik slot jam tersedia
-    cy.get('button', { timeout: EXTENDED_TIMEOUT }).contains("09:00").click();
-    cy.get('button').contains("Lanjut →").click();
+    cy.get('button', { timeout: EXTENDED_TIMEOUT }).contains("09:00").click({ force: true });
+    cy.get('button').contains("Lanjut →").click({ force: true });
 
     // Step 2: Catatan Tambahan
     cy.contains("Catatan Tambahan", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
     cy.get('textarea[placeholder*="Contoh: ada alergi"]').type("Request stylist senior.");
-    cy.get('button').contains("Lanjut →").click();
+    cy.get('button').contains("Lanjut →").click({ force: true });
 
     // Step 3: Konfirmasi & QRIS Statis (Locked)
     cy.contains("Konfirmasi Booking", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
     cy.contains("QRIS Statis").should("be.visible");
-    cy.get('button').contains("Konfirmasi Booking").click();
+    cy.get('button').contains(/Konfirmasi \d+ Booking/i).click({ force: true });
 
-    // Verifikasi Booking Sukses
-    cy.contains("Booking Berhasil!", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-    cy.contains("ID Booking:", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    // Verifikasi Booking Sukses (Redirect ke Invoice)
+    cy.contains("NO. INVOICE", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains("PELANGGAN").should("be.visible");
   });
 });

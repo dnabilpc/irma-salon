@@ -2,7 +2,7 @@
 import pool from '../services/db.js';
 import { sendWaMessage } from '../services/whatsappService.js';
 import { sendInvoiceReceipt } from './paymentController.js';
-import { generateInvoiceCode } from '../utils/transaction.js';
+import { generateInvoiceCode, generateRentalCode } from '../utils/transaction.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 async function getAdminPhone() {
@@ -274,7 +274,8 @@ export async function getRentalsForAdmin(req, res) {
                t.id                                                            AS transaction_id,
                COALESCE(t.payment_method, 'cash')                             AS payment_method,
                t.payment_proof_sent,
-               t.payment_proof_url
+               t.payment_proof_url,
+               t.status                                                        AS payment_status
              FROM rentals r
              JOIN "user" u              ON u.id   = r.user_id
              JOIN outfit_catalogues oc  ON oc.id  = r.outfit_catalogues_id
@@ -539,6 +540,19 @@ export async function updateRentalStatus(req, res) {
             }
         }
 
+        if (status === "cancelled") {
+            const paidRes = await pool.query(
+                `SELECT t.status AS payment_status 
+                 FROM rentals r
+                 LEFT JOIN transactions t ON t.rental_id = r.id OR t.rental_order_id = r.rental_order_id
+                 WHERE r.id = $1 AND t.status = 'lunas'`,
+                [id]
+            );
+            if (paidRes.rows.length > 0) {
+                return res.status(400).json({ error: "Sewa pakaian tidak dapat dibatalkan karena sudah dibayar (Lunas)." });
+            }
+        }
+
         const query = `UPDATE rentals SET rental_status = $1 WHERE id = $2 RETURNING id, user_id`;
         const queryParams = [status, id];
 
@@ -730,7 +744,7 @@ export async function syncLateRentals(req, res) {
             `UPDATE rentals
              SET rental_status = 'terlambat'
              WHERE rental_status = 'ongoing'
-               AND (start_date + duration_days * INTERVAL '1 day')::date < CURRENT_DATE
+               AND (start_date + duration_days * INTERVAL '1 day')::date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date
              RETURNING id`
         );
 

@@ -6,6 +6,7 @@ describe("Alur AI Virtual Try-On (Mocked API)", () => {
   const testEmail = `tryon.user.${randomSuffix}@irmasalon.com`;
   const testPhone = `0800000${Math.floor(10000 + Math.random() * 90000)}`;
   const testPassword = "passwordTest123";
+  const EXTENDED_TIMEOUT = 15000;
 
   before(() => {
     // 1. Registrasi Akun Baru
@@ -47,39 +48,49 @@ describe("Alur AI Virtual Try-On (Mocked API)", () => {
 
   it("Mengunggah Foto Selfie, Memilih Baju, dan Menjalankan VTO AI (Hasil Mocked)", () => {
     // Intercept API VTO agar tidak menghubungi API Replicate/Backend asli
-    cy.intercept("GET", "/api/vto/usage", {
+    cy.intercept("GET", "/api/vto/status/123", {
       statusCode: 200,
       body: {
         success: true,
-        can_use: true,
-        limit: 5,
-        remaining: 5,
-        next_reset: "2026-06-15T00:00:00.000Z",
+        task: {
+          id: 123,
+          status: "completed",
+        },
       },
-    }).as("getQuota");
+    }).as("taskStatus");
 
     cy.intercept("POST", "/api/vto/process", {
       statusCode: 200,
       body: {
         success: true,
-        imageUrl: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500", // Contoh Gambar Mock
+        taskId: 123,
       },
     }).as("processVto");
 
-    cy.intercept("POST", "/api/vto/usage", {
+    cy.intercept("GET", "/api/vto/history", {
       statusCode: 200,
-      body: {
-        success: true,
-        usage: 1,
-        remaining: 4,
-      },
-    }).as("updateQuota");
+      body: [
+        {
+          id: 123,
+          status: "completed",
+          person_image_url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500",
+          result_image_url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500",
+          outfit_name: "Mock Outfit",
+          created_at: new Date().toISOString(),
+        },
+      ],
+    }).as("vtoHistory");
+
+    cy.intercept("POST", "/api/vto/status/123/read", {
+      statusCode: 200,
+      body: { success: true },
+    }).as("readTask");
 
     cy.visit("/virtual-try-on");
 
-    // Tunggu kuota termuat
-    cy.wait("@getQuota");
-    cy.contains("5 / 5 tersisa").should("be.visible");
+    // Tunggu data terload (Koleksi baju dimuat)
+    cy.contains("Katalog Baju", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains("Memuat koleksi...", { timeout: EXTENDED_TIMEOUT }).should("not.exist");
 
     // 1. Unggah Foto Diri (Selfie)
     const fileName = "selfie.jpg";
@@ -92,19 +103,27 @@ describe("Alur AI Virtual Try-On (Mocked API)", () => {
     cy.contains("✓ Foto siap").should("be.visible");
 
     // 2. Pilih Baju di Katalog
-    // Kita pastikan ada baju yang bisa diklik. Baju dengan model_2d_file_link aktif.
-    // Kita klik baju pertama yang tidak berstatus disabled
+    // Kita klik baju pertama yang memiliki pointer cursor (ada model_2d_file_link)
     cy.get('div[style*="cursor: pointer"]').first().click();
 
     // 3. Jalankan VTO
     cy.get('button').contains("Mulai Virtual Try-On").click();
 
-    // Verifikasi pemrosesan API dipanggil
+    // Verifikasi API pemrosesan dipanggil
     cy.wait("@processVto");
-    cy.wait("@updateQuota");
 
-    // Verifikasi hasil VTO muncul
-    cy.contains("Hasil Virtual Try-On").should("be.visible");
-    cy.get("img[alt='Hasil Virtual Try-On']").should("be.visible");
+    // Verifikasi task masuk antrean aktif dan terpantau sampai selesai
+    cy.contains("Antrean Virtual Try-On Aktif", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains("Selesai!", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+
+    // 4. Klik Lihat Hasil
+    cy.get('button').contains("Lihat Hasil").click();
+
+    // Verifikasi dialihkan ke dashboard VTO history
+    cy.url({ timeout: EXTENDED_TIMEOUT }).should("include", "/dashboard");
+    cy.url().should("include", "section=vto");
+
+    // Verifikasi hasil VTO ter-render di dashboard
+    cy.get("img[alt='Hasil VTO']", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
   });
 });

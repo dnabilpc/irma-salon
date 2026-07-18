@@ -98,7 +98,7 @@ export function initScheduler() {
             const resRentals = await pool.query(`
                 UPDATE rentals
                 SET rental_status = 'cancelled'
-                WHERE rental_status = 'pending' AND start_date < CURRENT_DATE
+                WHERE rental_status = 'pending' AND start_date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date
             `);
             if (resRentals.rowCount > 0) {
                 console.log(`[Scheduler] Auto-expired ${resRentals.rowCount} pending rentals.`);
@@ -161,7 +161,7 @@ export async function sendBookingReminders() {
             LEFT JOIN salon_services ss ON bd.salon_service_id = ss.id
             WHERE b.status = 'confirmed'
               AND b.reminder_1d_sent = FALSE
-              AND DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE + INTERVAL '1 day'
+              AND DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date + INTERVAL '1 day'
               AND u.phone_number IS NOT NULL AND u.phone_number != ''
             GROUP BY b.id, u.name, u.phone_number, b.booking_datetime
         `;
@@ -255,7 +255,7 @@ export async function sendPickupReminders() {
             JOIN "user" u ON r.user_id = u.id
             JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
             WHERE r.rental_status = 'pending'
-              AND r.start_date = CURRENT_DATE + INTERVAL '1 day'
+              AND r.start_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date + INTERVAL '1 day'
               AND u.phone_number IS NOT NULL AND u.phone_number != ''
         `;
         const result = await pool.query(query);
@@ -296,7 +296,7 @@ export async function sendReturnReminders() {
             JOIN "user" u ON r.user_id = u.id
             JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
             WHERE r.rental_status = 'ongoing'
-              AND (r.start_date + r.duration_days * INTERVAL '1 day')::date = CURRENT_DATE + INTERVAL '1 day'
+              AND (r.start_date + r.duration_days * INTERVAL '1 day')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date + INTERVAL '1 day'
               AND u.phone_number IS NOT NULL AND u.phone_number != ''
         `;
         const result = await pool.query(query);
@@ -333,7 +333,7 @@ export async function sendOverdueWarnings() {
                 u.phone_number as customer_phone, 
                 oc.outfit_name, 
                 (r.start_date + r.duration_days * INTERVAL '1 day')::date as return_date,
-                (CURRENT_DATE - (r.start_date + r.duration_days * INTERVAL '1 day')::date) as late_days
+                ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date - (r.start_date + r.duration_days * INTERVAL '1 day')::date) as late_days
             FROM rentals r
             JOIN "user" u ON r.user_id = u.id
             JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id

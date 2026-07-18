@@ -43,13 +43,13 @@ export async function getDashboardStats(req, res) {
         // 1. Bookings This Month vs Last Month
         const bookingsThisMonthRes = await pool.query(`
             SELECT COUNT(*)::int AS count FROM bookings 
-            WHERE booking_datetime >= DATE_TRUNC('month', CURRENT_DATE) 
-              AND booking_datetime < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+            WHERE booking_datetime >= DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date) 
+              AND booking_datetime < DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date) + INTERVAL '1 month'
         `);
         const bookingsLastMonthRes = await pool.query(`
             SELECT COUNT(*)::int AS count FROM bookings 
-            WHERE booking_datetime >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') 
-              AND booking_datetime < DATE_TRUNC('month', CURRENT_DATE)
+            WHERE booking_datetime >= DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date - INTERVAL '1 month') 
+              AND booking_datetime < DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date)
         `);
         const bookingsThisMonth = bookingsThisMonthRes.rows[0].count;
         const bookingsLastMonth = bookingsLastMonthRes.rows[0].count;
@@ -177,7 +177,7 @@ export async function getDashboardStats(req, res) {
             JOIN "user" u ON b.user_id = u.id
             LEFT JOIN booking_details bd ON bd.booking_id = b.id
             LEFT JOIN salon_services ss ON ss.id = bd.salon_service_id
-            WHERE b.booking_datetime::date = CURRENT_DATE
+            WHERE DATE(b.booking_datetime AT TIME ZONE 'Asia/Jakarta') = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date
               AND b.status IN ('pending', 'confirmed', 'completed')
             GROUP BY b.id, u.name, b.booking_datetime, b.status
             ORDER BY b.booking_datetime ASC
@@ -211,7 +211,7 @@ export async function getDashboardStats(req, res) {
         // 8. Recent Bookings (Limit 5)
         const recentBookingsRes = await pool.query(`
             SELECT
-               b.id,
+               b.code                                           AS id,
                u.name                                           AS customer,
                COALESCE(STRING_AGG(ss.service_name, ', '), '-') AS service,
                TO_CHAR(b.booking_datetime, 'DD Mon')            AS date,
@@ -228,7 +228,7 @@ export async function getDashboardStats(req, res) {
             LEFT JOIN booking_details bd ON bd.booking_id = b.id
             LEFT JOIN salon_services ss  ON ss.id = bd.salon_service_id
             LEFT JOIN transactions t     ON t.booking_id = b.id
-            GROUP BY b.id, u.name, b.booking_datetime, b.status, t.status, t.total_amount
+            GROUP BY b.code, b.id, u.name, b.booking_datetime, b.status, t.status, t.total_amount
             ORDER BY b.booking_datetime DESC, b.id DESC
             LIMIT 5
         `);
@@ -236,7 +236,7 @@ export async function getDashboardStats(req, res) {
         // 9. Recent Rentals (Limit 5)
         const recentRentalsRes = await pool.query(`
             SELECT
-               r.id,
+               r.code                                                          AS id,
                u.name                                                          AS customer,
                oc.outfit_name                                                  AS item,
                TO_CHAR(r.start_date, 'DD Mon')                                 AS rent_date,

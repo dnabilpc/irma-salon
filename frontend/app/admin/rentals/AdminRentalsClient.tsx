@@ -198,40 +198,55 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
           {/* Pending → konfirmasi 1-click lunas atau batalkan */}
           {rental.status === "pending" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <button
-                disabled={loading}
-                onClick={() => onStatusChange(rental.id, "ongoing", true)}
-                style={{
-                  width: "100%",
-                  background: "linear-gradient(135deg, #1A7A4A, #3D7A5A)",
-                  color: "white",
-                  border: "none",
-                  padding: "12px",
-                  borderRadius: "8px",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  cursor: loading ? "not-allowed" : "pointer",
-                  boxShadow: "0 4px 12px rgba(26,122,74,0.25)",
-                }}
-              >
-                🟢 Konfirmasi Dipinjam & Bayar (Lunas)
-              </button>
+              {rental.payment_status === "lunas" ? (
+                <div style={{ background: "rgba(42,140,90,0.07)", border: "1px solid rgba(42,140,90,0.2)", borderRadius: "8px", padding: "10px 12px", fontSize: "0.78rem", color: "#1A7A4A", marginBottom: "8px" }}>
+                  Status Pembayaran: <strong>LUNAS ({rental.payment_method?.toUpperCase()})</strong>. Sewa baju ini tidak dapat dibatalkan karena pelanggan sudah melakukan pembayaran.
+                </div>
+              ) : (
+                <div style={{ background: "rgba(201,146,42,0.06)", border: "1px solid rgba(201,146,42,0.2)", borderRadius: "8px", padding: "10px 12px", fontSize: "0.78rem", color: "#8B6A5A" }}>
+                  Metode Bayar: <strong style={{ color: "#2C1A0E" }}>{rental.payment_method?.toUpperCase()}</strong>
+                </div>
+              )}
+
+              {rental.payment_status !== "lunas" && (
+                <button
+                  disabled={loading}
+                  onClick={() => onStatusChange(rental.id, "ongoing", true)}
+                  style={{
+                    width: "100%",
+                    background: "linear-gradient(135deg, #1A7A4A, #3D7A5A)",
+                    color: "white",
+                    border: "none",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: loading ? "not-allowed" : "pointer",
+                    boxShadow: "0 4px 12px rgba(26,122,74,0.25)",
+                  }}
+                >
+                  🟢 Konfirmasi Dipinjam & Bayar (Lunas)
+                </button>
+              )}
+
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
                   disabled={loading}
                   onClick={() => onStatusChange(rental.id, "ongoing", false)}
                   style={{ flex: 1, background: "rgba(201,146,42,0.1)", border: "1.5px solid rgba(201,146,42,0.4)", color: "#A07010", padding: "10px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}
                 >
-                  🟡 Konfirmasi Dipinjam (Bayar di Salon/Cash)
+                  {rental.payment_status === "lunas" ? "✓ Tandai Dipinjam (Baju Diambil)" : "🟡 Konfirmasi Dipinjam (Bayar di Salon/Cash)"}
                 </button>
-                <button
-                  disabled={loading}
-                  onClick={() => onStatusChange(rental.id, "cancelled")}
-                  style={{ flex: 1, background: "rgba(217,64,96,0.08)", border: "1.5px solid rgba(217,64,96,0.3)", color: "#D94060", padding: "10px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}
-                >
-                  🔴 Batalkan
-                </button>
+                {rental.payment_status !== "lunas" && (
+                  <button
+                    disabled={loading}
+                    onClick={() => onStatusChange(rental.id, "cancelled")}
+                    style={{ flex: 1, background: "rgba(217,64,96,0.08)", border: "1.5px solid rgba(217,64,96,0.3)", color: "#D94060", padding: "10px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}
+                  >
+                    🔴 Batalkan
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -570,12 +585,6 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
             Kelola semua transaksi persewaan baju
           </p>
         </div>
-        <button
-          onClick={() => { setLoading(true); fetchData(); }}
-          className="btn-action"
-        >
-          🔄 Refresh
-        </button>
       </div>
 
       {/* Mini stats */}

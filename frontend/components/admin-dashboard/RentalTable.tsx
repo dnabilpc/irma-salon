@@ -81,7 +81,7 @@ export default function RentalTable({ items }: RentalTableProps) {
                       color: "#B08090",
                     }}
                   >
-                    SW-{r.id}
+                    {r.id}
                   </span>
                   <span style={{ fontSize: "14px", fontWeight: 500, color: "#3A1A28" }}>
                     {r.customer}

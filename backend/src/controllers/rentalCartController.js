@@ -3,7 +3,7 @@
 
 import pool from '../services/db.js';
 import { sendWaMessage } from '../services/whatsappService.js';
-import { generateInvoiceCode } from '../utils/transaction.js';
+import { generateInvoiceCode, generateRentalCode } from '../utils/transaction.js';
 
 // ── Shared Helper to get Admin Phone ────────────────────────────────────────
 async function getAdminPhone() {

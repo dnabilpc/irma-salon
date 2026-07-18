@@ -266,14 +266,6 @@ export default function CustomersPage() {
           >
             👤 + Tambah Pelanggan
           </button>
-          <button
-            className="btn-action"
-            onClick={() => loadTab(activeTab)}
-            disabled={loadingTab !== null}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            🔄 Refresh
-          </button>
         </div>
       </div>
 

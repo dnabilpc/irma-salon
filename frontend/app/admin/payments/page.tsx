@@ -239,9 +239,6 @@ export default function PaymentsPage() {
           >
             ➕ Transaksi Offline (Kasir)
           </button>
-          <button className="btn-action" onClick={() => loadPayments()} disabled={loading}>
-            🔄 Refresh
-          </button>
           <button className="btn-action-gold" onClick={() => window.print()}>↓ Cetak Laporan</button>
         </div>
       </div>

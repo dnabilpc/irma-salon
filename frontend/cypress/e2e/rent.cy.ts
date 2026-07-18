@@ -51,12 +51,13 @@ describe("Alur Penyewaan Busana (Rental Flow)", () => {
     cy.visit("/rent");
 
     cy.contains("Katalog Sewa Baju", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains("Memuat koleksi...", { timeout: EXTENDED_TIMEOUT }).should("not.exist");
 
     // Pilih baju pertama di katalog yang muncul
-    cy.get('button').contains("Sewa Baju Ini").first().click();
+    cy.get('button').contains("Tambah ke Keranjang").first().click({ force: true });
 
     // Modal sewa terbuka
-    cy.contains("Sewa Baju", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains("Atur Detail Sewa", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
 
     // Tentukan Tanggal Mulai Sewa (besok)
     const tomorrow = new Date();
@@ -65,16 +66,23 @@ describe("Alur Penyewaan Busana (Rental Flow)", () => {
     cy.get('input[type="date"]').type(tomorrowStr);
 
     // Naikkan durasi sewa ke 2 hari dengan menekan tombol "+"
-    cy.get('button').contains("+").click();
+    cy.get('button').contains("+").click({ force: true });
+
+    // Klik Masukkan ke Keranjang
+    cy.get('button').contains("Masukkan ke Keranjang").click({ force: true });
+
+    // Buka Keranjang
+    cy.get('button').contains("Lihat Keranjang").click({ force: true });
 
     // Pilih Pembayaran di Tempat (Cash)
-    cy.get('button').contains("Bayar Di Tempat").should("be.visible");
+    cy.get('button').contains("Bayar di Tempat (Cash)").click({ force: true });
 
-    // Klik Konfirmasi Sewa
-    cy.get('button').contains("Konfirmasi Sewa").click();
+    // Klik Checkout
+    cy.get('button').contains("Checkout").click({ force: true });
 
-    // Verifikasi Transaksi Berhasil
-    cy.contains("Pesanan Sewa Berhasil!", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
-    cy.contains("ID Sewa:", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    // Verifikasi Transaksi Berhasil (Redirect ke Invoice)
+    cy.contains("NO. INVOICE", { timeout: EXTENDED_TIMEOUT }).should("be.visible");
+    cy.contains("PELANGGAN").should("be.visible");
+    cy.contains("Bayar Di Tempat (Cash)").should("be.visible");
   });
 });

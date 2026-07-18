@@ -909,12 +909,6 @@ export default function AdminBookingsClient({ backendUrl }: { backendUrl: string
             Kelola semua reservasi layanan salon
           </p>
         </div>
-        <button
-          onClick={() => { setLoading(true); fetchData(); }}
-          className="btn-action"
-        >
-          🔄 Refresh
-        </button>
       </div>
 
       {/* Mini stats */}

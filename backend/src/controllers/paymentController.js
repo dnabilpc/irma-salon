@@ -71,7 +71,7 @@ export async function confirmPayment(req, res) {
             `UPDATE transactions 
              SET status = 'lunas' 
              WHERE id = $1 
-             RETURNING id`,
+             RETURNING id, booking_id, rental_id, rental_order_id`,
             [id]
         );
 
@@ -79,7 +79,29 @@ export async function confirmPayment(req, res) {
             return res.status(404).json({ error: 'Transaksi tidak ditemukan.' });
         }
 
-        const transactionId = result.rows[0].id;
+        const trx = result.rows[0];
+        const transactionId = trx.id;
+
+        // Auto update booking status if exists
+        if (trx.booking_id) {
+            await pool.query(
+                `UPDATE bookings SET status = 'confirmed' WHERE id = $1`,
+                [trx.booking_id]
+            );
+        }
+
+        // Auto update rental status to ongoing if exists
+        if (trx.rental_id) {
+            await pool.query(
+                `UPDATE rentals SET rental_status = 'ongoing' WHERE id = $1`,
+                [trx.rental_id]
+            );
+        } else if (trx.rental_order_id) {
+            await pool.query(
+                `UPDATE rentals SET rental_status = 'ongoing' WHERE rental_order_id = $1`,
+                [trx.rental_order_id]
+            );
+        }
 
         // Auto-generate invoice and send via WhatsApp in the background
         sendInvoiceReceipt(transactionId).catch(err => console.error('[confirmPayment] invoice err:', err));

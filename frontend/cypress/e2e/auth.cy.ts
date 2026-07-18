@@ -110,8 +110,8 @@ describe("Alur Autentikasi Pengguna & Verifikasi WhatsApp OTP", () => {
     });
 
     // Login kembali setelah verifikasi
-    cy.get('input[id="email"]').type(testEmail2);
-    cy.get('input[id="password"]').type(testPassword2);
+    cy.get('input[id="email"]').clear().type(testEmail2);
+    cy.get('input[id="password"]').clear().type(testPassword2);
     cy.get('button[type="submit"]').click();
 
     // Berhasil masuk ke dashboard
