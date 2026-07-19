@@ -280,7 +280,7 @@ export async function getRentalsForAdmin(req, res) {
              JOIN "user" u              ON u.id   = r.user_id
              JOIN outfit_catalogues oc  ON oc.id  = r.outfit_catalogues_id
              JOIN outfit_categories cat ON cat.id = oc.outfit_category_id
-             LEFT JOIN transactions t   ON t.rental_id = r.id
+             LEFT JOIN transactions t   ON t.rental_id = r.id OR t.rental_order_id = r.rental_order_id
              ${where}
              ORDER BY r.created_at DESC
              ${limitClause}`,
@@ -345,7 +345,7 @@ export async function getRentalsForCustomer(req, res) {
              JOIN "user" u              ON u.id   = r.user_id
              JOIN outfit_catalogues oc  ON oc.id  = r.outfit_catalogues_id
              JOIN outfit_categories cat ON cat.id = oc.outfit_category_id
-             LEFT JOIN transactions t   ON t.rental_id = r.id
+             LEFT JOIN transactions t   ON t.rental_id = r.id OR t.rental_order_id = r.rental_order_id
              WHERE r.user_id = $1
              ORDER BY r.id DESC`,
             [userId]
