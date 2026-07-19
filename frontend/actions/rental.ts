@@ -32,6 +32,7 @@ export interface RentalRow {
   payment_status?: string | null;
   rental_code?: string | null;
   created_at?: string | null;
+  daily_price?: number;
 }
 
 export interface ActionResult<T = void> {

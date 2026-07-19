@@ -81,6 +81,30 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState("center center");
+  const [showConfirmDone, setShowConfirmDone] = useState(false);
+
+  // Calculate late days and penalty dynamically for overdue rentals
+  let lateDays = 0;
+  let penaltyAmount = 0;
+  let totalWithPenalty = Number(rental.amount_to_be_paid);
+
+  if (rental.status === "overdue") {
+    const startDate = new Date(rental.start_date);
+    const expectedEndDate = new Date(startDate);
+    expectedEndDate.setDate(expectedEndDate.getDate() + Number(rental.duration_days));
+    expectedEndDate.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (today > expectedEndDate) {
+      const diffTime = today.getTime() - expectedEndDate.getTime();
+      lateDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+      const dailyPrice = Number(rental.daily_price || 0);
+      penaltyAmount = lateDays * dailyPrice;
+      totalWithPenalty = Number(rental.amount_to_be_paid) + penaltyAmount;
+    }
+  }
 
   return (
     <div
@@ -128,22 +152,38 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
             <div style={{ fontSize: "0.6rem", letterSpacing: "0.18em", color: "#C4728E", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif", padding: "10px 0 4px", fontWeight: 600 }}>
               Info Sewa & Pembayaran
             </div>
-            {[
-              { label: "Baju",          value: rental.outfit_name },
-              { label: "Kategori",      value: rental.category_name },
-              { label: "Tanggal Mulai", value: formatDate(rental.start_date) },
-              { label: "Tanggal Kembali", value: formatDate(rental.end_date) },
-              { label: "Durasi",        value: `${rental.duration_days} hari` },
-              { label: "Metode Bayar",  value: (rental.payment_method ?? "cash").toUpperCase() },
-              { label: "Total Biaya",   value: formatRupiah(rental.amount_to_be_paid), accent: true }
-            ].map((row) => (
-              <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #F0D9E0" }}>
-                <span style={{ fontSize: "13px", color: "#B08090" }}>{row.label}</span>
-                <span style={{ fontSize: "13px", color: (row as { accent?: boolean }).accent ? "#C4728E" : "#3A1A28", fontWeight: (row as { accent?: boolean }).accent ? 700 : 500 }}>
-                  {row.value}
-                </span>
-              </div>
-            ))}
+            {(() => {
+              const infoRows: { label: string; value: string; color?: string; weight?: number; accent?: boolean }[] = [
+                { label: "Baju",          value: rental.outfit_name },
+                { label: "Kategori",      value: rental.category_name },
+                { label: "Tanggal Mulai", value: formatDate(rental.start_date) },
+                { label: "Tanggal Kembali", value: formatDate(rental.end_date) },
+                { label: "Durasi Asli",   value: `${rental.duration_days} hari` },
+                { label: "Metode Bayar",  value: (rental.payment_method ?? "cash").toUpperCase() },
+              ];
+
+              if (rental.status === "overdue" && lateDays > 0) {
+                infoRows.push(
+                  { label: "Biaya Sewa Asli", value: formatRupiah(rental.amount_to_be_paid) },
+                  { label: `Keterlambatan (${lateDays} hari)`, value: `${formatRupiah(rental.daily_price || 0)} / hari`, color: "#D94060", weight: 600 },
+                  { label: "Denda Terakumulasi", value: `+${formatRupiah(penaltyAmount)}`, color: "#D94060", weight: 700 },
+                  { label: "Total Akhir (Biaya + Denda)", value: formatRupiah(totalWithPenalty), color: "#1A7A4A", weight: 700, accent: true }
+                );
+              } else {
+                infoRows.push(
+                  { label: "Total Biaya",   value: formatRupiah(rental.amount_to_be_paid), accent: true }
+                );
+              }
+
+              return infoRows.map((row) => (
+                <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #F0D9E0" }}>
+                  <span style={{ fontSize: "13px", color: row.color || "#B08090", fontWeight: row.weight || 400 }}>{row.label}</span>
+                  <span style={{ fontSize: "13px", color: row.accent ? (row.color || "#C4728E") : (row.color || "#3A1A28"), fontWeight: row.accent || row.weight ? 700 : 500 }}>
+                    {row.value}
+                  </span>
+                </div>
+              ));
+            })()}
             {rental.payment_proof_sent && rental.payment_proof_url && (
               <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
                 <span style={{ fontSize: "13px", color: "#B08090", fontWeight: 500 }}>Bukti Pembayaran (Scan/Upload)</span>
@@ -254,11 +294,11 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
 
 
           {/* Ongoing → tandai dikembalikan */}
-          {rental.status === "ongoing" && (
+          {rental.status === "ongoing" && !showConfirmDone && (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <button
                 disabled={loading}
-                onClick={() => onStatusChange(rental.id, "done")}
+                onClick={() => setShowConfirmDone(true)}
                 style={{ width: "100%", background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", padding: "12px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
               >
                 ✓ Tandai Sudah Dikembalikan
@@ -266,19 +306,71 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
             </div>
           )}
 
-          {/* Terlambat → tandai dikembalikan */}
-          {rental.status === "overdue" && (
+          {/* Terlambat (overdue) → tandai dikembalikan */}
+          {rental.status === "overdue" && !showConfirmDone && (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <div style={{ background: "rgba(217,64,96,0.07)", border: "1px solid rgba(217,64,96,0.2)", borderRadius: "8px", padding: "10px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#D94060" }}>
-                ⚠️ Baju belum dikembalikan melewati batas waktu!
+                ⚠️ Baju belum dikembalikan melewati batas waktu! Terlambat {lateDays} hari (Denda: {formatRupiah(penaltyAmount)}).
               </div>
               <button
                 disabled={loading}
-                onClick={() => onStatusChange(rental.id, "done")}
+                onClick={() => setShowConfirmDone(true)}
                 style={{ width: "100%", background: "rgba(42,140,90,0.1)", border: "1px solid rgba(42,140,90,0.3)", color: "#1A7A4A", padding: "12px", borderRadius: "8px", fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
               >
                 ✓ Tandai Sudah Dikembalikan
               </button>
+            </div>
+          )}
+
+          {/* Dialog Konfirmasi Pengembalian (Terlihat rincian biaya s/d denda akhir) */}
+          {showConfirmDone && (
+            <div style={{ background: "#FDF8F5", border: "2px solid #F0D9E0", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", marginTop: "10px" }}>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.95rem", fontWeight: 700, color: "#7A2848", textAlign: "center" }}>
+                Rincian Biaya Pengembalian
+              </div>
+              <div style={{ fontSize: "13px", color: "#3A1A28", display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Biaya Sewa Asli:</span>
+                  <span style={{ fontWeight: 600 }}>{formatRupiah(rental.amount_to_be_paid)}</span>
+                </div>
+                {lateDays > 0 && (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "#D94060" }}>
+                      <span>Denda Keterlambatan ({lateDays} hari):</span>
+                      <span style={{ fontWeight: 600 }}>+{formatRupiah(penaltyAmount)}</span>
+                    </div>
+                    <hr style={{ border: "none", borderTop: "1px dashed #F0D9E0", margin: "4px 0" }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "#1A7A4A", fontWeight: 700, fontSize: "14px" }}>
+                      <span>Total Biaya Akhir:</span>
+                      <span>{formatRupiah(totalWithPenalty)}</span>
+                    </div>
+                  </>
+                )}
+                {!lateDays && (
+                  <div style={{ color: "#1A7A4A", fontSize: "12px", fontStyle: "italic", textAlign: "center", marginTop: "4px" }}>
+                    Pengembalian tepat waktu. Tidak ada denda keterlambatan.
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                <button
+                  disabled={loading}
+                  onClick={() => {
+                    onStatusChange(rental.id, "done");
+                    setShowConfirmDone(false);
+                  }}
+                  style={{ flex: 1, background: "linear-gradient(135deg, #1A7A4A, #3D7A5A)", color: "white", border: "none", padding: "10px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                >
+                  Ya, Konfirmasi Selesai
+                </button>
+                <button
+                  disabled={loading}
+                  onClick={() => setShowConfirmDone(false)}
+                  style={{ flex: 1, background: "white", border: "1px solid #E8C0D0", color: "#B08090", padding: "10px", borderRadius: "6px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+                >
+                  Batal
+                </button>
+              </div>
             </div>
           )}
 
@@ -290,6 +382,8 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
           )}
           {/* Admin Edit Button */}
           {(() => {
+            if (rental.status !== "pending") return null;
+
             const rentalEndDate = new Date(rental.start_date);
             rentalEndDate.setDate(rentalEndDate.getDate() + Number(rental.duration_days));
             const isExpired = rentalEndDate < new Date();
@@ -440,6 +534,13 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
     if (!editingRental) return;
     setSavingRental(true);
     setRentalError("");
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (rentalEditStartDate < todayStr) {
+      setRentalError("Tanggal mulai sewa tidak boleh di-backdate (minimal hari ini).");
+      setSavingRental(false);
+      return;
+    }
 
     try {
       const response = await fetch(`/api/rentals/${editingRental.id}`, {
@@ -837,6 +938,7 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
                 <input
                   type="date"
                   value={rentalEditStartDate}
+                  min={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setRentalEditStartDate(e.target.value)}
                   style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #EDD8CC", fontSize: "0.85rem", color: "#2C1A0E", fontFamily: "inherit" }}
                 />

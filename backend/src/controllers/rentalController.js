@@ -302,6 +302,7 @@ export async function getRentalsForAdmin(req, res) {
                r.amount_to_be_paid,
                r.rental_status,
                r.rental_status                                                 AS status,
+               oc.price                                                        AS daily_price,
                t.id                                                            AS transaction_id,
                COALESCE(t.payment_method, 'cash')                             AS payment_method,
                t.payment_proof_sent,
@@ -372,6 +373,7 @@ export async function getRentalsForCustomer(req, res) {
                r.amount_to_be_paid,
                r.rental_status,
                r.rental_status                                                 AS status,
+               oc.price                                                        AS daily_price,
                COALESCE(t.uuid::text, t.id::text)                              AS transaction_id,
                COALESCE(t.payment_method, 'cash')                             AS payment_method,
                COALESCE(t.status, 'pending')                                   AS payment_status
@@ -808,6 +810,7 @@ export async function getRentalById(req, res) {
                (r.start_date + r.duration_days * INTERVAL '1 day')::date::text AS end_date,
                r.amount_to_be_paid,
                r.rental_status,
+               oc.price         AS daily_price,
                t.id             AS transaction_id,
                t.payment_method,
                t.total_amount,
@@ -963,7 +966,7 @@ export async function updateRentalByAdmin(req, res) {
     try {
         // Fetch existing rental
         const rentalRes = await pool.query(
-            `SELECT r.id, r.start_date, r.duration_days, t.id AS transaction_id
+            `SELECT r.id, r.start_date, r.duration_days, r.rental_status, t.id AS transaction_id
              FROM rentals r
              LEFT JOIN transactions t ON t.rental_id = r.id
              WHERE r.id = $1`,
@@ -975,6 +978,25 @@ export async function updateRentalByAdmin(req, res) {
         }
 
         const rental = rentalRes.rows[0];
+
+        // Restrict edits to pending status only
+        if (rental.rental_status !== 'pending') {
+            return res.status(400).json({ error: "Hanya penyewaan dengan status 'pending' yang dapat diedit." });
+        }
+
+        // Hitung batas minimal tanggal mulai sewa (Hari ini WIB)
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        // Format start_date input ke YYYY-MM-DD
+        const startDateStr = new Date(start_date).toISOString().split('T')[0];
+
+        if (startDateStr < todayStr) {
+            return res.status(400).json({ error: "Tanggal mulai sewa tidak boleh di-backdate (minimal hari ini)." });
+        }
 
         // Pastikan durasi sewa belum berakhir (belum terlewat)
         const rentalEndDate = new Date(rental.start_date);
