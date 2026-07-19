@@ -105,7 +105,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
       if (lateDays <= 3) {
         penaltyAmount = lateDays * 5000;
       } else {
-        penaltyAmount = originalRentalPrice; // Dianggap sewa lagi
+        penaltyAmount = (lateDays - 3) * originalRentalPrice; // Dianggap sewa lagi berkelipatan
       }
       totalWithPenalty = originalRentalPrice + penaltyAmount;
     }
