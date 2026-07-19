@@ -4,6 +4,7 @@ import pool from './db.js';
 import { sendWaMessage, getWhatsappStatus } from './whatsappService.js';
 import { deleteFromSupabaseStorage } from './storageService.js';
 import { autoUpdateBookingStates } from '../controllers/bookingController.js';
+import { autoSyncLateRentals } from '../controllers/rentalController.js';
 
 export function initScheduler() {
     console.log('[Scheduler] Initializing cron jobs...');
@@ -93,6 +94,9 @@ export function initScheduler() {
         try {
             // Call autoUpdateBookingStates to handle booking auto-cancellations, payment timeouts, and auto-completions
             await autoUpdateBookingStates();
+
+            // Sync late ongoing rentals to terlambat
+            await autoSyncLateRentals();
 
             // Expire pending rentals that are past their start_date
             const resRentals = await pool.query(`
@@ -337,7 +341,7 @@ export async function sendOverdueWarnings() {
             FROM rentals r
             JOIN "user" u ON r.user_id = u.id
             JOIN outfit_catalogues oc ON r.outfit_catalogues_id = oc.id
-            WHERE r.rental_status = 'terlambat'
+            WHERE r.rental_status = 'overdue'
               AND u.phone_number IS NOT NULL AND u.phone_number != ''
         `;
         const result = await pool.query(query);

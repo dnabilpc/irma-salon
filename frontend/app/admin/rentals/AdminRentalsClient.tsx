@@ -31,7 +31,7 @@ function formatDate(dateStr: string) {
 const STATUS_CONFIG: Record<RentalStatus, { label: string; bg: string; color: string }> = {
   pending:      { label: "Menunggu",     bg: "rgba(201,146,42,0.12)",  color: "#A07010" },
   ongoing:      { label: "Dipinjam",     bg: "rgba(196,114,142,0.12)", color: "#C4728E" },
-  terlambat:    { label: "Terlambat",    bg: "rgba(217,64,96,0.12)",   color: "#D94060" },
+  overdue:      { label: "Terlambat",    bg: "rgba(217,64,96,0.12)",   color: "#D94060" },
   done:         { label: "Selesai",      bg: "rgba(42,140,90,0.12)",   color: "#1A7A4A" },
   cancelled:    { label: "Dibatalkan",   bg: "rgba(150,100,120,0.12)", color: "#806070" },
 };
@@ -40,7 +40,7 @@ const FILTER_TABS: { key: RentalStatus | "ALL"; label: string }[] = [
   { key: "ALL",         label: "Semua"     },
   { key: "pending",     label: "Menunggu"  },
   { key: "ongoing",     label: "Dipinjam"  },
-  { key: "terlambat",   label: "Terlambat" },
+  { key: "overdue",     label: "Terlambat" },
   { key: "done",        label: "Selesai"   },
   { key: "cancelled",   label: "Dibatalkan"},
 ];
@@ -267,7 +267,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
           )}
 
           {/* Terlambat → tandai dikembalikan */}
-          {rental.status === "terlambat" && (
+          {rental.status === "overdue" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <div style={{ background: "rgba(217,64,96,0.07)", border: "1px solid rgba(217,64,96,0.2)", borderRadius: "8px", padding: "10px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#D94060" }}>
                 ⚠️ Baju belum dikembalikan melewati batas waktu!
@@ -408,7 +408,7 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
   const [stats, setStats] = useState(() => getCache<any>(cacheKey)?.stats ?? {
     total: 0,
     ongoing: 0,
-    terlambat: 0,
+    overdue: 0,
     revenue: 0,
   });
 
@@ -591,19 +591,19 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
         <MiniStat label="Total Sewa"        value={stats.total}              color="#7A2848" />
         <MiniStat label="Sedang Dipinjam"   value={stats.ongoing}            color="#C4728E" />
-        <MiniStat label="Terlambat"         value={stats.terlambat}          color="#D94060" />
+        <MiniStat label="Terlambat"         value={stats.overdue}          color="#D94060" />
         <MiniStat label="Total Pendapatan"  value={formatRupiah(stats.revenue)} color="#C9922A" />
       </div>
 
       {/* Alert terlambat */}
-      {stats.terlambat > 0 && (
+      {stats.overdue > 0 && (
         <div style={{ background: "rgba(217,64,96,0.08)", border: "1px solid rgba(217,64,96,0.25)", borderRadius: "8px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "10px" }}>
           <span style={{ fontSize: "1.2rem" }}>⚠️</span>
           <span style={{ fontSize: "14px", color: "#D94060", fontWeight: 500 }}>
-            {stats.terlambat} baju belum dikembalikan melewati batas waktu!
+            {stats.overdue} baju belum dikembalikan melewati batas waktu!
           </span>
           <button
-            onClick={() => { setFilter("terlambat"); setPage(1); }}
+            onClick={() => { setFilter("overdue"); setPage(1); }}
             style={{ marginLeft: "auto", background: "rgba(217,64,96,0.1)", border: "1px solid rgba(217,64,96,0.25)", color: "#D94060", padding: "5px 12px", borderRadius: "6px", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
           >
             Lihat Sekarang →
@@ -694,7 +694,7 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
             header: "Batas Kembali",
             sortable: true,
             render: (r) => (
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: r.rental_status === "terlambat" ? "#D94060" : "#8A4060", fontWeight: r.rental_status === "terlambat" ? 700 : 400 }}>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: r.rental_status === "overdue" ? "#D94060" : "#8A4060", fontWeight: r.rental_status === "overdue" ? 700 : 400 }}>
                 {formatDate(r.end_date)}
               </span>
             ),
@@ -726,7 +726,7 @@ export default function AdminRentalsClient({ backendUrl }: { backendUrl: string 
                   >
                     ✓ Pinjam
                   </button>
-                ) : r.rental_status === "ongoing" || r.rental_status === "terlambat" ? (
+                ) : r.rental_status === "ongoing" || r.rental_status === "overdue" ? (
                   <button
                     title="Klik untuk tandai selesai"
                     onClick={() => setSelected(r)}

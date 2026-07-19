@@ -128,7 +128,7 @@ export interface DashboardStats {
     item: string;
     rent_date: string;
     return_date: string;
-    status: "dipinjam" | "dikembalikan" | "terlambat" | "cancelled";
+    status: "dipinjam" | "dikembalikan" | "overdue" | "cancelled";
     amount: number;
   }[];
 }

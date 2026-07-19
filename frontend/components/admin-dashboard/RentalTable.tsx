@@ -96,8 +96,8 @@ export default function RentalTable({ items }: RentalTableProps) {
                     style={{
                       fontFamily: "'DM Mono', monospace",
                       fontSize: "12px",
-                      color: r.status === "terlambat" ? "#D94060" : "#8A4060",
-                      fontWeight: r.status === "terlambat" ? 700 : 400,
+                      color: r.status === "overdue" ? "#D94060" : "#8A4060",
+                      fontWeight: r.status === "overdue" ? 700 : 400,
                     }}
                   >
                     {r.return_date}

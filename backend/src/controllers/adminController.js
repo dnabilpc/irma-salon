@@ -89,7 +89,7 @@ export async function getDashboardStats(req, res) {
         // 3. Active Rentals (ongoing/late) and New Rentals count comparison
         const activeRentalsRes = await pool.query(`
             SELECT COUNT(*)::int AS count FROM rentals 
-            WHERE rental_status IN ('ongoing', 'terlambat')
+            WHERE rental_status IN ('ongoing', 'overdue')
         `);
         const rentalsThisMonthRes = await pool.query(`
             SELECT COUNT(*)::int AS count FROM rentals 

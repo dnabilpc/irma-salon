@@ -8,7 +8,7 @@ import { backendFetch } from "@/lib/backendClient";
 export type RentalStatus =
   | "pending"
   | "ongoing"
-  | "terlambat"
+  | "overdue"
   | "done"
   | "cancelled";
 
@@ -47,13 +47,13 @@ export async function getRentalsForAdmin(filters?: {
   search?: string;
   page?: number;
   limit?: number;
-}): Promise<ActionResult<{
+  }): Promise<ActionResult<{
   rows: RentalRow[];
   total: number;
   stats?: {
     total: number;
     ongoing: number;
-    terlambat: number;
+    overdue: number;
     revenue: number;
   };
 }>> {

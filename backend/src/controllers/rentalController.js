@@ -143,7 +143,7 @@ async function triggerRentalStatusNotification(rentalId, status) {
             message = `Halo *${row.customer_name}*,\n\nTransaksi sewa baju Anda: *${row.outfit_name}* telah *SELESAI*:\n\n` +
                 `📅 *Batas Kembali:* ${formattedEnd}\n\n` +
                 `Baju sewa telah kami terima kembali dengan baik. Terima kasih telah menyewa di Irma Wedding Salon! ✨`;
-        } else if (status === "terlambat") {
+        } else if (status === "overdue") {
             message = `Halo *${row.customer_name}*,\n\nStatus sewa baju Anda: *${row.outfit_name}* saat ini terdeteksi *TERLAMBAT*:\n\n` +
                 `📅 *Batas Pengembalian:* ${formattedEnd}\n\n` +
                 `Mohon segera mengembalikan baju sewa tersebut ke Irma Wedding Salon untuk menghindari denda yang terus bertambah. Terima kasih.`;
@@ -211,6 +211,34 @@ async function triggerRentalCancelNotification(rentalId) {
     }
 }
 
+// Helper to automatically check ongoing rentals and mark overdue items as overdue
+export async function autoSyncLateRentals() {
+    try {
+        const result = await pool.query(
+            `UPDATE rentals
+             SET rental_status = 'overdue'
+             WHERE rental_status = 'ongoing'
+               AND (start_date + duration_days * INTERVAL '1 day')::date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date
+             RETURNING id, code`
+        );
+
+        if (result.rows.length > 0) {
+            for (const row of result.rows) {
+                await pool.query(
+                    `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
+                     VALUES ('return', 'Keterlambatan Pengembalian', $1, $2, FALSE, NOW())`,
+                    [`Sewa Baju ${row.code || '#' + row.id} terlambat dikembalikan`, row.id]
+                );
+            }
+            console.log(`[Rental Auto-Sync] Updated ${result.rows.length} rentals to 'overdue'.`);
+        }
+        return result.rows.length;
+    } catch (err) {
+        console.error('[Rental Auto-Sync] Error:', err.message);
+        return 0;
+    }
+}
+
 // ── GET RENTALS FOR ADMIN ──────────────────────────────────────────────────
 export async function getRentalsForAdmin(req, res) {
     if (req.user.role !== 'admin') {
@@ -218,6 +246,9 @@ export async function getRentalsForAdmin(req, res) {
     }
 
     try {
+        // Automatically sync overdue rentals to 'terlambat' on query
+        await autoSyncLateRentals();
+
         const status = req.query.status ?? "ALL";
         const search = req.query.search;
         const page = parseInt(req.query.page ?? "1", 10);
@@ -292,7 +323,7 @@ export async function getRentalsForAdmin(req, res) {
             SELECT 
                 COUNT(*)::int AS total,
                 COUNT(CASE WHEN rental_status = 'ongoing' THEN 1 END)::int AS ongoing,
-                COUNT(CASE WHEN rental_status = 'terlambat' THEN 1 END)::int AS terlambat
+                COUNT(CASE WHEN rental_status = 'overdue' THEN 1 END)::int AS overdue
             FROM rentals
         `);
         
@@ -305,7 +336,7 @@ export async function getRentalsForAdmin(req, res) {
         const stats = {
             total: statsRes.rows[0].total,
             ongoing: statsRes.rows[0].ongoing,
-            terlambat: statsRes.rows[0].terlambat,
+            overdue: statsRes.rows[0].overdue,
             revenue: parseFloat(revenueRes.rows[0].revenue) || 0
         };
 
@@ -324,6 +355,9 @@ export async function getRentalsForCustomer(req, res) {
     }
 
     try {
+        // Automatically sync overdue rentals to 'terlambat' on query
+        await autoSyncLateRentals();
+
         const result = await pool.query(
             `SELECT
                r.id,
@@ -500,7 +534,7 @@ export async function updateRentalStatus(req, res) {
     const { id } = req.params;
     const { status, confirm_payment } = req.body;
 
-    const valid = ["pending", "ongoing", "terlambat", "done", "cancelled"];
+    const valid = ["pending", "ongoing", "overdue", "done", "cancelled"];
     if (!valid.includes(status)) {
         return res.status(400).json({ error: "Status tidak valid." });
     }
@@ -742,25 +776,8 @@ export async function syncLateRentals(req, res) {
     }
 
     try {
-        const result = await pool.query(
-            `UPDATE rentals
-             SET rental_status = 'terlambat'
-             WHERE rental_status = 'ongoing'
-               AND (start_date + duration_days * INTERVAL '1 day')::date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date
-             RETURNING id, code`
-        );
-
-        if (result.rows.length > 0) {
-            for (const row of result.rows) {
-                await pool.query(
-                    `INSERT INTO notifications (type, title, message, ref_id, is_read, created_at)
-                     VALUES ('return', 'Keterlambatan Pengembalian', $1, $2, FALSE, NOW())`,
-                    [`Sewa Baju ${row.code || '#' + row.id} terlambat dikembalikan`, row.id]
-                );
-            }
-        }
-
-        res.json({ success: true, updated: result.rows.length });
+        const updatedCount = await autoSyncLateRentals();
+        res.json({ success: true, updated: updatedCount });
     } catch (err) {
         console.error("[syncLateRentals]", err);
         res.status(500).json({ error: "Gagal sync status terlambat." });

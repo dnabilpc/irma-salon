@@ -40,7 +40,7 @@ export function getRentalStyle(
   const map: Record<string, { bg: string; color: string }> = {
     dipinjam:     { bg: "rgba(201,146,42,0.12)",  color: "#A07010" },
     dikembalikan: { bg: "rgba(90,158,122,0.12)",   color: "#3D7A5A" },
-    terlambat:    { bg: "rgba(192,80,96,0.12)",    color: "#C05060" },
+    overdue:      { bg: "rgba(192,80,96,0.12)",    color: "#C05060" },
     pending:      { bg: "rgba(201,146,42,0.12)",  color: "#A07010" },
     cancelled:    { bg: "rgba(150,100,120,0.12)", color: "#806070" },
   };

@@ -1446,7 +1446,7 @@ export default function CustomerDashboard() {
                   statusLabel = "Sewa Aktif";
                   statusBg = "rgba(42,140,90,0.1)";
                   statusColor = "#1A7A4A";
-                } else if (rental.status === "terlambat") {
+                } else if (rental.status === "overdue") {
                   statusLabel = "Terlambat";
                   statusBg = "rgba(217,64,96,0.1)";
                   statusColor = "#D94060";
