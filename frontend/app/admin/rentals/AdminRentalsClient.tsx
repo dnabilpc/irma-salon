@@ -100,9 +100,14 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
     if (today > expectedEndDate) {
       const diffTime = today.getTime() - expectedEndDate.getTime();
       lateDays = Math.ceil(diffTime / (1000 * 3600 * 24));
-      const dailyPrice = Number(rental.daily_price || 0);
-      penaltyAmount = lateDays * dailyPrice;
-      totalWithPenalty = Number(rental.amount_to_be_paid) + penaltyAmount;
+      
+      const originalRentalPrice = Number(rental.amount_to_be_paid);
+      if (lateDays <= 3) {
+        penaltyAmount = lateDays * 5000;
+      } else {
+        penaltyAmount = originalRentalPrice; // Dianggap sewa lagi
+      }
+      totalWithPenalty = originalRentalPrice + penaltyAmount;
     }
   }
 
@@ -165,7 +170,7 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
               if (rental.status === "overdue" && lateDays > 0) {
                 infoRows.push(
                   { label: "Biaya Sewa Asli", value: formatRupiah(rental.amount_to_be_paid) },
-                  { label: `Keterlambatan (${lateDays} hari)`, value: `${formatRupiah(rental.daily_price || 0)} / hari`, color: "#D94060", weight: 600 },
+                  { label: `Keterlambatan (${lateDays} hari)`, value: lateDays <= 3 ? "Rp 5.000 / hari" : "Dianggap Sewa Lagi", color: "#D94060", weight: 600 },
                   { label: "Denda Terakumulasi", value: `+${formatRupiah(penaltyAmount)}`, color: "#D94060", weight: 700 },
                   { label: "Total Akhir (Biaya + Denda)", value: formatRupiah(totalWithPenalty), color: "#1A7A4A", weight: 700, accent: true }
                 );

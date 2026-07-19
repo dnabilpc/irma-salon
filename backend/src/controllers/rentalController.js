@@ -651,10 +651,15 @@ export async function updateRentalStatus(req, res) {
                         const lateDays = Math.ceil(diffTime / (1000 * 3600 * 24));
 
                         if (lateDays > 0) {
-                            const dailyPrice = Number(rData.daily_price);
-                            const penaltyAmount = lateDays * dailyPrice;
-                            const newDuration = originalDuration + lateDays;
-                            const newTotal = Number(rData.amount_to_be_paid) + penaltyAmount;
+                             const originalRentalPrice = Number(rData.amount_to_be_paid);
+                             let penaltyAmount = 0;
+                             if (lateDays <= 3) {
+                                 penaltyAmount = lateDays * 5000;
+                             } else {
+                                 penaltyAmount = originalRentalPrice; // Dianggap sewa lagi
+                             }
+                             const newDuration = originalDuration + lateDays;
+                             const newTotal = originalRentalPrice + penaltyAmount;
 
                             await pool.query(
                                 `UPDATE rentals 

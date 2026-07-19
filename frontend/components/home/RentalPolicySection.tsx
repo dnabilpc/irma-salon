@@ -1,31 +1,61 @@
-// components/home/RentalPolicySection.tsx
-// Section Kebijakan Sewa pada Homepage
 "use client";
 
+import { useState, useEffect } from "react";
 import SectionLabel from "@/components/ui/SectionLabel";
 import DividerOrnament from "@/components/ui/DividerOrnament";
 
 export default function RentalPolicySection() {
+  const [whatsapp, setWhatsapp] = useState("08883229673");
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.salon_whatsapp) {
+          setWhatsapp(data.salon_whatsapp);
+        }
+      })
+      .catch((err) => console.error("Failed to load settings in RentalPolicySection:", err));
+  }, []);
+
+  const formatDisplayPhone = (num: string) => {
+    let clean = num.replace(/\D/g, "");
+    if (clean.startsWith("62")) {
+      return "0" + clean.slice(2);
+    }
+    return num;
+  };
+
   const policies = [
+    {
+      icon: "📅",
+      title: "Jadwal & Pengambilan",
+      desc: `Baju diambil 1 hari sebelum hari H. Pengambilan harus LUNAS dan wajib membawa NOTA serta JAMINAN IDENTITAS. Konfirmasi kedatangan via WhatsApp Admin (${formatDisplayPhone(whatsapp)}).`,
+    },
     {
       icon: "⏰",
       title: "Waktu Pengembalian",
-      desc: "Durasi sewa standar adalah 3 hari (ambil H-1, gunakan hari H, kembalikan H+1). Jam operasional pengembalian Menyesuaikan Jam Buka Salon",
+      desc: "Baju dikembalikan 1 hari setelah hari H maksimal jam 8 SORE (20.00). Saat mengambil dan mengembalikan baju, NOTA wajib dibawa kembali.",
     },
     {
       icon: "💸",
-      title: "Keterlambatan",
-      desc: "Keterlambatan pengembalian baju di luar batas maka akan Dihitung Sebagai Hari Tambahan Sewa dan dikenakan biaya tambahan sesuai harga sewa per hari.",
-    },
-    {
-      icon: "✨",
-      title: "Kebersihan & Laundry",
-      desc: "Penyewa tidak perlu mencuci baju yang disewa. Biaya sewa sudah termasuk laundry standard. Harap menjaga pakaian agar terhindar dari noda membandel.",
+      title: "Denda & Keterlambatan",
+      desc: "Kelebihan hari/terlambat dikenakan denda Rp 5.000/Hari/kostum. Terlambat LEBIH DARI 3 HARI dari batas maksimal dianggap SEWA LAGI.",
     },
     {
       icon: "🛡️",
       title: "Kerusakan & Kehilangan",
-      desc: "Kerusakan ringan (jahitan lepas) ditoleransi. Kerusakan berat (robek, terbakar) atau kehilangan kelengkapan aksesoris dikenakan biaya ganti rugi sesuai kondisi.",
+      desc: "Barang atau Aksesoris yang RUSAK maupun HILANG WAJIB diganti sesuai harga asli atau dibelikan baru.",
+    },
+    {
+      icon: "✨",
+      title: "Kebersihan & Kelengkapan",
+      desc: "Baju yang disewa TIDAK PERLU DICUCI (kembali rapi), kecuali baju warna putih WAJIB dicuci sebelum dikembalikan. Kami tidak menyediakan selop/sepatu.",
+    },
+    {
+      icon: "🚫",
+      title: "Kebijakan Pembatalan",
+      desc: "Baju yang sudah dibawa pulang, UANG TIDAK BISA KEMBALI.",
     },
   ];
 
