@@ -30,33 +30,54 @@ export default function RentalPolicySection() {
     {
       icon: "📅",
       title: "Jadwal & Pengambilan",
-      desc: `Baju diambil 1 hari sebelum hari H. Pengambilan harus LUNAS dan wajib membawa NOTA serta JAMINAN IDENTITAS. Konfirmasi kedatangan via WhatsApp Admin (${formatDisplayPhone(whatsapp)}).`,
+      points: [
+        "Baju diambil 1 hari sebelum hari H.",
+        "Pengambilan harus LUNAS.",
+        "Wajib membawa NOTA dan JAMINAN IDENTITAS.",
+        `Konfirmasi kedatangan via WhatsApp Admin (${formatDisplayPhone(whatsapp)}).`
+      ]
     },
     {
       icon: "⏰",
       title: "Waktu Pengembalian",
-      desc: "Baju dikembalikan 1 hari setelah hari H maksimal jam 8 SORE (20.00). Saat mengambil dan mengembalikan baju, NOTA wajib dibawa kembali.",
+      points: [
+        "Baju dikembalikan 1 hari setelah hari H.",
+        "Maksimal jam 8 SORE (20.00 WIB).",
+        "Nota wajib dibawa kembali saat ambil dan kembalikan baju."
+      ]
     },
     {
       icon: "💸",
       title: "Denda & Keterlambatan",
-      desc: "Kelebihan hari/terlambat dikenakan denda Rp 5.000/Hari/kostum. Terlambat LEBIH DARI 3 HARI dari batas maksimal dianggap SEWA LAGI.",
+      points: [
+        "Kelebihan hari/terlambat didenda Rp 5.000/Hari/kostum.",
+        "Terlambat LEBIH DARI 3 HARI dianggap SEWA LAGI."
+      ]
     },
     {
       icon: "🛡️",
       title: "Kerusakan & Kehilangan",
-      desc: "Barang atau Aksesoris yang RUSAK maupun HILANG WAJIB diganti sesuai harga asli atau dibelikan baru.",
+      points: [
+        "Aksesoris atau baju yang RUSAK maupun HILANG wajib mengganti sesuai harga asli.",
+        "Atau dapat diganti dengan membelikan barang baru yang sejenis."
+      ]
     },
     {
       icon: "✨",
       title: "Kebersihan & Kelengkapan",
-      desc: "Baju yang disewa TIDAK PERLU DICUCI (kembali rapi), kecuali baju warna putih WAJIB dicuci sebelum dikembalikan. Kami tidak menyediakan selop/sepatu.",
+      points: [
+        "Baju yang disewa TIDAK PERLU DICUCI (cukup kembalikan rapi).",
+        "KECUALI baju warna putih WAJIB dicuci sebelum dikembalikan.",
+        "Salon tidak menyediakan selop/sepatu."
+      ]
     },
     {
       icon: "🚫",
       title: "Kebijakan Pembatalan",
-      desc: "Baju yang sudah dibawa pulang, UANG TIDAK BISA KEMBALI.",
-    },
+      points: [
+        "Baju yang sudah dibawa pulang, UANG TIDAK BISA KEMBALI."
+      ]
+    }
   ];
 
   return (
@@ -96,7 +117,7 @@ export default function RentalPolicySection() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             gap: "28px",
           }}
         >
@@ -110,6 +131,8 @@ export default function RentalPolicySection() {
                 borderRadius: "8px",
                 boxShadow: "0 4px 16px rgba(44, 26, 14, 0.02)",
                 transition: "all 0.3s ease",
+                display: "flex",
+                flexDirection: "column"
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-6px)";
@@ -142,16 +165,23 @@ export default function RentalPolicySection() {
               >
                 {p.title}
               </h3>
-              <p
+              <ul
                 style={{
                   fontFamily: "'DM Sans', sans-serif",
-                  fontSize: "0.875rem",
-                  lineHeight: 1.7,
+                  fontSize: "0.85rem",
+                  lineHeight: 1.6,
                   color: "rgba(44, 26, 14, 0.65)",
+                  paddingLeft: "16px",
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px"
                 }}
               >
-                {p.desc}
-              </p>
+                {p.points.map((pt, pIdx) => (
+                  <li key={pIdx}>{pt}</li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
