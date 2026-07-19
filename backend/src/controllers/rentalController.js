@@ -94,7 +94,7 @@ async function triggerRentalCreationNotification(
     }
 }
 
-async function triggerRentalStatusNotification(rentalId, status) {
+async function triggerRentalStatusNotification(rentalId, status, penaltyInfo = null) {
     try {
         const rentalRes = await pool.query(
             `SELECT
@@ -130,6 +130,7 @@ async function triggerRentalStatusNotification(rentalId, status) {
         const formattedEnd = formatD(endDate);
 
         const amountRupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(row.amount_to_be_paid);
+        const formatRupiah = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
 
         let message = "";
 
@@ -140,12 +141,46 @@ async function triggerRentalStatusNotification(rentalId, status) {
                 `⏳ *Durasi:* ${row.duration_days} hari\n\n` +
                 `Selamat mengenakan! Mohon dikembalikan tepat waktu ya. Terima kasih! 💖`;
         } else if (status === "done") {
+            let penaltyText = "";
+            if (penaltyInfo && penaltyInfo.lateDays > 0) {
+                const rateText = penaltyInfo.lateDays <= 3 ? `${formatRupiah(5000)} / hari` : "Dianggap Sewa Lagi";
+                penaltyText = `⚠️ *Rincian Denda Keterlambatan:*\n` +
+                    `• Keterlambatan: *${penaltyInfo.lateDays} hari*\n` +
+                    `• Ketentuan Tarif: *${rateText}*\n` +
+                    `• Jumlah Denda: *${formatRupiah(penaltyInfo.penaltyAmount)}*\n` +
+                    `• Total Biaya Pengembalian: *${formatRupiah(penaltyInfo.newTotal)}*\n\n`;
+            }
+
             message = `Halo *${row.customer_name}*,\n\nTransaksi sewa baju Anda: *${row.outfit_name}* telah *SELESAI*:\n\n` +
-                `📅 *Batas Kembali:* ${formattedEnd}\n\n` +
+                `📅 *Batas Kembali:* ${formattedEnd}\n` +
+                (penaltyText ? `\n${penaltyText}` : "") +
                 `Baju sewa telah kami terima kembali dengan baik. Terima kasih telah menyewa di Irma Wedding Salon! ✨`;
         } else if (status === "overdue") {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const expectedEndDate = new Date(endDate);
+            expectedEndDate.setHours(0, 0, 0, 0);
+
+            let lateDays = 0;
+            let penaltyAmount = 0;
+            let rateText = "";
+
+            if (today > expectedEndDate) {
+                const diffTime = today.getTime() - expectedEndDate.getTime();
+                lateDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+                const originalRentalPrice = Number(row.amount_to_be_paid);
+                if (lateDays <= 3) {
+                    penaltyAmount = lateDays * 5000;
+                    rateText = `${formatRupiah(5000)} / hari`;
+                } else {
+                    penaltyAmount = (lateDays - 3) * originalRentalPrice;
+                    rateText = "Dianggap Sewa Lagi";
+                }
+            }
+
             message = `Halo *${row.customer_name}*,\n\nStatus sewa baju Anda: *${row.outfit_name}* saat ini terdeteksi *TERLAMBAT*:\n\n` +
-                `📅 *Batas Pengembalian:* ${formattedEnd}\n\n` +
+                `📅 *Batas Pengembalian:* ${formattedEnd}\n` +
+                (lateDays > 0 ? `⏳ *Keterlambatan:* ${lateDays} hari\n💸 *Tarif Denda:* ${rateText}\n💰 *Estimasi Denda:* *${formatRupiah(penaltyAmount)}*\n\n` : "\n") +
                 `Mohon segera mengembalikan baju sewa tersebut ke Irma Wedding Salon untuk menghindari denda yang terus bertambah. Terima kasih.`;
         } else if (status === "cancelled") {
             message = `Halo *${row.customer_name}*,\n\nTransaksi sewa baju Anda: *${row.outfit_name}* untuk tanggal *${formattedStart}* telah *DIBATALKAN*. Terima kasih.`;

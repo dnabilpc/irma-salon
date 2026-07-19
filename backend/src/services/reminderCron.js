@@ -336,6 +336,7 @@ export async function sendOverdueWarnings() {
                 u.name as customer_name, 
                 u.phone_number as customer_phone, 
                 oc.outfit_name, 
+                r.amount_to_be_paid,
                 (r.start_date + r.duration_days * INTERVAL '1 day')::date as return_date,
                 ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date - (r.start_date + r.duration_days * INTERVAL '1 day')::date) as late_days
             FROM rentals r
@@ -349,11 +350,28 @@ export async function sendOverdueWarnings() {
 
         for (const row of result.rows) {
             const formattedDate = formatDateIndo(row.return_date);
+            const lateDays = parseInt(row.late_days, 10);
+            const originalRentalPrice = Number(row.amount_to_be_paid);
+
+            let penaltyAmount = 0;
+            let rateText = "";
+            if (lateDays <= 3) {
+                penaltyAmount = lateDays * 5000;
+                rateText = "Rp 5.000 / hari";
+            } else {
+                penaltyAmount = (lateDays - 3) * originalRentalPrice;
+                rateText = `Dianggap Sewa Lagi (${lateDays - 3}x harga sewa)`;
+            }
+
+            const formatRupiah = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+
             const message = `⚠️ *PERINGATAN KETERLAMBATAN* ⚠️\n\n` +
                 `Halo *${row.customer_name}*, kami menginfokan bahwa pengembalian baju sewa Anda telah *TERLAMBAT*:\n\n` +
                 `👗 *Baju Sewa:* ${row.outfit_name}\n` +
                 `📅 *Batas Kembali:* ${formattedDate}\n` +
-                `⏳ *Keterlambatan:* ${row.late_days} hari\n\n` +
+                `⏳ *Keterlambatan:* ${lateDays} hari\n` +
+                `💸 *Tarif Denda:* ${rateText}\n` +
+                `💰 *Denda Terakumulasi:* *${formatRupiah(penaltyAmount)}*\n\n` +
                 `Mohon untuk segera mengembalikan baju sewa tersebut ke *Irma Wedding Salon* untuk menghentikan akumulasi denda keterlambatan. Terima kasih.`;
             
             try {
