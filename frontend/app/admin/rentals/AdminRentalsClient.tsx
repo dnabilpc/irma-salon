@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import QRCode from "qrcode";
+import { generateDynamicQrisPayload } from "@/lib/qris";
 import DataTable, { ColumnDef } from "@/components/ui/DataTable";
 import {
   getRentalsForAdmin,
@@ -82,6 +84,41 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
   const [zoomScale, setZoomScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState("center center");
   const [showConfirmDone, setShowConfirmDone] = useState(false);
+
+  const [qrisDataUrl, setQrisDataUrl] = useState<string | null>(null);
+  const [showQris, setShowQris] = useState(false);
+  const [qrisLoading, setQrisLoading] = useState(false);
+
+  const handleGenerateQris = async (amount: number) => {
+    if (qrisDataUrl && showQris) {
+      setShowQris(false);
+      return;
+    }
+    if (qrisDataUrl) {
+      setShowQris(true);
+      return;
+    }
+    
+    setQrisLoading(true);
+    try {
+      const res = await fetch("/api/settings");
+      const settings = await res.json();
+      const staticPayload = settings.qris_payload || "";
+      const dynamicPayload = generateDynamicQrisPayload(staticPayload, amount);
+      
+      const url = await QRCode.toDataURL(dynamicPayload, {
+        margin: 1,
+        width: 220,
+        color: { dark: "#2C1A0E", light: "#FFFFFF" },
+      });
+      setQrisDataUrl(url);
+      setShowQris(true);
+    } catch (err) {
+      console.error("Gagal generate QRIS:", err);
+    } finally {
+      setQrisLoading(false);
+    }
+  };
 
   // Calculate late days and penalty dynamically for overdue rentals
   let lateDays = 0;
@@ -317,6 +354,48 @@ function DetailModal({ rental, onClose, onStatusChange, loading, onEdit, backend
               <div style={{ background: "rgba(217,64,96,0.07)", border: "1px solid rgba(217,64,96,0.2)", borderRadius: "8px", padding: "10px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#D94060" }}>
                 ⚠️ Baju belum dikembalikan melewati batas waktu! Terlambat {lateDays} hari (Denda: {formatRupiah(penaltyAmount)}).
               </div>
+
+              {/* Dynamic QRIS Denda */}
+              <button
+                type="button"
+                disabled={qrisLoading}
+                onClick={() => handleGenerateQris(penaltyAmount)}
+                style={{
+                  width: "100%",
+                  background: "linear-gradient(135deg, #2B5270, #42729B)",
+                  color: "white",
+                  border: "none",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: qrisLoading ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px"
+                }}
+              >
+                📱 {qrisLoading ? "Sedang memuat..." : showQris ? "Tutup QRIS Denda" : "Tampilkan QRIS Denda"}
+              </button>
+
+              {showQris && qrisDataUrl && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#F6FAFD", border: "1px solid #C4D3E0", borderRadius: "10px", padding: "16px", marginTop: "4px" }}>
+                  <span style={{ fontSize: "12px", color: "#2B5270", fontWeight: 700, marginBottom: "8px" }}>
+                    QRIS Dinamis - Denda Keterlambatan
+                  </span>
+                  <div style={{ background: "white", padding: "10px", borderRadius: "8px", border: "1px solid #D5E1ED" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qrisDataUrl} alt="QRIS Denda" style={{ width: "180px", height: "180px" }} />
+                  </div>
+                  <span style={{ fontSize: "11px", color: "#607890", marginTop: "10px", textAlign: "center", lineHeight: 1.5 }}>
+                    Nominal Denda: <strong>{formatRupiah(penaltyAmount)}</strong><br />
+                    Scan QRIS ini untuk membayar denda keterlambatan.
+                  </span>
+                </div>
+              )}
+
               <button
                 disabled={loading}
                 onClick={() => setShowConfirmDone(true)}

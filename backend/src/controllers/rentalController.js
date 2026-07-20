@@ -631,8 +631,8 @@ export async function updateRentalStatus(req, res) {
 
         const result = await pool.query(query, queryParams);
 
-        // If confirm_payment is requested, set transaction status to lunas & send invoice WA
-        if (confirm_payment && (status === "ongoing" || status === "done")) {
+        // If confirm_payment is requested OR status is set to done (returned), set transaction status to lunas & send invoice WA
+        if ((confirm_payment || status === "done") && (status === "ongoing" || status === "done")) {
             let txRes;
             if (rental.rental_order_id) {
                 txRes = await pool.query(
